@@ -11,27 +11,25 @@ bool do_exit = false;
 
 std::vector<SDL_FRect> draw_pattern_edit(SDL_Renderer *const screen, const int steps)
 {
-	int w = 0;
-	int h = 0;
+	int w           = 0;
+	int h           = 0;
 	SDL_GetCurrentRenderOutputSize(screen, &w, &h);
-	printf("%dx%d\n", w, h);
 
-	int pattern_w = w * 85 / 100;
-	int pattern_h = h;
+	int pattern_w   = w * 85 / 100;
+	int pattern_h   = h;
 
-	int sq_steps  = sqrt(steps);
-	int steps_w   = steps / sq_steps;
-	int steps_h   = steps / steps_w;
-
-	std::vector<SDL_FRect> boxes;
+	int sq_steps    = sqrt(steps);
+	int steps_w     = steps / sq_steps;
+	int steps_h     = steps / steps_w;
 
 	int step_width  = pattern_w / steps_w;
 	int step_height = pattern_h / steps_h;
 
+	std::vector<SDL_FRect> boxes;
+
 	for(int i=0; i<steps; i++) {
 		int x = (i % steps_w) * step_width;
 		int y = (i / steps_w) * step_height;
-		//printf("%d,%d %dx%d\n", x, y, step_width, step_height);
 		SDL_FRect rect { x, y, step_width, step_height };
 		SDL_SetRenderDrawColor(screen, 40, 255, 40, SDL_ALPHA_OPAQUE);
 		SDL_RenderFillRect(screen, &rect);
@@ -70,6 +68,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 {
     if (event->type == SDL_EVENT_QUIT)
         return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
+
+    if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+	    printf("hier\n");
 
     return SDL_APP_CONTINUE;  /* carry on with the program! */
 }
