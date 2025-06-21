@@ -9,6 +9,8 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 
+#include "pipewire.h"
+
 
 std::atomic_bool do_exit { false };
 
@@ -88,6 +90,8 @@ void draw_clickables(SDL_Renderer *const screen, const std::vector<clickable> & 
 
 int main(int argc, char *argv[])
 {
+	init_pipewire(&argc, &argv);
+
 	signal(SIGTERM, sigh);
 	atexit(SDL_Quit);
 
@@ -124,7 +128,6 @@ int main(int argc, char *argv[])
 
 	while(!do_exit) {
 		if (redraw) {
-			printf("redraw\n");
 			if (mode == m_pattern)
 				draw_clickables(screen, pat_clickables, pat_clickable_selected);
 			else {
