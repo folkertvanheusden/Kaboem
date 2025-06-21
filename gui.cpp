@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
 	int  steps  = 16;
 
 	enum { m_pattern }     mode                   = m_pattern;
-	std::vector<clickable> pat_clickables         = generate_pattern_grid(w, h, 16);
+	std::vector<clickable> pat_clickables         = generate_pattern_grid(w, h, steps);
 	std::optional<size_t>  pat_clickable_selected;
 
 	while(!do_exit) {
