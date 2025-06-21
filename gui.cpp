@@ -1,20 +1,42 @@
+#include <atomic>
 #include <cassert>
 #include <cmath>
-#include <cstdio>
+#include <csignal>
+#include <optional>
 #include <vector>
-#define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_main.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL2_gfxPrimitives.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 
 
-bool do_exit = false;
+std::atomic_bool do_exit { false };
 
-std::vector<SDL_FRect> draw_pattern_edit(SDL_Renderer *const screen, const int steps)
+void sigh(int s)
 {
-	int w           = 0;
-	int h           = 0;
-	SDL_GetCurrentRenderOutputSize(screen, &w, &h);
+	do_exit = true;
+}
 
+struct clickable {
+	SDL_Rect where;
+	bool     selected;
+};
+
+std::optional<size_t> find_clickable(const std::vector<clickable> & clickables, const int x, const int y)
+{
+	for(size_t i=0; i<clickables.size(); i++) {
+		if (x >= clickables[i].where.x &&
+		    y >= clickables[i].where.y &&
+		    x < clickables[i].where.x + clickables[i].where.w &&
+		    y < clickables[i].where.y + clickables[i].where.h) {
+			return i;
+		}
+	}
+	return { };
+}
+
+std::vector<clickable> generate_pattern_grid(const int w, const int h, const int steps)
+{
 	int pattern_w   = w * 85 / 100;
 	int pattern_h   = h;
 
@@ -25,69 +47,122 @@ std::vector<SDL_FRect> draw_pattern_edit(SDL_Renderer *const screen, const int s
 	int step_width  = pattern_w / steps_w;
 	int step_height = pattern_h / steps_h;
 
-	std::vector<SDL_FRect> boxes;
+	std::vector<clickable> clickables;
 
 	for(int i=0; i<steps; i++) {
 		int x = (i % steps_w) * step_width;
 		int y = (i / steps_w) * step_height;
-		SDL_FRect rect { x, y, step_width, step_height };
-		SDL_SetRenderDrawColor(screen, 40, 255, 40, SDL_ALPHA_OPAQUE);
-		SDL_RenderFillRect(screen, &rect);
-		SDL_SetRenderDrawColor(screen, 40, 40, 40, SDL_ALPHA_OPAQUE);
-		SDL_RenderRect(screen, &rect);
-		boxes.push_back(rect);
+		clickable c { };
+		c.where    = { x, y, step_width, step_height };
+		c.selected = false;
+		clickables.push_back(c);
 	}
 
-	return boxes;
+	return clickables;
 }
 
-/* We will use this renderer to draw into this window every frame. */
-static SDL_Window *window = NULL;
-static SDL_Renderer *renderer = NULL;
-
-/* This function runs once at startup. */
-SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
+void draw_clickables(SDL_Renderer *const screen, const std::vector<clickable> & clickables, const std::optional<size_t> hl_index)
 {
-    SDL_SetAppMetadata("Kaboem", "0.1", "com.vanheusden.kaboem");
-
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
-        SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
-
-    if (!SDL_CreateWindowAndRenderer("Kaboem", 800, 600, 0, &window, &renderer)) {
-        SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
-
-    return SDL_APP_CONTINUE;  /* carry on with the program! */
+	for(size_t i=0; i<clickables.size(); i++) {
+		bool hl = hl_index.has_value() == true && hl_index.value() == i;
+		std::vector<int> color;
+		if (clickables[i].selected)
+			color = { 40, 255, hl ? 255 : 40 };
+		else
+			color = { 40, 100, hl ? 100 : 40 };
+		int x1 = clickables[i].where.x;
+		int y1 = clickables[i].where.y;
+		int x2 = clickables[i].where.x + clickables[i].where.w;
+		int y2 = clickables[i].where.y + clickables[i].where.h;
+		boxRGBA(screen, x1, y1, x2, y2, color[0], color[1], color[2], 255);
+		rectangleRGBA(screen, x1, y1, x2, y2, 40, 40, 40, 191);
+	}
 }
 
-/* This function runs when a new event (mouse input, keypresses, etc) occurs. */
-SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
+/*
+	for(int cy=0; cy<n_rows; cy++)
+		lineRGBA(screen, 0, cy * ysteps, w, cy * ysteps, 255, 255, 255, 255);
+	for(int cx=0; cx<n_columns; cx++)
+		lineRGBA(screen, cx * xsteps, 0, cx * xsteps, h, 255, 255, 255, 255);
+*/
+
+int main(int argc, char *argv[])
 {
-    if (event->type == SDL_EVENT_QUIT)
-        return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
+	signal(SIGTERM, sigh);
+	atexit(SDL_Quit);
 
-    if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
-	    printf("hier\n");
+	int  display_nr  = 0;
+	bool full_screen = false;
+	int  create_w    = 1024;
+	int  create_h    = 768;
 
-    return SDL_APP_CONTINUE;  /* carry on with the program! */
-}
+	SDL_SetHint(SDL_HINT_RENDER_DRIVER,      "software");
+	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1"       );
+	SDL_Window *win = SDL_CreateWindow("Kaboem",
+                          SDL_WINDOWPOS_UNDEFINED_DISPLAY(display_nr),
+                          SDL_WINDOWPOS_UNDEFINED_DISPLAY(display_nr),
+                          create_w, create_h,
+                          (full_screen ? SDL_WINDOW_FULLSCREEN : 0) | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+	assert(win);
+	SDL_Renderer *screen = SDL_CreateRenderer(win, -1, 0);
+	assert(screen);
 
-/* This function runs once per frame, and is the heart of the program. */
-SDL_AppResult SDL_AppIterate(void *appstate)
-{
-    SDL_RenderClear(renderer);
+	int w = 0;
+	int h = 0;
+	SDL_GetWindowSize(win, &w, &h);
+	printf("%dx%d\n", w, h);
 
-    std::vector<SDL_FRect> boxes = draw_pattern_edit(renderer, 16);
-    SDL_RenderPresent(renderer);
+	if (full_screen)
+		SDL_ShowCursor(SDL_DISABLE);
 
-    return SDL_APP_CONTINUE;  /* carry on with the program! */
-}
+	bool redraw = true;
+	int  steps  = 16;
 
-/* This function runs once at shutdown. */
-void SDL_AppQuit(void *appstate, SDL_AppResult result)
-{
-    /* SDL will clean up the window/renderer for us. */
+	enum { m_pattern }     mode                   = m_pattern;
+	std::vector<clickable> pat_clickables         = generate_pattern_grid(w, h, 16);
+	std::optional<size_t>  pat_clickable_selected;
+
+	while(!do_exit) {
+		if (redraw) {
+			printf("redraw\n");
+			if (mode == m_pattern)
+				draw_clickables(screen, pat_clickables, pat_clickable_selected);
+			else {
+				fprintf(stderr, "Internal error: %d\n", mode);
+				break;
+			}
+
+			SDL_RenderPresent(screen);
+			redraw = false;
+		}
+
+		SDL_Delay(10);
+
+		SDL_Event event { 0 };
+		if (SDL_PollEvent(&event)) {
+			if (event.type == SDL_QUIT) {
+				do_exit = true;
+				break;
+			}
+
+			if (event.type == SDL_MOUSEBUTTONDOWN) {
+				pat_clickable_selected = find_clickable(pat_clickables, event.button.x, event.button.y);
+				redraw = true;
+			}
+			else if (event.type == SDL_MOUSEBUTTONUP) {
+				if (pat_clickable_selected.has_value()) {
+					pat_clickables[pat_clickable_selected.value()].selected = !pat_clickables[pat_clickable_selected.value()].selected;
+					pat_clickable_selected.reset();
+					redraw = true;
+				}
+			}
+			else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED) {
+				SDL_SetRenderDrawColor(screen, 0, 0, 0, 255);
+				SDL_RenderClear(screen);
+				redraw = true;
+			}
+		}
+	}
+
+	return 0;
 }
