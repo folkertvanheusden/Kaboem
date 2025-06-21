@@ -1,3 +1,4 @@
+#include <array>
 #include <atomic>
 #include <cassert>
 #include <cmath>
@@ -12,6 +13,7 @@
 
 #include "pipewire.h"
 #include "pipewire-audio.h"
+#include "sample.h"
 #include "sound.h"
 
 
@@ -45,6 +47,25 @@ std::optional<size_t> find_clickable(const std::vector<clickable> & clickables, 
 		}
 	}
 	return { };
+}
+
+std::vector<clickable> generate_channel_column(const int w, const int h, const int channel_count)
+{
+	int channel_width  = w * 10 / 100;
+	int channel_height = h / channel_count;
+
+	std::vector<clickable> clickables;
+
+	for(int i=0; i<channel_count; i++) {
+		int x = w - channel_width;
+		int y = i * channel_height;
+		clickable c { };
+		c.where    = { x, y, channel_width, channel_height };
+		c.selected = false;
+		clickables.push_back(c);
+	}
+
+	return clickables;
 }
 
 std::vector<clickable> generate_pattern_grid(const int w, const int h, const int steps)
@@ -109,9 +130,13 @@ int main(int argc, char *argv[])
 	configure_pipewire_audio(&sound_pars);
 	sound_pars.global_volume = 1.;
 
-	sound_sample sample(44100, "small-reverb-bass-drum-sound-a-key-10-G8d.wav");
-	sample.add_mapping(0, 0, 1.0);  // mono -> left
-	sample.add_mapping(0, 1, 1.0);  // mono -> right
+	sound_sample sample_kick(44100, "small-reverb-bass-drum-sound-a-key-10-G8d.wav");
+	sample_kick.add_mapping(0, 0, 1.0);  // mono -> left
+	sample_kick.add_mapping(0, 1, 1.0);  // mono -> right
+
+	sound_sample sample_hihat(44100, "studio-hihat-sound-a-key-05-yvg.wav");
+	sample_hihat.add_mapping(0, 0, 1.0);  // mono -> left
+	sample_hihat.add_mapping(0, 1, 1.0);  // mono -> right
 
 	signal(SIGTERM, sigh);
 	atexit(SDL_Quit);
@@ -127,7 +152,7 @@ int main(int argc, char *argv[])
                           SDL_WINDOWPOS_UNDEFINED_DISPLAY(display_nr),
                           SDL_WINDOWPOS_UNDEFINED_DISPLAY(display_nr),
                           create_w, create_h,
-                          (full_screen ? SDL_WINDOW_FULLSCREEN : 0) | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+                          (full_screen ? SDL_WINDOW_FULLSCREEN : 0) | SDL_WINDOW_OPENGL);
 	assert(win);
 	SDL_Renderer *screen = SDL_CreateRenderer(win, -1, 0);
 	assert(screen);
@@ -145,8 +170,15 @@ int main(int argc, char *argv[])
 	int  bpm    = 130;
 
 	enum { m_pattern }     mode                   = m_pattern;
-	std::vector<clickable> pat_clickables         = generate_pattern_grid(w, h, steps);
+	constexpr const size_t pattern_groups         = 8;
+	std::array<std::vector<clickable>, pattern_groups> pat_clickables;
 	std::optional<size_t>  pat_clickable_selected;
+	size_t                 pattern_group          = 0;
+
+	std::vector<clickable> channel_clickables     = generate_channel_column(w, h, pattern_groups);
+
+	for(size_t i=0; i<pattern_groups; i++)
+		pat_clickables[i] = generate_pattern_grid(w, h, steps);
 
 	int    sleep_ms       = 60 * 1000 / bpm;
 	size_t prev_pat_index = size_t(-1);
@@ -155,8 +187,14 @@ int main(int argc, char *argv[])
 		size_t pat_index = get_ms() / sleep_ms % steps;
 		if (pat_index != prev_pat_index) {
 			std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-			if (pat_clickables[pat_index].selected)
-				sound_pars.sounds.push_back({ &sample, 0 });
+			for(size_t i=0; i<pattern_groups; i++) {
+				if (pat_clickables[i][pat_index].selected) {
+					if (i & 1)
+						sound_pars.sounds.push_back({ &sample_hihat, 0 });
+					else
+						sound_pars.sounds.push_back({ &sample_kick, 0 });
+				}
+			}
 			lck.unlock();
 			
 			redraw = true;
@@ -164,8 +202,10 @@ int main(int argc, char *argv[])
 		}
 
 		if (redraw) {
-			if (mode == m_pattern)
-				draw_clickables(screen, pat_clickables, pat_clickable_selected, pat_index);
+			if (mode == m_pattern) {
+				draw_clickables(screen, pat_clickables[pattern_group], pat_clickable_selected, pat_index);
+				draw_clickables(screen, channel_clickables, { }, pattern_group);
+			}
 			else {
 				fprintf(stderr, "Internal error: %d\n", mode);
 				break;
@@ -185,23 +225,28 @@ int main(int argc, char *argv[])
 			}
 
 			if (event.type == SDL_MOUSEBUTTONDOWN) {
-				pat_clickable_selected = find_clickable(pat_clickables, event.button.x, event.button.y);
+				auto new_group = find_clickable(channel_clickables, event.button.x, event.button.y);
+				if (new_group.has_value()) {
+					channel_clickables[pattern_group].selected = false;
+					pattern_group = new_group.value();
+					channel_clickables[pattern_group].selected = true;
+				}
+				else {
+					pat_clickable_selected = find_clickable(pat_clickables[pattern_group], event.button.x, event.button.y);
+				}
 				redraw = true;
 			}
 			else if (event.type == SDL_MOUSEBUTTONUP) {
 				if (pat_clickable_selected.has_value()) {
-					pat_clickables[pat_clickable_selected.value()].selected = !pat_clickables[pat_clickable_selected.value()].selected;
+					pat_clickables[pattern_group][pat_clickable_selected.value()].selected = !pat_clickables[pattern_group][pat_clickable_selected.value()].selected;
 					pat_clickable_selected.reset();
 					redraw = true;
 				}
 			}
-			else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED) {
-				SDL_SetRenderDrawColor(screen, 0, 0, 0, 255);
-				SDL_RenderClear(screen);
-				redraw = true;
-			}
 		}
 	}
+
+	unload_sample_cache();
 
 	return 0;
 }

@@ -62,6 +62,9 @@ void configure_pipewire_audio(sound_parameters *const target)
 			if (pw_main_loop_run(target->pw.loop))
 				fprintf(stderr, "pw_main_loop_run failed\n");
 
+			pw_stream_destroy   (target->pw.stream);
+			pw_main_loop_destroy(target->pw.loop  );
+
 			printf("pipewire thread terminating\n");
 	});
 }
