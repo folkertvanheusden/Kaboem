@@ -32,6 +32,11 @@ target_link_libraries(kaboem ${SDL_GFX_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${SDL_GFX_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${SDL_GFX_CFLAGS_OTHER})
 
+pkg_check_modules(SDL_TTF REQUIRED SDL2_ttf)
+target_link_libraries(kaboem ${SDL_TTF_LIBRARIES})
+target_include_directories(kaboem PUBLIC ${SDL_TTF_INCLUDE_DIRS})
+target_compile_options(kaboem PUBLIC ${SDL_TTF_CFLAGS_OTHER})
+
 pkg_check_modules(SNDFILE REQUIRED sndfile)
 target_link_libraries(kaboem ${SNDFILE_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${SNDFILE_INCLUDE_DIRS})

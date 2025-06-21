@@ -31,6 +31,27 @@ uint64_t get_ms()
 	return uint64_t(ts.tv_sec) * uint64_t(1000) + uint64_t(ts.tv_nsec / 1000000);
 }
 
+std::mutex ttf_lock;
+
+TTF_Font * load_font(const std::string & filename, unsigned int font_height, bool fast_rendering)
+{
+        char *const real_path = realpath(filename.c_str(), NULL);
+
+        ttf_lock.lock();
+        TTF_Font *font = TTF_OpenFont(real_path, font_height);
+	if (!font)
+		printf("Font error: %s\n", TTF_GetError());
+
+        if (!fast_rendering)
+                TTF_SetFontHinting(font, TTF_HINTING_LIGHT);
+
+        ttf_lock.unlock();
+
+        free(real_path);
+
+        return font;
+}
+
 struct clickable {
 	SDL_Rect where;
 	bool     selected;
@@ -71,7 +92,8 @@ std::vector<clickable> generate_channel_column(const int w, const int h, const i
 std::vector<clickable> generate_pattern_grid(const int w, const int h, const int steps)
 {
 	int pattern_w   = w * 85 / 100;
-	int pattern_h   = h;
+	int pattern_h   = h * 95 / 100;
+	int offset_h    = h * 5 / 100;
 
 	int sq_steps    = sqrt(steps);
 	int steps_w     = steps / sq_steps;
@@ -84,7 +106,7 @@ std::vector<clickable> generate_pattern_grid(const int w, const int h, const int
 
 	for(int i=0; i<steps; i++) {
 		int x = (i % steps_w) * step_width;
-		int y = (i / steps_w) * step_height;
+		int y = (i / steps_w) * step_height + offset_h;
 		clickable c { };
 		c.where    = { x, y, step_width, step_height };
 		c.selected = false;
@@ -123,23 +145,48 @@ void draw_clickables(SDL_Renderer *const screen, const std::vector<clickable> & 
 	}
 }
 
+void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, const int y, const std::string & text)
+{
+	SDL_Surface *surface = TTF_RenderUTF8_Solid(font, text.c_str(), { 192, 255, 192, 255 });
+	assert(surface);
+	SDL_Texture *texture = SDL_CreateTextureFromSurface(screen, surface);
+	assert(texture);
+
+	Uint32 format = 0;
+	int    access = 0;
+	int    w      = 0;
+	int    h      = 0;
+	SDL_QueryTexture(texture, &format, &access, &w, &h);
+
+	SDL_Rect dest { };
+	dest.x = x;
+	dest.y = y;
+	dest.w = w;
+	dest.h = h;
+	SDL_RenderCopy(screen, texture, nullptr, &dest);
+
+	SDL_DestroyTexture(texture);
+	SDL_FreeSurface   (surface);
+}
+
+struct sample
+{
+	sound_sample *s;
+	std::string   name;
+};
+
 int main(int argc, char *argv[])
 {
+	constexpr const int sample_rate = 44100;
 	init_pipewire(&argc, &argv);
-	sound_parameters sound_pars(44100, 2);
+	sound_parameters sound_pars(sample_rate, 2);
 	configure_pipewire_audio(&sound_pars);
 	sound_pars.global_volume = 1.;
 
-	sound_sample sample_kick(44100, "small-reverb-bass-drum-sound-a-key-10-G8d.wav");
-	sample_kick.add_mapping(0, 0, 1.0);  // mono -> left
-	sample_kick.add_mapping(0, 1, 1.0);  // mono -> right
-
-	sound_sample sample_hihat(44100, "studio-hihat-sound-a-key-05-yvg.wav");
-	sample_hihat.add_mapping(0, 0, 1.0);  // mono -> left
-	sample_hihat.add_mapping(0, 1, 1.0);  // mono -> right
-
 	signal(SIGTERM, sigh);
 	atexit(SDL_Quit);
+
+	TTF_Init();
 
 	int  display_nr  = 0;
 	bool full_screen = false;
@@ -162,12 +209,15 @@ int main(int argc, char *argv[])
 	SDL_GetWindowSize(win, &w, &h);
 	printf("%dx%d\n", w, h);
 
+	TTF_Font *font = load_font("/usr/share/fonts/truetype/freefont/FreeSans.ttf", h * 5 / 100, true);
+	assert(font);
+
 	if (full_screen)
 		SDL_ShowCursor(SDL_DISABLE);
 
 	bool redraw = true;
 	int  steps  = 16;
-	int  bpm    = 130;
+	int  bpm    = 135;
 
 	enum { m_pattern }     mode                   = m_pattern;
 	constexpr const size_t pattern_groups         = 8;
@@ -180,6 +230,14 @@ int main(int argc, char *argv[])
 	for(size_t i=0; i<pattern_groups; i++)
 		pat_clickables[i] = generate_pattern_grid(w, h, steps);
 
+	std::array<sample, pattern_groups> samples { };
+	for(size_t i=0; i<pattern_groups; i++) {
+		samples[i].name = i & 1 ? "studio-hihat-sound-a-key-05-yvg.wav" : "small-reverb-bass-drum-sound-a-key-10-G8d.wav";
+		samples[i].s    = new sound_sample(sample_rate, samples[i].name);
+		samples[i].s->add_mapping(0, 0, 1.0);  // mono -> left
+		samples[i].s->add_mapping(0, 1, 1.0);  // mono -> right
+	}
+
 	int    sleep_ms       = 60 * 1000 / bpm;
 	size_t prev_pat_index = size_t(-1);
 
@@ -188,12 +246,8 @@ int main(int argc, char *argv[])
 		if (pat_index != prev_pat_index) {
 			std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 			for(size_t i=0; i<pattern_groups; i++) {
-				if (pat_clickables[i][pat_index].selected) {
-					if (i & 1)
-						sound_pars.sounds.push_back({ &sample_hihat, 0 });
-					else
-						sound_pars.sounds.push_back({ &sample_kick, 0 });
-				}
+				if (pat_clickables[i][pat_index].selected)
+					sound_pars.sounds.push_back({ samples[i].s, 0 });
 			}
 			lck.unlock();
 			
@@ -202,9 +256,13 @@ int main(int argc, char *argv[])
 		}
 
 		if (redraw) {
+			SDL_SetRenderDrawColor(screen, 0, 0, 0, 255);
+			SDL_RenderClear(screen);
+
 			if (mode == m_pattern) {
 				draw_clickables(screen, pat_clickables[pattern_group], pat_clickable_selected, pat_index);
 				draw_clickables(screen, channel_clickables, { }, pattern_group);
+				draw_text(font, screen, 0, h / 2 / 100, samples[pattern_group].name);
 			}
 			else {
 				fprintf(stderr, "Internal error: %d\n", mode);
