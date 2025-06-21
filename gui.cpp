@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cmath>
 #include <csignal>
+#include <ctime>
 #include <optional>
 #include <vector>
 #include <SDL2/SDL.h>
@@ -10,6 +11,8 @@
 #include <SDL2/SDL_ttf.h>
 
 #include "pipewire.h"
+#include "pipewire-audio.h"
+#include "sound.h"
 
 
 std::atomic_bool do_exit { false };
@@ -17,6 +20,13 @@ std::atomic_bool do_exit { false };
 void sigh(int s)
 {
 	do_exit = true;
+}
+
+uint64_t get_ms()
+{
+	timespec ts { };
+	clock_gettime(CLOCK_REALTIME, &ts);
+	return uint64_t(ts.tv_sec) * uint64_t(1000) + uint64_t(ts.tv_nsec / 1000000);
 }
 
 struct clickable {
@@ -63,15 +73,26 @@ std::vector<clickable> generate_pattern_grid(const int w, const int h, const int
 	return clickables;
 }
 
-void draw_clickables(SDL_Renderer *const screen, const std::vector<clickable> & clickables, const std::optional<size_t> hl_index)
+void draw_clickables(SDL_Renderer *const screen, const std::vector<clickable> & clickables, const std::optional<size_t> hl_index, const std::optional<size_t> play_index)
 {
 	for(size_t i=0; i<clickables.size(); i++) {
-		bool hl = hl_index.has_value() == true && hl_index.value() == i;
+		bool hl = hl_index  .has_value() == true && hl_index  .value() == i;
+		bool pl = play_index.has_value() == true && play_index.value() == i;
 		std::vector<int> color;
-		if (clickables[i].selected)
-			color = { 40, 255, hl ? 255 : 40 };
-		else
-			color = { 40, 100, hl ? 100 : 40 };
+		if (clickables[i].selected) {
+			int sub_color = hl ? 255 : 40;
+			if (pl)
+				color = { 255, 40, sub_color };
+			else
+				color = { 40, 255, sub_color };
+		}
+		else {
+			int sub_color = hl ? 100 : 40;
+			if (pl)
+				color = { 100, 40, sub_color };
+			else
+				color = { 40, 100, sub_color };
+		}
 		int x1 = clickables[i].where.x;
 		int y1 = clickables[i].where.y;
 		int x2 = clickables[i].where.x + clickables[i].where.w;
@@ -81,16 +102,16 @@ void draw_clickables(SDL_Renderer *const screen, const std::vector<clickable> & 
 	}
 }
 
-/*
-	for(int cy=0; cy<n_rows; cy++)
-		lineRGBA(screen, 0, cy * ysteps, w, cy * ysteps, 255, 255, 255, 255);
-	for(int cx=0; cx<n_columns; cx++)
-		lineRGBA(screen, cx * xsteps, 0, cx * xsteps, h, 255, 255, 255, 255);
-*/
-
 int main(int argc, char *argv[])
 {
 	init_pipewire(&argc, &argv);
+	sound_parameters sound_pars(44100, 2);
+	configure_pipewire_audio(&sound_pars);
+	sound_pars.global_volume = 1.;
+
+	sound_sample sample(44100, "small-reverb-bass-drum-sound-a-key-10-G8d.wav");
+	sample.add_mapping(0, 0, 1.0);  // mono -> left
+	sample.add_mapping(0, 1, 1.0);  // mono -> right
 
 	signal(SIGTERM, sigh);
 	atexit(SDL_Quit);
@@ -121,15 +142,30 @@ int main(int argc, char *argv[])
 
 	bool redraw = true;
 	int  steps  = 16;
+	int  bpm    = 130;
 
 	enum { m_pattern }     mode                   = m_pattern;
 	std::vector<clickable> pat_clickables         = generate_pattern_grid(w, h, steps);
 	std::optional<size_t>  pat_clickable_selected;
 
+	int    sleep_ms       = 60 * 1000 / bpm;
+	size_t prev_pat_index = size_t(-1);
+
 	while(!do_exit) {
+		size_t pat_index = get_ms() / sleep_ms % steps;
+		if (pat_index != prev_pat_index) {
+			std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+			if (pat_clickables[pat_index].selected)
+				sound_pars.sounds.push_back({ &sample, 0 });
+			lck.unlock();
+			
+			redraw = true;
+			prev_pat_index = pat_index;
+		}
+
 		if (redraw) {
 			if (mode == m_pattern)
-				draw_clickables(screen, pat_clickables, pat_clickable_selected);
+				draw_clickables(screen, pat_clickables, pat_clickable_selected, pat_index);
 			else {
 				fprintf(stderr, "Internal error: %d\n", mode);
 				break;
@@ -139,7 +175,7 @@ int main(int argc, char *argv[])
 			redraw = false;
 		}
 
-		SDL_Delay(10);
+		SDL_Delay(1);
 
 		SDL_Event event { 0 };
 		if (SDL_PollEvent(&event)) {
