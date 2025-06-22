@@ -31,6 +31,23 @@ uint64_t get_ms()
 	return uint64_t(ts.tv_sec) * uint64_t(1000) + uint64_t(ts.tv_nsec / 1000000);
 }
 
+struct fileselector_data {
+	std::mutex  lock;
+	std::string file;
+	bool        finished;
+};
+
+void fs_callback(void *userdata, const char * const *filelist, int filter)
+{
+	fileselector_data *fs_data = reinterpret_cast<fileselector_data *>(userdata);
+	std::unique_lock<std::mutex> lck(fs_data->lock);
+	if (filelist && filelist[0])
+		fs_data->file = filelist[0];
+	else
+		fs_data->file.clear();
+	fs_data->finished = true;
+}
+
 std::mutex ttf_lock;
 
 TTF_Font * load_font(const std::string & filename, unsigned int font_height, bool fast_rendering)
@@ -273,6 +290,8 @@ int main(int argc, char *argv[])
 	int  bpm    = 135;
 
 	enum { m_pattern, m_menu } mode                = m_pattern;
+	enum { fs_load, fs_save, fs_none } fs_action   = fs_none;
+	fileselector_data      fs_data { };
 	std::array<std::vector<clickable>, pattern_groups> pat_clickables;
 	std::optional<size_t>  pat_clickable_selected;
 	size_t                 pattern_group           = 0;
@@ -298,6 +317,8 @@ int main(int argc, char *argv[])
 		samples[i].s->add_mapping(0, 1, 1.0);  // mono -> right
 	}
 
+	SDL_DialogFileFilter sf_filters[] { { "Kaboem files", "kaboem" } };
+
 	read_file("default.kaboem", &pat_clickables, &bpm);
 
 	int    sleep_ms       = 60 * 1000 / bpm;
@@ -317,7 +338,29 @@ int main(int argc, char *argv[])
 			prev_pat_index = pat_index;
 		}
 
-		if (redraw) {
+		if (fs_action != fs_none) {
+			std::unique_lock<std::mutex> lck(fs_data.lock);
+			if (fs_action == fs_load) {
+				if (fs_data.finished) {
+					if (fs_data.file.empty() == false) {
+						read_file (fs_data.file, &pat_clickables, &bpm);
+						menu_status = "file read";
+					}
+					fs_action = fs_none;
+				}
+			}
+			else if (fs_action == fs_save) {
+				if (fs_data.finished) {
+					if (fs_data.file.empty() == false) {
+						write_file(fs_data.file, pat_clickables, bpm);
+						menu_status = "file written";
+					}
+					fs_action = fs_none;
+				}
+			}
+		}
+
+		if (redraw && fs_action == fs_none) {
 			SDL_SetRenderDrawColor(screen, 0, 0, 0, 255);
 			SDL_RenderClear(screen);
 
@@ -396,12 +439,14 @@ int main(int argc, char *argv[])
 								menu_status = "cleared";
 							}
 							else if (idx == load_idx) {  // TODO file selector
-								read_file ("default.kaboem", &pat_clickables, &bpm);
-								menu_status = "file read";
+								fs_data.finished = false;
+								fs_action = fs_load;
+								SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, nullptr, false);
 							}
 							else if (idx == save_idx) {  // TODO file selector
-								write_file("default.kaboem", pat_clickables, bpm);
-								menu_status = "file written";
+								fs_data.finished = false;
+								fs_action = fs_save;
+								SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters, 1, nullptr);
 							}
 						}
 					}
