@@ -2,7 +2,7 @@ This software was written by Folkert van Heusden. License: MIT.
 
 It specifically targets a raspberry pi with a touchscreen altough other Linux systems will work as well.
 
-dim_cowbell_single_shot_studio_euf.wav, small-reverb-bass-drum-sound-a-key-10-G8d.wav and studio-hihat-sound-a-key-05-yvg.wav came from https://soundcamp.org/ where they were advertised as royalty free (2025/06/21).
+dim_cowbell_single_shot_studio_euf.wav, small-reverb-bass-drum-sound-a-key-10-G8d.wav and studio-hihat-sound-a-key-05-yvg.wav came from https://soundcamp.org/ where they were advertised as royalty free (2025/06/21). f-175-hardcore-kick-97252.wav is from https://pixabay.com/sound-effects/search/hardcore-kick/
 
 
 To be able to compile and run this program, you need to install:
