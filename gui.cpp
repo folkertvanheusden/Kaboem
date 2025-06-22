@@ -304,7 +304,11 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	unload_sample_cache();
+	pw_main_loop_quit(sound_pars.pw.loop);
+	sound_pars.pw.th->join();
+	delete sound_pars.pw.th;
+
+//	unload_sample_cache();
 
 	return 0;
 }
