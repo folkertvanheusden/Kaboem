@@ -646,5 +646,8 @@ int main(int argc, char *argv[])
 
 	unload_sample_cache();
 
+	TTF_Quit();
+	SDL_Quit();
+
 	return 0;
 }
