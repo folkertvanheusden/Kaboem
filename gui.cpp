@@ -354,8 +354,9 @@ int main(int argc, char *argv[])
 			else if (fs_action == fs_save) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
-						std::string file = fs_data.file;
-						if (file.substr(-7) != ".kaboem")
+						std::string file     = fs_data.file;
+						size_t      file_len = file.size();
+						if (file_len > 7 && file.substr(file_len - 7) != ".kaboem")
 							file += ".kaboem";
 						write_file(file, pat_clickables, bpm, samples);
 						menu_status = "file " + get_filename(fs_data.file) + " written";
@@ -461,7 +462,7 @@ int main(int argc, char *argv[])
 					else if (menus_clicked.has_value()) {
 						size_t idx = menus_clicked.value();
 						if (idx == clear_idx) {
-							write_file("before_clear.kaboem", pat_clickables, bpm, samples);
+							write_file(path + "/before_clear.kaboem", pat_clickables, bpm, samples);
 							for(size_t i=0; i<pattern_groups; i++) {
 								for(auto & element: pat_clickables[i])
 									element.selected = false;
@@ -502,7 +503,7 @@ int main(int argc, char *argv[])
 	sound_pars.pw.th->join();
 	delete sound_pars.pw.th;
 
-	write_file("default.kaboem", pat_clickables, bpm, samples);
+	write_file(path + "/default.kaboem", pat_clickables, bpm, samples);
 
 //	unload_sample_cache();
 
