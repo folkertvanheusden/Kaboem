@@ -310,7 +310,12 @@ int main(int argc, char *argv[])
 	SDL_DialogFileFilter sf_filters[]        { { "Kaboem files", "kaboem"  } };
 	SDL_DialogFileFilter sf_filters_sample[] { { "Samples",      "wav;mp3" } };
 
-	read_file("default.kaboem", &pat_clickables, &bpm, &samples);
+	if (read_file("default.kaboem", &pat_clickables, &bpm, &samples)) {
+		for(size_t i=0; i<pattern_groups; i++) {
+			if (samples[i].name.empty() == false)
+				channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
+		}
+	}
 
 	int    sleep_ms       = 60 * 1000 / bpm;
 	size_t prev_pat_index = size_t(-1);
@@ -334,8 +339,14 @@ int main(int argc, char *argv[])
 			if (fs_action == fs_load) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
+						std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 						read_file (fs_data.file, &pat_clickables, &bpm, &samples);
-						menu_status = "file " + fs_data.file + " read";
+						for(size_t i=0; i<pattern_groups; i++) {
+							if (samples[i].name.empty() == false)
+								channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
+						}
+						redraw = true;
+						menu_status = "file " + get_filename(fs_data.file) + " read";
 					}
 					fs_action = fs_none;
 				}
@@ -347,7 +358,7 @@ int main(int argc, char *argv[])
 						if (file.substr(-7) != ".kaboem")
 							file += ".kaboem";
 						write_file(file, pat_clickables, bpm, samples);
-						menu_status = "file " + fs_data.file + " written";
+						menu_status = "file " + get_filename(fs_data.file) + " written";
 					}
 					fs_action = fs_none;
 				}
@@ -355,14 +366,16 @@ int main(int argc, char *argv[])
 			else if (fs_action == fs_load_sample) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
-						// LOAD SAMPLE
+						std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 						sample & s = samples[fs_action_sample_index];
 						s.name = fs_data.file;
 						delete s.s;
 						s.s    = new sound_sample(sample_rate, s.name);
 						s.s->add_mapping(0, 0, 1.0);  // mono -> left
 						s.s->add_mapping(0, 1, 1.0);  // mono -> right
-						menu_status = "file " + fs_data.file + " read";
+						menu_status = "file " + get_filename(fs_data.file) + " read";
+						channel_clickables[fs_action_sample_index].text = get_filename(s.name).substr(0, 5);
+						redraw = true;
 					}
 					fs_action = fs_none;
 				}

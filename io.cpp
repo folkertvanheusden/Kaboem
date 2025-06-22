@@ -29,11 +29,13 @@ bool write_file(const std::string & file_name, const std::array<std::vector<clic
 
 	try {
 		std::ofstream o(file_name);
+		o.exceptions(std::ifstream::badbit);
 		o << out;
 
 		return true;
 	}
-	catch(...) {
+	catch(const std::ifstream::failure& e) {
+		printf("Cannot access %s\n", file_name.c_str());
 	}
 
 	return false;
@@ -43,6 +45,8 @@ bool read_file(const std::string & file_name, std::array<std::vector<clickable>,
 {
 	try {
 		std::ifstream ifs(file_name);
+		ifs.exceptions(std::ifstream::badbit);
+
 		json j = json::parse(ifs);
 
 		*bpm = j["bpm"];
@@ -58,15 +62,28 @@ bool read_file(const std::string & file_name, std::array<std::vector<clickable>,
 			sample & s = (*sample_files)[group];
 			s.name = j["samples"][group];
 			delete s.s;
-			s.s    = new sound_sample(sample_rate, s.name);
-			s.s->add_mapping(0, 0, 1.0);  // mono -> left
-			s.s->add_mapping(0, 1, 1.0);  // mono -> right
+			if (s.name.empty())
+				s.s = nullptr;
+			else {
+				s.s    = new sound_sample(sample_rate, s.name);
+				s.s->add_mapping(0, 0, 1.0);  // mono -> left
+				s.s->add_mapping(0, 1, 1.0);  // mono -> right
+			}
 		}
 
 		return true;
 	}
-	catch(...) {
+	catch(const std::ifstream::failure& e) {
+		printf("Cannot access %s\n", file_name.c_str());
 	}
 
 	return false;
+}
+
+std::string get_filename(const std::string & path)
+{
+	auto slash = path.find_last_of('/');
+	if (slash == std::string::npos)
+		return path;
+	return path.substr(slash + 1);
 }
