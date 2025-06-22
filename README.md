@@ -26,6 +26,4 @@ Preview:
 
 ![main screen with a pattern](images/kaboem-main-w-pattern.png)
 
-![test audio](demo/test-cow-core.mp3)
-
 ![settings screen](images/kaboem-settings.png)
