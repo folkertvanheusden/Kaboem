@@ -431,7 +431,7 @@ int main(int argc, char *argv[])
 						sample & s = samples[fs_action_sample_index];
 						s.name = fs_data.file;
 						delete s.s;
-						std::vector<std::string> search_paths { "./", path, get_current_dir_name() };
+						std::vector<std::string> search_paths { "./", path, get_current_dir_name(), "" };
 						s.s    = find_sample(search_paths, s.name);
 						if (s.s) {
 							s.s->add_mapping(0, 0, 1.0);  // mono -> left
