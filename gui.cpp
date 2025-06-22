@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
 	SDL_GetWindowSize(win, &w, &h);
 	printf("%dx%d\n", w, h);
 
-	TTF_Font *font = load_font("/usr/share/fonts/truetype/freefont/FreeSans.ttf", h * 5 / 100, true);
+	TTF_Font *font = load_font("/usr/share/fonts/truetype/freefont/FreeSans.ttf", h * 5 / 100, false);
 	assert(font);
 
 	if (full_screen)
