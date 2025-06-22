@@ -4,7 +4,8 @@ project(kaboem)
 
 add_compile_options(-Wall)
 
-set(CMAKE_BUILD_TYPE RelWithDebInfo)
+#set(CMAKE_BUILD_TYPE RelWithDebInfo)
+set(CMAKE_BUILD_TYPE Debug)
 
 add_executable(
   kaboem
@@ -23,17 +24,12 @@ target_link_libraries(kaboem Threads::Threads)
 
 include(FindPkgConfig)
 
-pkg_check_modules(SDL REQUIRED sdl2)
+pkg_check_modules(SDL REQUIRED sdl3)
 target_link_libraries(kaboem ${SDL_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${SDL_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${SDL_CFLAGS_OTHER})
 
-pkg_check_modules(SDL_GFX REQUIRED SDL2_gfx)
-target_link_libraries(kaboem ${SDL_GFX_LIBRARIES})
-target_include_directories(kaboem PUBLIC ${SDL_GFX_INCLUDE_DIRS})
-target_compile_options(kaboem PUBLIC ${SDL_GFX_CFLAGS_OTHER})
-
-pkg_check_modules(SDL_TTF REQUIRED SDL2_ttf)
+pkg_check_modules(SDL_TTF REQUIRED sdl3-ttf)
 target_link_libraries(kaboem ${SDL_TTF_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${SDL_TTF_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${SDL_TTF_CFLAGS_OTHER})

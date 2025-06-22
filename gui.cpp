@@ -6,10 +6,8 @@
 #include <ctime>
 #include <optional>
 #include <vector>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL2_gfxPrimitives.h>
-#include <SDL2/SDL_image.h>
-#include <SDL2/SDL_ttf.h>
+#include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
 
 #include "gui.h"
 #include "io.h"
@@ -42,7 +40,7 @@ TTF_Font * load_font(const std::string & filename, unsigned int font_height, boo
         ttf_lock.lock();
         TTF_Font *font = TTF_OpenFont(real_path, font_height);
 	if (!font)
-		printf("Font error: %s\n", TTF_GetError());
+		printf("Font error: %s\n", SDL_GetError());
 
         if (!fast_rendering)
                 TTF_SetFontHinting(font, TTF_HINTING_LIGHT);
@@ -171,32 +169,26 @@ std::vector<clickable> generate_pattern_grid(const int w, const int h, const int
 
 void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, const int y, const std::string & text, const std::optional<std::pair<int, int> > & center_in)
 {
-	SDL_Surface *surface = TTF_RenderUTF8_Solid(font, text.c_str(), { 192, 255, 192, 255 });
+	SDL_Surface *surface = TTF_RenderText_Solid(font, text.c_str(), 0, { 192, 255, 192, 255 });
 	assert(surface);
 	SDL_Texture *texture = SDL_CreateTextureFromSurface(screen, surface);
 	assert(texture);
 
-	Uint32 format = 0;
-	int    access = 0;
-	int    w      = 0;
-	int    h      = 0;
-	SDL_QueryTexture(texture, &format, &access, &w, &h);
-
-	SDL_Rect dest { };
+	SDL_FRect dest { };
 	if (center_in.has_value()) {
-		dest.x = x + center_in.value().first  / 2 - w / 2;
-		dest.y = y + center_in.value().second / 2 - h / 2;
+		dest.x = x + center_in.value().first  / 2 - surface->w / 2;
+		dest.y = y + center_in.value().second / 2 - surface->h / 2;
 	}
 	else {
 		dest.x = x;
 		dest.y = y;
 	}
-	dest.w = w;
-	dest.h = h;
-	SDL_RenderCopy(screen, texture, nullptr, &dest);
+	dest.w = surface->w;
+	dest.h = surface->h;
+	SDL_RenderTexture(screen, texture, nullptr, &dest);
 
 	SDL_DestroyTexture(texture);
-	SDL_FreeSurface   (surface);
+	SDL_DestroySurface(surface);
 }
 
 void draw_clickables(TTF_Font *const font, SDL_Renderer *const screen, const std::vector<clickable> & clickables, const std::optional<size_t> hl_index, const std::optional<size_t> play_index)
@@ -219,12 +211,13 @@ void draw_clickables(TTF_Font *const font, SDL_Renderer *const screen, const std
 			else
 				color = { 40, 100, sub_color };
 		}
-		int x1 = clickables[i].where.x;
-		int y1 = clickables[i].where.y;
-		int x2 = clickables[i].where.x + clickables[i].where.w;
-		int y2 = clickables[i].where.y + clickables[i].where.h;
-		boxRGBA(screen, x1, y1, x2, y2, color[0], color[1], color[2], 255);
-		rectangleRGBA(screen, x1, y1, x2, y2, 40, 40, 40, 191);
+		float                  x1 = clickables[i].where.x;
+		float                  y1 = clickables[i].where.y;
+		SDL_FRect              r    { x1, y1, float(clickables[i].where.w), float(clickables[i].where.h) };
+		SDL_SetRenderDrawColor(screen, color[0], color[1], color[2], 255);
+		SDL_RenderFillRect(screen, &r);
+		SDL_SetRenderDrawColor(screen, 40, 40, 40, 191);
+		SDL_RenderRect(screen, &r);
 
 		if (clickables[i].text.empty() == false) {
 			draw_text(font, screen, x1, y1, clickables[i].text, { { clickables[i].where.w, clickables[i].where.h } });
@@ -251,7 +244,6 @@ int main(int argc, char *argv[])
 
 	TTF_Init();
 
-	int  display_nr  = 0;
 	bool full_screen = false;
 	int  create_w    = 1024;
 	int  create_h    = 768;
@@ -259,12 +251,10 @@ int main(int argc, char *argv[])
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER,      "software");
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1"       );
 	SDL_Window *win = SDL_CreateWindow("Kaboem",
-                          SDL_WINDOWPOS_UNDEFINED_DISPLAY(display_nr),
-                          SDL_WINDOWPOS_UNDEFINED_DISPLAY(display_nr),
                           create_w, create_h,
                           (full_screen ? SDL_WINDOW_FULLSCREEN : 0) | SDL_WINDOW_OPENGL);
 	assert(win);
-	SDL_Renderer *screen = SDL_CreateRenderer(win, -1, 0);
+	SDL_Renderer *screen = SDL_CreateRenderer(win, nullptr);
 	assert(screen);
 
 	int w = 0;
@@ -276,7 +266,7 @@ int main(int argc, char *argv[])
 	assert(font);
 
 	if (full_screen)
-		SDL_ShowCursor(SDL_DISABLE);
+		SDL_HideCursor();
 
 	bool redraw = true;
 	int  steps  = 16;
@@ -358,12 +348,12 @@ int main(int argc, char *argv[])
 
 		SDL_Event event { 0 };
 		if (SDL_PollEvent(&event)) {
-			if (event.type == SDL_QUIT) {
+			if (event.type == SDL_EVENT_QUIT) {
 				do_exit = true;
 				break;
 			}
 
-			if (event.type == SDL_MOUSEBUTTONDOWN) {
+			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
 				if (mode == m_pattern) {
 					auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
 					if (menu_clicked.has_value()) {
@@ -418,7 +408,7 @@ int main(int argc, char *argv[])
 				}
 				redraw = true;
 			}
-			else if (event.type == SDL_MOUSEBUTTONUP) {
+			else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
 				if (pat_clickable_selected.has_value()) {
 					pat_clickables[pattern_group][pat_clickable_selected.value()].selected = !pat_clickables[pattern_group][pat_clickable_selected.value()].selected;
 					pat_clickable_selected.reset();
