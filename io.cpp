@@ -67,6 +67,8 @@ bool read_file(const std::string & file_name, std::array<std::vector<clickable>,
 {
 	try {
 		std::ifstream ifs(file_name);
+		if (ifs.is_open() == false)
+			return false;
 		ifs.exceptions(std::ifstream::badbit);
 
 		json j = json::parse(ifs);
@@ -95,8 +97,11 @@ bool read_file(const std::string & file_name, std::array<std::vector<clickable>,
 
 		return true;
 	}
-	catch(const std::ifstream::failure& e) {
+	catch(const std::ifstream::failure & e) {
 		printf("Cannot access %s\n", file_name.c_str());
+	}
+	catch(const nlohmann::json_abi_v3_11_3::detail::parse_error & pe) {
+		printf("File %s is incorrect\n", file_name.c_str());
 	}
 
 	return false;
