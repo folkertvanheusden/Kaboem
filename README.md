@@ -19,3 +19,5 @@ To compile:
 * cd build
 * cmake ..
 * make
+
+Please note that this software is not even an alpha version. Work in progress!
