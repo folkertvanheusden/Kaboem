@@ -86,20 +86,29 @@ void on_process_audio(void *userdata)
 	delete [] temp_buffer;
 }
 
-sound_sample::sound_sample(const int sample_rate, const std::string & filename) :
-	sound(sample_rate, sample_rate / 2)
+sound_sample::sound_sample(const int sample_rate, const std::string & file_name) :
+	sound(sample_rate, sample_rate / 2),
+	file_name(file_name)
+{
+}
+
+bool sound_sample::begin()
 {
 	unsigned sample_sample_rate = 0;
 
-	auto            rc = load_sample(filename);
-	samples            = *rc.first;
-	sample_sample_rate =  rc.second;
+	auto            rc = load_sample(file_name);
+	if (rc.has_value() == false)
+		return false;
+	samples            = *rc.value().first;
+	sample_sample_rate =  rc.value().second;
 
 	delta_t = sample_sample_rate / double(sample_rate);
 
 	input_output_matrix.resize(samples.at(0).size());
 
-	printf("Sample %s has %zu channel(s) and is sampled at %uHz\n", filename.c_str(), input_output_matrix.size(), sample_sample_rate);
+	printf("Sample %s has %zu channel(s) and is sampled at %uHz\n", file_name.c_str(), input_output_matrix.size(), sample_sample_rate);
+
+	return true;
 }
 
 std::pair<double, std::map<int, double> > sound_sample::get_sample(const size_t channel_nr)

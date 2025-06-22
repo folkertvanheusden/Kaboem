@@ -431,11 +431,17 @@ int main(int argc, char *argv[])
 						sample & s = samples[fs_action_sample_index];
 						s.name = fs_data.file;
 						delete s.s;
-						s.s    = new sound_sample(sample_rate, s.name);
-						s.s->add_mapping(0, 0, 1.0);  // mono -> left
-						s.s->add_mapping(0, 1, 1.0);  // mono -> right
-						menu_status = "file " + get_filename(fs_data.file) + " read";
-						channel_clickables[fs_action_sample_index].text = get_filename(s.name).substr(0, 5);
+						std::vector<std::string> search_paths { "./", path, get_current_dir_name() };
+						s.s    = find_sample(search_paths, s.name);
+						if (s.s) {
+							s.s->add_mapping(0, 0, 1.0);  // mono -> left
+							s.s->add_mapping(0, 1, 1.0);  // mono -> right
+							menu_status = "file " + get_filename(fs_data.file) + " read";
+							channel_clickables[fs_action_sample_index].text = get_filename(s.name).substr(0, 5);
+						}
+						else {
+							menu_status = "file " + get_filename(fs_data.file) + " NOT FOUND";
+						}
 						redraw = true;
 					}
 					fs_action = fs_none;

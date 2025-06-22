@@ -131,11 +131,14 @@ public:
 class sound_sample : public sound
 {
 private:
+	std::string                       file_name;
 	std::vector<std::vector<double> > samples;
 
 public:
 	sound_sample(const int sample_rate, const std::string & file_name);
 	virtual ~sound_sample() { }
+
+	bool begin();
 
 	size_t get_n_channels() override
 	{

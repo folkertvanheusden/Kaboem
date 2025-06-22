@@ -1,5 +1,6 @@
 #include <map>
 #include <mutex>
+#include <optional>
 #include <sndfile.h>
 #include <string>
 #include <vector>
@@ -10,7 +11,7 @@
 static std::mutex sample_cache_lock;
 static std::map<std::string, std::pair<std::vector<std::vector<double> > *, unsigned int> > sample_cache;
 
-std::pair<std::vector<std::vector<double> > *, unsigned int> load_sample(const std::string & filename)
+std::optional<std::pair<std::vector<std::vector<double> > *, unsigned int> > load_sample(const std::string & filename)
 {
 	std::unique_lock<std::mutex> lck(sample_cache_lock);
 
@@ -20,6 +21,8 @@ std::pair<std::vector<std::vector<double> > *, unsigned int> load_sample(const s
 
         SF_INFO si = { 0 };
         SNDFILE *sh = sf_open(filename.c_str(), SFM_READ, &si);
+	if (!sh)
+		return { };
 
 	auto *samples = new std::vector<std::vector<double> >();
 
@@ -49,7 +52,7 @@ std::pair<std::vector<std::vector<double> > *, unsigned int> load_sample(const s
 
 	sample_cache.insert({ filename, { samples, si.samplerate } });
 
-	return { samples, si.samplerate };
+	return { { samples, si.samplerate } };
 }
 
 void unload_sample_cache()

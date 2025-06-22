@@ -63,6 +63,17 @@ bool write_file(const std::string & file_name, const std::array<std::vector<clic
 	return false;
 }
 
+sound_sample *find_sample(const std::vector<std::string> & search_paths, const std::string & file_name)
+{
+	for(auto & path: search_paths) {
+		sound_sample *s = new sound_sample(sample_rate, path + "/" + file_name);
+		if (s->begin())
+			return s;
+		delete s;
+	}
+	return nullptr;
+}
+
 bool read_file(const std::string & file_name, std::array<std::vector<clickable>, pattern_groups> *const data, int *const bpm, std::array<sample, pattern_groups> *const sample_files)
 {
 	try {
@@ -89,7 +100,10 @@ bool read_file(const std::string & file_name, std::array<std::vector<clickable>,
 			if (s.name.empty())
 				s.s = nullptr;
 			else {
-				s.s    = new sound_sample(sample_rate, s.name);
+				std::vector<std::string> search_paths { "./", get_dirname(file_name), get_current_dir_name() };
+				s.s = find_sample(search_paths, s.name);
+				if (!s.s)
+					return false;
 				s.s->add_mapping(0, 0, 1.0);  // mono -> left
 				s.s->add_mapping(0, 1, 1.0);  // mono -> right
 			}
