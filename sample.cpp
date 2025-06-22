@@ -1,4 +1,5 @@
 #include <map>
+#include <mutex>
 #include <sndfile.h>
 #include <string>
 #include <vector>
@@ -6,10 +7,13 @@
 #include "error.h"
 
 
+static std::mutex sample_cache_lock;
 static std::map<std::string, std::pair<std::vector<std::vector<double> > *, unsigned int> > sample_cache;
 
 std::pair<std::vector<std::vector<double> > *, unsigned int> load_sample(const std::string & filename)
 {
+	std::unique_lock<std::mutex> lck(sample_cache_lock);
+
 	auto it = sample_cache.find(filename);
 	if (it != sample_cache.end())
 		return it->second;
@@ -50,6 +54,8 @@ std::pair<std::vector<std::vector<double> > *, unsigned int> load_sample(const s
 
 void unload_sample_cache()
 {
+	std::unique_lock<std::mutex> lck(sample_cache_lock);
+
 	for(auto & entry : sample_cache)
 		delete [] entry.second.first;
 
