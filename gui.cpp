@@ -120,7 +120,7 @@ std::vector<clickable> generate_menu_button(const int w, const int h)
 	return clickables;
 }
 
-std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const load_idx, size_t *const save_idx, size_t *const clear_idx)
+std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -150,6 +150,14 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 		c.where    = { x, y, menu_button_width, menu_button_height };
 		c.text     = "clear";
 		*clear_idx  = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
+	{
+		clickable c { };
+		c.where    = { x, y, menu_button_width, menu_button_height };
+		c.text     = "quit";
+		*quit_idx  = clickables.size();
 		clickables.push_back(c);
 		x += menu_button_width;
 	}
@@ -287,8 +295,8 @@ int main(int argc, char *argv[])
 	TTF_Font *font = load_font("/usr/share/fonts/truetype/freefont/FreeSans.ttf", display_mode->h * 5 / 100, false);
 	assert(font);
 
-	if (full_screen)
-		SDL_HideCursor();
+//	if (full_screen)
+//		SDL_HideCursor();
 
 	bool redraw = true;
 	int  steps  = 16;
@@ -309,7 +317,8 @@ int main(int argc, char *argv[])
 	size_t load_idx  = 0;
 	size_t save_idx  = 0;
 	size_t clear_idx = 0;
-	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &load_idx, &save_idx, &clear_idx);
+	size_t quit_idx  = 0;
+	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &load_idx, &save_idx, &clear_idx, &quit_idx);
 	std::string            menu_status;
 
 	for(size_t i=0; i<pattern_groups; i++)
@@ -479,15 +488,18 @@ int main(int argc, char *argv[])
 							}
 							menu_status = "cleared";
 						}
-						else if (idx == load_idx) {  // TODO file selector
+						else if (idx == load_idx) {
 							fs_data.finished = false;
 							fs_action = fs_load;
 							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, path.c_str(), false);
 						}
-						else if (idx == save_idx) {  // TODO file selector
+						else if (idx == save_idx) {
 							fs_data.finished = false;
 							fs_action = fs_save;
 							SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters, 1, path.c_str());
+						}
+						else if (idx == quit_idx) {
+							do_exit = true;
 						}
 					}
 					else if (sample_clicked.has_value()) {
