@@ -11,6 +11,8 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 
+#include "gui.h"
+#include "io.h"
 #include "pipewire.h"
 #include "pipewire-audio.h"
 #include "sample.h"
@@ -51,12 +53,6 @@ TTF_Font * load_font(const std::string & filename, unsigned int font_height, boo
 
         return font;
 }
-
-struct clickable {
-	SDL_Rect    where;
-	bool        selected;
-	std::string text;
-};
 
 std::optional<size_t> find_clickable(const std::vector<clickable> & clickables, const int x, const int y)
 {
@@ -250,7 +246,6 @@ int main(int argc, char *argv[])
 	int  bpm    = 135;
 
 	enum { m_pattern, m_menu } mode               = m_pattern;
-	constexpr const size_t pattern_groups         = 8;
 	std::array<std::vector<clickable>, pattern_groups> pat_clickables;
 	std::optional<size_t>  pat_clickable_selected;
 	size_t                 pattern_group          = 0;
@@ -269,6 +264,8 @@ int main(int argc, char *argv[])
 		samples[i].s->add_mapping(0, 0, 1.0);  // mono -> left
 		samples[i].s->add_mapping(0, 1, 1.0);  // mono -> right
 	}
+
+	read_file("default.kaboem", &pat_clickables, &bpm);
 
 	int    sleep_ms       = 60 * 1000 / bpm;
 	size_t prev_pat_index = size_t(-1);
@@ -352,6 +349,8 @@ int main(int argc, char *argv[])
 	pw_main_loop_quit(sound_pars.pw.loop);
 	sound_pars.pw.th->join();
 	delete sound_pars.pw.th;
+
+	write_file("default.kaboem", pat_clickables, bpm);
 
 //	unload_sample_cache();
 

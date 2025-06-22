@@ -9,6 +9,7 @@ set(CMAKE_BUILD_TYPE RelWithDebInfo)
 add_executable(
   kaboem
   gui.cpp
+  io.cpp
   pipewire.cpp
   pipewire-audio.cpp
   sample.cpp
@@ -47,5 +48,10 @@ pkg_check_modules(PIPEWIRE libpipewire-0.3)
 target_link_libraries(kaboem ${PIPEWIRE_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${PIPEWIRE_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${PIPEWIRE_CFLAGS_OTHER})
+
+pkg_check_modules(NLOHMANN_JSON REQUIRED nlohmann_json)
+target_link_libraries(kaboem ${NLOHMANN_JSON})
+target_include_directories(kaboem PUBLIC ${NLOHMANN_JSON})
+target_compile_options(kaboem PUBLIC ${NLOHMANN_JSON})
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION True)
