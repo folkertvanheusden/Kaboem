@@ -105,6 +105,43 @@ std::vector<clickable> generate_menu_button(const int w, const int h)
 	return clickables;
 }
 
+std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const load_idx, size_t *const save_idx, size_t *const clear_idx)
+{
+	int menu_button_width  = w * 15 / 100;
+	int menu_button_height = h * 15 / 100;
+
+	std::vector<clickable> clickables;
+
+	int x = 0;
+	int y = 0;
+	{
+		clickable c { };
+		c.where    = { x, y, menu_button_width, menu_button_height };
+		c.text     = "load";
+		*load_idx  = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
+	{
+		clickable c { };
+		c.where    = { x, y, menu_button_width, menu_button_height };
+		c.text     = "save";
+		*save_idx  = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
+	{
+		clickable c { };
+		c.where    = { x, y, menu_button_width, menu_button_height };
+		c.text     = "clear";
+		*clear_idx  = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
+
+	return clickables;
+}
+
 std::vector<clickable> generate_pattern_grid(const int w, const int h, const int steps)
 {
 	int pattern_w   = w * 85 / 100;
@@ -245,14 +282,20 @@ int main(int argc, char *argv[])
 	int  steps  = 16;
 	int  bpm    = 135;
 
-	enum { m_pattern, m_menu } mode               = m_pattern;
+	enum { m_pattern, m_menu } mode                = m_pattern;
 	std::array<std::vector<clickable>, pattern_groups> pat_clickables;
 	std::optional<size_t>  pat_clickable_selected;
-	size_t                 pattern_group          = 0;
+	size_t                 pattern_group           = 0;
 
-	std::vector<clickable> channel_clickables     = generate_channel_column(w, h, pattern_groups);
+	std::vector<clickable> channel_clickables      = generate_channel_column(w, h, pattern_groups);
 
-	std::vector<clickable> menu_button_clickables = generate_menu_button(w, h);
+	std::vector<clickable> menu_button_clickables  = generate_menu_button(w, h);
+
+	size_t load_idx  = 0;
+	size_t save_idx  = 0;
+	size_t clear_idx = 0;
+	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(w, h, &load_idx, &save_idx, &clear_idx);
+	std::string            menu_status;
 
 	for(size_t i=0; i<pattern_groups; i++)
 		pat_clickables[i] = generate_pattern_grid(w, h, steps);
@@ -296,6 +339,11 @@ int main(int argc, char *argv[])
 				draw_text(font, screen, 0, h / 2 / 100, samples[pattern_group].name, { });
 			}
 			else if (mode == m_menu) {
+				if (menu_status.empty() == false) {
+					int font_height = h / 2 / 100;
+					draw_text(font, screen, 0, h - font_height * 5, menu_status, { { w, font_height } });
+				}
+				draw_clickables(font, screen, menu_buttons_clickables, { }, { });
 			}
 			else {
 				fprintf(stderr, "Internal error: %d\n", mode);
@@ -316,22 +364,56 @@ int main(int argc, char *argv[])
 			}
 
 			if (event.type == SDL_MOUSEBUTTONDOWN) {
-				auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
-				if (menu_clicked.has_value()) {
-					if (mode == m_pattern)
-						mode = m_menu;
-					else
-						mode = m_pattern;
-				}
-				else {
-					auto new_group = find_clickable(channel_clickables, event.button.x, event.button.y);
-					if (new_group.has_value()) {
-						channel_clickables[pattern_group].selected = false;
-						pattern_group = new_group.value();
-						channel_clickables[pattern_group].selected = true;
+				if (mode == m_pattern) {
+					auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
+					if (menu_clicked.has_value()) {
+						if (mode == m_pattern)
+							mode = m_menu;
+						else
+							mode = m_pattern;
 					}
 					else {
-						pat_clickable_selected = find_clickable(pat_clickables[pattern_group], event.button.x, event.button.y);
+						auto new_group = find_clickable(channel_clickables, event.button.x, event.button.y);
+						if (new_group.has_value()) {
+							channel_clickables[pattern_group].selected = false;
+							pattern_group = new_group.value();
+							channel_clickables[pattern_group].selected = true;
+						}
+						else {
+							pat_clickable_selected = find_clickable(pat_clickables[pattern_group], event.button.x, event.button.y);
+						}
+					}
+				}
+				else if (mode == m_menu) {
+					menu_status.clear();
+					auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
+					if (menu_clicked.has_value()) {
+						if (mode == m_pattern)
+							mode = m_menu;
+						else
+							mode = m_pattern;
+					}
+					else {
+						auto menus_clicked = find_clickable(menu_buttons_clickables, event.button.x, event.button.y);
+						if (menus_clicked.has_value()) {
+							size_t idx = menus_clicked.value();
+							if (idx == clear_idx) {
+								write_file("before_clear.kaboem", pat_clickables, bpm);
+								for(size_t i=0; i<pattern_groups; i++) {
+									for(auto & element: pat_clickables[i])
+										element.selected = false;
+								}
+								menu_status = "cleared";
+							}
+							else if (idx == load_idx) {  // TODO file selector
+								read_file ("default.kaboem", &pat_clickables, &bpm);
+								menu_status = "file read";
+							}
+							else if (idx == save_idx) {  // TODO file selector
+								write_file("default.kaboem", pat_clickables, bpm);
+								menu_status = "file written";
+							}
+						}
 					}
 				}
 				redraw = true;
