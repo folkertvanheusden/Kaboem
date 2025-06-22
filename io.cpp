@@ -100,7 +100,7 @@ bool read_file(const std::string & file_name, std::array<std::vector<clickable>,
 	catch(const std::ifstream::failure & e) {
 		printf("Cannot access %s\n", file_name.c_str());
 	}
-	catch(const nlohmann::json_abi_v3_11_3::detail::parse_error & pe) {
+	catch(const json::parse_error & pe) {
 		printf("File %s is incorrect\n", file_name.c_str());
 	}
 
