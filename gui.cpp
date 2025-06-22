@@ -256,6 +256,8 @@ int main(int argc, char *argv[])
 	configure_pipewire_audio(&sound_pars);
 	sound_pars.global_volume = 1.;
 
+	std::string path = get_current_dir_name();
+
 	signal(SIGTERM, sigh);
 	atexit(SDL_Quit);
 
@@ -358,6 +360,12 @@ int main(int argc, char *argv[])
 					fs_action = fs_none;
 				}
 			}
+
+			if (fs_data.finished && fs_data.file.empty() == false) {
+				auto slash = fs_data.file.find_last_of('/');
+				if (slash != std::string::npos)
+					path = fs_data.file.substr(0, slash);
+			}
 		}
 
 		if (redraw && fs_action == fs_none) {
@@ -441,12 +449,12 @@ int main(int argc, char *argv[])
 							else if (idx == load_idx) {  // TODO file selector
 								fs_data.finished = false;
 								fs_action = fs_load;
-								SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, nullptr, false);
+								SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, path.c_str(), false);
 							}
 							else if (idx == save_idx) {  // TODO file selector
 								fs_data.finished = false;
 								fs_action = fs_save;
-								SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters, 1, nullptr);
+								SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters, 1, path.c_str());
 							}
 						}
 					}
