@@ -24,6 +24,6 @@ Please note that this software is not even an alpha version. Work in progress!
 
 Preview:
 
-![main screen with a pattern]{ width=640px }(images/kaboem-main-w-pattern.png)
+![main screen with a pattern](images/kaboem-main-w-pattern.png)
 
-![settings screen]{ width=640px }(images/kaboem-settings.png)
+![settings screen](images/kaboem-settings.png)
