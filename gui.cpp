@@ -53,8 +53,9 @@ TTF_Font * load_font(const std::string & filename, unsigned int font_height, boo
 }
 
 struct clickable {
-	SDL_Rect where;
-	bool     selected;
+	SDL_Rect    where;
+	bool        selected;
+	std::string text;
 };
 
 std::optional<size_t> find_clickable(const std::vector<clickable> & clickables, const int x, const int y)
@@ -102,6 +103,7 @@ std::vector<clickable> generate_menu_button(const int w, const int h)
 	clickable c { };
 	c.where    = { x, y, menu_button_width, menu_button_height };
 	c.selected = false;
+	c.text     = "menu";
 	clickables.push_back(c);
 
 	return clickables;
@@ -134,7 +136,37 @@ std::vector<clickable> generate_pattern_grid(const int w, const int h, const int
 	return clickables;
 }
 
-void draw_clickables(SDL_Renderer *const screen, const std::vector<clickable> & clickables, const std::optional<size_t> hl_index, const std::optional<size_t> play_index)
+void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, const int y, const std::string & text, const std::optional<std::pair<int, int> > & center_in)
+{
+	SDL_Surface *surface = TTF_RenderUTF8_Solid(font, text.c_str(), { 192, 255, 192, 255 });
+	assert(surface);
+	SDL_Texture *texture = SDL_CreateTextureFromSurface(screen, surface);
+	assert(texture);
+
+	Uint32 format = 0;
+	int    access = 0;
+	int    w      = 0;
+	int    h      = 0;
+	SDL_QueryTexture(texture, &format, &access, &w, &h);
+
+	SDL_Rect dest { };
+	if (center_in.has_value()) {
+		dest.x = x + center_in.value().first  / 2 - w / 2;
+		dest.y = y + center_in.value().second / 2 - h / 2;
+	}
+	else {
+		dest.x = x;
+		dest.y = y;
+	}
+	dest.w = w;
+	dest.h = h;
+	SDL_RenderCopy(screen, texture, nullptr, &dest);
+
+	SDL_DestroyTexture(texture);
+	SDL_FreeSurface   (surface);
+}
+
+void draw_clickables(TTF_Font *const font, SDL_Renderer *const screen, const std::vector<clickable> & clickables, const std::optional<size_t> hl_index, const std::optional<size_t> play_index)
 {
 	for(size_t i=0; i<clickables.size(); i++) {
 		bool hl = hl_index  .has_value() == true && hl_index  .value() == i;
@@ -160,31 +192,11 @@ void draw_clickables(SDL_Renderer *const screen, const std::vector<clickable> & 
 		int y2 = clickables[i].where.y + clickables[i].where.h;
 		boxRGBA(screen, x1, y1, x2, y2, color[0], color[1], color[2], 255);
 		rectangleRGBA(screen, x1, y1, x2, y2, 40, 40, 40, 191);
+
+		if (clickables[i].text.empty() == false) {
+			draw_text(font, screen, x1, y1, clickables[i].text, { { clickables[i].where.w, clickables[i].where.h } });
+		}
 	}
-}
-
-void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, const int y, const std::string & text)
-{
-	SDL_Surface *surface = TTF_RenderUTF8_Solid(font, text.c_str(), { 192, 255, 192, 255 });
-	assert(surface);
-	SDL_Texture *texture = SDL_CreateTextureFromSurface(screen, surface);
-	assert(texture);
-
-	Uint32 format = 0;
-	int    access = 0;
-	int    w      = 0;
-	int    h      = 0;
-	SDL_QueryTexture(texture, &format, &access, &w, &h);
-
-	SDL_Rect dest { };
-	dest.x = x;
-	dest.y = y;
-	dest.w = w;
-	dest.h = h;
-	SDL_RenderCopy(screen, texture, nullptr, &dest);
-
-	SDL_DestroyTexture(texture);
-	SDL_FreeSurface   (surface);
 }
 
 struct sample
@@ -279,12 +291,12 @@ int main(int argc, char *argv[])
 			SDL_SetRenderDrawColor(screen, 0, 0, 0, 255);
 			SDL_RenderClear(screen);
 
-			draw_clickables(screen, menu_button_clickables, { }, { });
+			draw_clickables(font, screen, menu_button_clickables, { }, { });
 
 			if (mode == m_pattern) {
-				draw_clickables(screen, pat_clickables[pattern_group], pat_clickable_selected, pat_index);
-				draw_clickables(screen, channel_clickables, { }, pattern_group);
-				draw_text(font, screen, 0, h / 2 / 100, samples[pattern_group].name);
+				draw_clickables(font, screen, pat_clickables[pattern_group], pat_clickable_selected, pat_index);
+				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
+				draw_text(font, screen, 0, h / 2 / 100, samples[pattern_group].name, { });
 			}
 			else if (mode == m_menu) {
 			}
