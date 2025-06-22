@@ -359,7 +359,8 @@ int main(int argc, char *argv[])
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
 						std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-						read_file (fs_data.file, &pat_clickables, &bpm, &samples);
+						read_file(fs_data.file, &pat_clickables, &bpm, &samples);
+						sleep_ms = 60 * 1000 / bpm;
 						for(size_t i=0; i<pattern_groups; i++) {
 							if (samples[i].name.empty() == false)
 								channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
