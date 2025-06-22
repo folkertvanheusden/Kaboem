@@ -39,19 +39,21 @@ void on_process_audio(void *userdata)
 			double *current_sample_base = &temp_buffer[t * sp->n_channels];
 
 			for(size_t s_idx=0; s_idx<sp->sounds.size();) {
-				if (sp->sounds[s_idx].first->set_time(sp->sounds[s_idx].second)) {
-					sp->sounds.erase(sp->sounds.begin() + s_idx);
-					continue;
-				}
+				if (sp->sounds[s_idx].first) {
+					if (sp->sounds[s_idx].first->set_time(sp->sounds[s_idx].second)) {
+						sp->sounds.erase(sp->sounds.begin() + s_idx);
+						continue;
+					}
 
-				size_t n_source_channels = sp->sounds[s_idx].first->get_n_channels();
+					size_t n_source_channels = sp->sounds[s_idx].first->get_n_channels();
 
-				for(size_t ch=0; ch<n_source_channels; ch++) {
-					auto   rc    = sp->sounds[s_idx].first->get_sample(ch);
-					double value = rc.first;
+					for(size_t ch=0; ch<n_source_channels; ch++) {
+						auto   rc    = sp->sounds[s_idx].first->get_sample(ch);
+						double value = rc.first;
 
-					for(auto mapping : rc.second)
-						current_sample_base[mapping.first] += value * mapping.second;
+						for(auto mapping : rc.second)
+							current_sample_base[mapping.first] += value * mapping.second;
+					}
 				}
 
 				sp->sounds[s_idx].second++;

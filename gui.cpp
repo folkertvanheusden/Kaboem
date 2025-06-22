@@ -242,15 +242,8 @@ void draw_clickables(TTF_Font *const font, SDL_Renderer *const screen, const std
 	}
 }
 
-struct sample
-{
-	sound_sample *s;
-	std::string   name;
-};
-
 int main(int argc, char *argv[])
 {
-	constexpr const int sample_rate = 44100;
 	init_pipewire(&argc, &argv);
 	sound_parameters sound_pars(sample_rate, 2);
 	configure_pipewire_audio(&sound_pars);
@@ -292,7 +285,8 @@ int main(int argc, char *argv[])
 	int  bpm    = 135;
 
 	enum { m_pattern, m_menu } mode                = m_pattern;
-	enum { fs_load, fs_save, fs_none } fs_action   = fs_none;
+	enum { fs_load, fs_save, fs_none, fs_load_sample } fs_action = fs_none;
+	size_t fs_action_sample_index                  = 0;
 	fileselector_data      fs_data { };
 	std::array<std::vector<clickable>, pattern_groups> pat_clickables;
 	std::optional<size_t>  pat_clickable_selected;
@@ -312,16 +306,11 @@ int main(int argc, char *argv[])
 		pat_clickables[i] = generate_pattern_grid(w, h, steps);
 
 	std::array<sample, pattern_groups> samples { };
-	for(size_t i=0; i<pattern_groups; i++) {
-		samples[i].name = i & 1 ? "studio-hihat-sound-a-key-05-yvg.wav" : "small-reverb-bass-drum-sound-a-key-10-G8d.wav";
-		samples[i].s    = new sound_sample(sample_rate, samples[i].name);
-		samples[i].s->add_mapping(0, 0, 1.0);  // mono -> left
-		samples[i].s->add_mapping(0, 1, 1.0);  // mono -> right
-	}
 
-	SDL_DialogFileFilter sf_filters[] { { "Kaboem files", "kaboem" } };
+	SDL_DialogFileFilter sf_filters[]        { { "Kaboem files", "kaboem"  } };
+	SDL_DialogFileFilter sf_filters_sample[] { { "Samples",      "wav;mp3" } };
 
-	read_file("default.kaboem", &pat_clickables, &bpm);
+	read_file("default.kaboem", &pat_clickables, &bpm, &samples);
 
 	int    sleep_ms       = 60 * 1000 / bpm;
 	size_t prev_pat_index = size_t(-1);
@@ -345,7 +334,7 @@ int main(int argc, char *argv[])
 			if (fs_action == fs_load) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
-						read_file (fs_data.file, &pat_clickables, &bpm);
+						read_file (fs_data.file, &pat_clickables, &bpm, &samples);
 						menu_status = "file " + fs_data.file + " read";
 					}
 					fs_action = fs_none;
@@ -354,8 +343,26 @@ int main(int argc, char *argv[])
 			else if (fs_action == fs_save) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
-						write_file(fs_data.file, pat_clickables, bpm);
+						std::string file = fs_data.file;
+						if (file.substr(-7) != ".kaboem")
+							file += ".kaboem";
+						write_file(file, pat_clickables, bpm, samples);
 						menu_status = "file " + fs_data.file + " written";
+					}
+					fs_action = fs_none;
+				}
+			}
+			else if (fs_action == fs_load_sample) {
+				if (fs_data.finished) {
+					if (fs_data.file.empty() == false) {
+						// LOAD SAMPLE
+						sample & s = samples[fs_action_sample_index];
+						s.name = fs_data.file;
+						delete s.s;
+						s.s    = new sound_sample(sample_rate, s.name);
+						s.s->add_mapping(0, 0, 1.0);  // mono -> left
+						s.s->add_mapping(0, 1, 1.0);  // mono -> right
+						menu_status = "file " + fs_data.file + " read";
 					}
 					fs_action = fs_none;
 				}
@@ -377,13 +384,15 @@ int main(int argc, char *argv[])
 			if (mode == m_pattern) {
 				draw_clickables(font, screen, pat_clickables[pattern_group], pat_clickable_selected, pat_index);
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
-				draw_text(font, screen, 0, h / 2 / 100, samples[pattern_group].name, { });
+				if (samples[pattern_group].name.empty() == false)
+					draw_text(font, screen, 0, h / 2 / 100, samples[pattern_group].name, { });
 			}
 			else if (mode == m_menu) {
 				if (menu_status.empty() == false) {
 					int font_height = h / 2 / 100;
 					draw_text(font, screen, 0, h - font_height * 5, menu_status, { { w, font_height } });
 				}
+				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 				draw_clickables(font, screen, menu_buttons_clickables, { }, { });
 			}
 			else {
@@ -427,36 +436,41 @@ int main(int argc, char *argv[])
 				}
 				else if (mode == m_menu) {
 					menu_status.clear();
-					auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
+					auto menu_clicked   = find_clickable(menu_button_clickables, event.button.x, event.button.y);
+					auto sample_clicked = find_clickable(channel_clickables, event.button.x, event.button.y);
+					auto menus_clicked  = find_clickable(menu_buttons_clickables, event.button.x, event.button.y);
 					if (menu_clicked.has_value()) {
 						if (mode == m_pattern)
 							mode = m_menu;
 						else
 							mode = m_pattern;
 					}
-					else {
-						auto menus_clicked = find_clickable(menu_buttons_clickables, event.button.x, event.button.y);
-						if (menus_clicked.has_value()) {
-							size_t idx = menus_clicked.value();
-							if (idx == clear_idx) {
-								write_file("before_clear.kaboem", pat_clickables, bpm);
-								for(size_t i=0; i<pattern_groups; i++) {
-									for(auto & element: pat_clickables[i])
-										element.selected = false;
-								}
-								menu_status = "cleared";
+					else if (menus_clicked.has_value()) {
+						size_t idx = menus_clicked.value();
+						if (idx == clear_idx) {
+							write_file("before_clear.kaboem", pat_clickables, bpm, samples);
+							for(size_t i=0; i<pattern_groups; i++) {
+								for(auto & element: pat_clickables[i])
+									element.selected = false;
 							}
-							else if (idx == load_idx) {  // TODO file selector
-								fs_data.finished = false;
-								fs_action = fs_load;
-								SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, path.c_str(), false);
-							}
-							else if (idx == save_idx) {  // TODO file selector
-								fs_data.finished = false;
-								fs_action = fs_save;
-								SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters, 1, path.c_str());
-							}
+							menu_status = "cleared";
 						}
+						else if (idx == load_idx) {  // TODO file selector
+							fs_data.finished = false;
+							fs_action = fs_load;
+							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, path.c_str(), false);
+						}
+						else if (idx == save_idx) {  // TODO file selector
+							fs_data.finished = false;
+							fs_action = fs_save;
+							SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters, 1, path.c_str());
+						}
+					}
+					else if (sample_clicked.has_value()) {
+						fs_action_sample_index = sample_clicked.value();
+						fs_data.finished = false;
+						fs_action = fs_load_sample;
+						SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters_sample, 1, path.c_str(), false);
 					}
 				}
 				redraw = true;
@@ -475,7 +489,7 @@ int main(int argc, char *argv[])
 	sound_pars.pw.th->join();
 	delete sound_pars.pw.th;
 
-	write_file("default.kaboem", pat_clickables, bpm);
+	write_file("default.kaboem", pat_clickables, bpm, samples);
 
 //	unload_sample_cache();
 
