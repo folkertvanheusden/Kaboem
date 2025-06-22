@@ -346,7 +346,7 @@ int main(int argc, char *argv[])
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
 						read_file (fs_data.file, &pat_clickables, &bpm);
-						menu_status = "file read";
+						menu_status = "file " + fs_data.file + " read";
 					}
 					fs_action = fs_none;
 				}
@@ -355,7 +355,7 @@ int main(int argc, char *argv[])
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
 						write_file(fs_data.file, pat_clickables, bpm);
-						menu_status = "file written";
+						menu_status = "file " + fs_data.file + " written";
 					}
 					fs_action = fs_none;
 				}
