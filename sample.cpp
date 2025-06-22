@@ -58,9 +58,7 @@ std::optional<std::pair<std::vector<std::vector<double> > *, unsigned int> > loa
 void unload_sample_cache()
 {
 	std::unique_lock<std::mutex> lck(sample_cache_lock);
-
 	for(auto & entry : sample_cache)
-		delete [] entry.second.first;
-
+		delete entry.second.first;
 	sample_cache.clear();
 }

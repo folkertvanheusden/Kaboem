@@ -644,7 +644,7 @@ int main(int argc, char *argv[])
 
 	write_file(path + "/default.kaboem", pat_clickables, bpm, samples);
 
-//	unload_sample_cache();
+	unload_sample_cache();
 
 	return 0;
 }
