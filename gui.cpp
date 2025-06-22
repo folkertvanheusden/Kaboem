@@ -556,9 +556,17 @@ int main(int argc, char *argv[])
 						size_t idx = menus_clicked.value();
 						if (idx == clear_idx) {
 							write_file(path + "/before_clear.kaboem", pat_clickables, bpm, samples);
+							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+							sound_pars.sounds.clear();
 							for(size_t i=0; i<pattern_groups; i++) {
 								for(auto & element: pat_clickables[i])
 									element.selected = false;
+
+								sample & s = samples[i];
+								delete s.s;
+								s.s = nullptr;
+								s.name.clear();
+								channel_clickables[i].text.clear();
 							}
 							menu_status = "cleared";
 						}
