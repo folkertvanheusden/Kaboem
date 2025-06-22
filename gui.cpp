@@ -73,18 +73,36 @@ std::optional<size_t> find_clickable(const std::vector<clickable> & clickables, 
 std::vector<clickable> generate_channel_column(const int w, const int h, const int channel_count)
 {
 	int channel_width  = w * 10 / 100;
-	int channel_height = h / channel_count;
+	int h_offset       = h * 15 / 100;
+	int channel_height = (h - h_offset) / channel_count;
 
 	std::vector<clickable> clickables;
 
 	for(int i=0; i<channel_count; i++) {
 		int x = w - channel_width;
-		int y = i * channel_height;
+		int y = i * channel_height + h_offset;
 		clickable c { };
 		c.where    = { x, y, channel_width, channel_height };
 		c.selected = false;
 		clickables.push_back(c);
 	}
+
+	return clickables;
+}
+
+std::vector<clickable> generate_menu_button(const int w, const int h)
+{
+	int menu_button_width  = w * 10 / 100;
+	int menu_button_height = h * 10 / 100;
+
+	std::vector<clickable> clickables;
+
+	int x = w - menu_button_width;
+	int y = 0;
+	clickable c { };
+	c.where    = { x, y, menu_button_width, menu_button_height };
+	c.selected = false;
+	clickables.push_back(c);
 
 	return clickables;
 }
@@ -219,13 +237,15 @@ int main(int argc, char *argv[])
 	int  steps  = 16;
 	int  bpm    = 135;
 
-	enum { m_pattern }     mode                   = m_pattern;
+	enum { m_pattern, m_menu } mode               = m_pattern;
 	constexpr const size_t pattern_groups         = 8;
 	std::array<std::vector<clickable>, pattern_groups> pat_clickables;
 	std::optional<size_t>  pat_clickable_selected;
 	size_t                 pattern_group          = 0;
 
 	std::vector<clickable> channel_clickables     = generate_channel_column(w, h, pattern_groups);
+
+	std::vector<clickable> menu_button_clickables = generate_menu_button(w, h);
 
 	for(size_t i=0; i<pattern_groups; i++)
 		pat_clickables[i] = generate_pattern_grid(w, h, steps);
@@ -259,10 +279,14 @@ int main(int argc, char *argv[])
 			SDL_SetRenderDrawColor(screen, 0, 0, 0, 255);
 			SDL_RenderClear(screen);
 
+			draw_clickables(screen, menu_button_clickables, { }, { });
+
 			if (mode == m_pattern) {
 				draw_clickables(screen, pat_clickables[pattern_group], pat_clickable_selected, pat_index);
 				draw_clickables(screen, channel_clickables, { }, pattern_group);
 				draw_text(font, screen, 0, h / 2 / 100, samples[pattern_group].name);
+			}
+			else if (mode == m_menu) {
 			}
 			else {
 				fprintf(stderr, "Internal error: %d\n", mode);
@@ -283,14 +307,23 @@ int main(int argc, char *argv[])
 			}
 
 			if (event.type == SDL_MOUSEBUTTONDOWN) {
-				auto new_group = find_clickable(channel_clickables, event.button.x, event.button.y);
-				if (new_group.has_value()) {
-					channel_clickables[pattern_group].selected = false;
-					pattern_group = new_group.value();
-					channel_clickables[pattern_group].selected = true;
+				auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
+				if (menu_clicked.has_value()) {
+					if (mode == m_pattern)
+						mode = m_menu;
+					else
+						mode = m_pattern;
 				}
 				else {
-					pat_clickable_selected = find_clickable(pat_clickables[pattern_group], event.button.x, event.button.y);
+					auto new_group = find_clickable(channel_clickables, event.button.x, event.button.y);
+					if (new_group.has_value()) {
+						channel_clickables[pattern_group].selected = false;
+						pattern_group = new_group.value();
+						channel_clickables[pattern_group].selected = true;
+					}
+					else {
+						pat_clickable_selected = find_clickable(pat_clickables[pattern_group], event.button.x, event.button.y);
+					}
 				}
 				redraw = true;
 			}
