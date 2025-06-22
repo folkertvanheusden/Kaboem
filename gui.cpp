@@ -256,25 +256,35 @@ int main(int argc, char *argv[])
 
 	TTF_Init();
 
-	bool full_screen = false;
-	int  create_w    = 1024;
-	int  create_h    = 768;
+	bool full_screen = true;
+
+	SDL_Init(SDL_INIT_VIDEO);
+
+	SDL_DisplayID display_id = SDL_GetPrimaryDisplay();
+	if (display_id == 0) {
+		SDL_Log("Failed to get primary display: %s", SDL_GetError());
+		SDL_Quit();
+		return 1;
+	}
+
+	const SDL_DisplayMode *display_mode = SDL_GetCurrentDisplayMode(display_id);
+	if (display_mode == nullptr) {
+		SDL_Log("Failed to get display mode: %s", SDL_GetError());
+		SDL_Quit();
+		return 1;
+	}
+	printf("%dx%d\n", display_mode->w, display_mode->h);
 
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER,      "software");
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1"       );
 	SDL_Window *win = SDL_CreateWindow("Kaboem",
-                          create_w, create_h,
-                          (full_screen ? SDL_WINDOW_FULLSCREEN : 0) | SDL_WINDOW_OPENGL);
+                          display_mode->w, display_mode->h,
+                          (full_screen ? SDL_WINDOW_FULLSCREEN: 0));
 	assert(win);
 	SDL_Renderer *screen = SDL_CreateRenderer(win, nullptr);
 	assert(screen);
 
-	int w = 0;
-	int h = 0;
-	SDL_GetWindowSize(win, &w, &h);
-	printf("%dx%d\n", w, h);
-
-	TTF_Font *font = load_font("/usr/share/fonts/truetype/freefont/FreeSans.ttf", h * 5 / 100, false);
+	TTF_Font *font = load_font("/usr/share/fonts/truetype/freefont/FreeSans.ttf", display_mode->h * 5 / 100, false);
 	assert(font);
 
 	if (full_screen)
@@ -292,18 +302,18 @@ int main(int argc, char *argv[])
 	std::optional<size_t>  pat_clickable_selected;
 	size_t                 pattern_group           = 0;
 
-	std::vector<clickable> channel_clickables      = generate_channel_column(w, h, pattern_groups);
+	std::vector<clickable> channel_clickables      = generate_channel_column(display_mode->w, display_mode->h, pattern_groups);
 
-	std::vector<clickable> menu_button_clickables  = generate_menu_button(w, h);
+	std::vector<clickable> menu_button_clickables  = generate_menu_button(display_mode->w, display_mode->h);
 
 	size_t load_idx  = 0;
 	size_t save_idx  = 0;
 	size_t clear_idx = 0;
-	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(w, h, &load_idx, &save_idx, &clear_idx);
+	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &load_idx, &save_idx, &clear_idx);
 	std::string            menu_status;
 
 	for(size_t i=0; i<pattern_groups; i++)
-		pat_clickables[i] = generate_pattern_grid(w, h, steps);
+		pat_clickables[i] = generate_pattern_grid(display_mode->w, display_mode->h, steps);
 
 	std::array<sample, pattern_groups> samples { };
 
@@ -399,12 +409,12 @@ int main(int argc, char *argv[])
 				draw_clickables(font, screen, pat_clickables[pattern_group], pat_clickable_selected, pat_index);
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 				if (samples[pattern_group].name.empty() == false)
-					draw_text(font, screen, 0, h / 2 / 100, samples[pattern_group].name, { });
+					draw_text(font, screen, 0, display_mode->h / 2 / 100, samples[pattern_group].name, { });
 			}
 			else if (mode == m_menu) {
 				if (menu_status.empty() == false) {
-					int font_height = h / 2 / 100;
-					draw_text(font, screen, 0, h - font_height * 5, menu_status, { { w, font_height } });
+					int font_height = display_mode->h / 2 / 100;
+					draw_text(font, screen, 0, display_mode->h - font_height * 5, menu_status, { { display_mode->w, font_height } });
 				}
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 				draw_clickables(font, screen, menu_buttons_clickables, { }, { });

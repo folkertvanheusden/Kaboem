@@ -38,7 +38,6 @@ bool write_file(const std::string & file_name, const std::array<std::vector<clic
 	json samples = json::array();
 	for(auto & sample_file : sample_files) {
 		std::string compare_dir = sample_file.name.substr(0, std::min(dir.size(), sample_file.name.size()));
-		printf("%s %s\n", compare_dir.c_str(), dir.c_str());
 		if (compare_dir != dir)
 			samples.push_back(sample_file.name);
 		else
