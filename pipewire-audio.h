@@ -1,6 +1,7 @@
 #pragma once
 
 #include <shared_mutex>
+#include <sndfile.h>
 #include <thread>
 #include <vector>
 
@@ -35,13 +36,14 @@ public:
 	virtual ~sound_parameters() {
 	}
 
-	int                  sample_rate     { 0 };
-	int                  n_channels      { 0 };
+	int                  sample_rate     { 0       };
+	int                  n_channels      { 0       };
 
 	pipewire_data_audio  pw;
 
 	std::shared_mutex    sounds_lock;
 	std::vector<std::pair<sound *, double> > sounds;
+	SNDFILE             *record_handle   { nullptr };
 
 	double               global_volume;
 };

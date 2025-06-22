@@ -78,6 +78,10 @@ void on_process_audio(void *userdata)
 
 		if (pw_stream_queue_buffer(sp->pw.stream, b))
 			printf("pw_stream_queue_buffer failed\n");
+
+		std::shared_lock lck(sp->sounds_lock);
+		if (sp->record_handle) 
+			sf_writef_double(sp->record_handle, dest, period_size);
 	}
 	else {
 		printf("no buffer\n");

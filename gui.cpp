@@ -6,6 +6,7 @@
 #include <ctime>
 #include <format>
 #include <optional>
+#include <sndfile.h>
 #include <vector>
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
@@ -121,7 +122,7 @@ std::vector<clickable> generate_menu_button(const int w, const int h)
 	return clickables;
 }
 
-std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, size_t *const bpm_up, size_t *const bpm_down, size_t *const bpm_up_10, size_t *const bpm_down_10, int *const bpm_x, int *const bpm_y, int *const button_w, int *const button_h)
+std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, size_t *const bpm_up, size_t *const bpm_down, size_t *const bpm_up_10, size_t *const bpm_down_10, int *const bpm_x, int *const bpm_y, int *const button_w, int *const button_h, size_t *const record_idx)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -138,6 +139,14 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 		c.where    = { x, y, menu_button_width, menu_button_height };
 		c.text     = "load";
 		*load_idx  = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
+	{
+		clickable c { };
+		c.where    = { x, y, menu_button_width, menu_button_height };
+		c.text     = "record";
+		*record_idx  = clickables.size();
 		clickables.push_back(c);
 		x += menu_button_width;
 	}
@@ -335,7 +344,7 @@ int main(int argc, char *argv[])
 	int  bpm    = 135;
 
 	enum { m_pattern, m_menu } mode                = m_pattern;
-	enum { fs_load, fs_save, fs_none, fs_load_sample } fs_action = fs_none;
+	enum { fs_load, fs_save, fs_none, fs_load_sample, fs_record } fs_action = fs_none;
 	size_t fs_action_sample_index                  = 0;
 	fileselector_data      fs_data { };
 	std::array<std::vector<clickable>, pattern_groups> pat_clickables;
@@ -358,7 +367,8 @@ int main(int argc, char *argv[])
 	int    bpm_y       = 0;
 	int    m_button_w  = 0;
 	int    m_button_h  = 0;
-	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_up, &bpm_down, &bpm_up_10, &bpm_down_10, &bpm_x, &bpm_y, &m_button_w, &m_button_h);
+	size_t record_idx  = 0;
+	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_up, &bpm_down, &bpm_up_10, &bpm_down_10, &bpm_x, &bpm_y, &m_button_w, &m_button_h, &record_idx);
 	std::string            menu_status;
 
 	for(size_t i=0; i<pattern_groups; i++)
@@ -368,6 +378,7 @@ int main(int argc, char *argv[])
 
 	SDL_DialogFileFilter sf_filters[]        { { "Kaboem files", "kaboem"  } };
 	SDL_DialogFileFilter sf_filters_sample[] { { "Samples",      "wav;mp3" } };
+	SDL_DialogFileFilter sf_filters_record[] { { "Record",       "wav"     } };
 
 	if (read_file("default.kaboem", &pat_clickables, &bpm, &samples)) {
 		for(size_t i=0; i<pattern_groups; i++) {
@@ -444,6 +455,21 @@ int main(int argc, char *argv[])
 						}
 						redraw = true;
 					}
+					fs_action = fs_none;
+				}
+			}
+			else if (fs_action == fs_record) {
+				if (fs_data.finished) {
+					std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+					SF_INFO si { };
+					si.samplerate = sample_rate;
+					si.channels   = 2;
+					si.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
+					sound_pars.record_handle = sf_open(fs_data.file.c_str(), SFM_WRITE, &si);
+					if (sound_pars.record_handle)
+						menu_buttons_clickables[record_idx].selected = true;
+					else
+						menu_status = "Cannot create " + fs_data.file;
 					fs_action = fs_none;
 				}
 			}
@@ -561,6 +587,22 @@ int main(int argc, char *argv[])
 						else if (idx == bpm_down_10) {
 							bpm = std::max(1, bpm - 10);
 						}
+						else if (idx == record_idx) {
+							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+							if (sound_pars.record_handle) {
+								sf_close(sound_pars.record_handle);
+								sound_pars.record_handle = nullptr;
+								menu_status = "recording stopped";
+								menu_buttons_clickables[record_idx].selected = false;
+							}
+							else {
+								lck.unlock();
+
+								fs_data.finished = false;
+								fs_action = fs_record;
+								SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters_record, 1, path.c_str());
+							}
+						}
 						sleep_ms = 60 * 1000 / bpm;
 					}
 					else if (sample_clicked.has_value()) {
@@ -585,6 +627,12 @@ int main(int argc, char *argv[])
 	pw_main_loop_quit(sound_pars.pw.loop);
 	sound_pars.pw.th->join();
 	delete sound_pars.pw.th;
+
+	{  // stop any recording
+		std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+		if (sound_pars.record_handle)
+			sf_close(sound_pars.record_handle);
+	}
 
 	write_file(path + "/default.kaboem", pat_clickables, bpm, samples);
 
