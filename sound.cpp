@@ -68,14 +68,8 @@ void on_process_audio(void *userdata)
 			double *current_sample_base_in  = &temp_buffer[t * sp->n_channels];
 			double *current_sample_base_out = &dest[t * sp->n_channels];
 
-			for(int c=0; c<sp->n_channels; c++) {
-				current_sample_base_out[c] = current_sample_base_in[c] * sp->global_volume;
-
-				if (current_sample_base_out[c] < -1.)  // TODO std::clamp
-					current_sample_base_out[c] = -1.;
-				else if (current_sample_base_out[c] > 1.)
-					current_sample_base_out[c] = 1.;
-			}
+			for(int c=0; c<sp->n_channels; c++)
+				current_sample_base_out[c] = std::clamp(current_sample_base_in[c] * sp->global_volume, -1., 1.);
 		}
 
 		buf->datas[0].chunk->offset = 0;
