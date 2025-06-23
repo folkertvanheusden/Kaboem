@@ -1,2 +1,4 @@
-- set steps per channel?
+- set steps per channel? -> LCM
 - error dialog
+- stepper in seperate thread
+- midi input/output
