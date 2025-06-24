@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
 
@@ -34,16 +35,22 @@ bool write_file(const std::string & file_name, const std::array<std::vector<clic
 		patterns.push_back(group_pattern);
 	}
 
-	std::string dir = get_dirname(file_name);
+	std::filesystem::path from     = file_name;
+	std::filesystem::path from_dir = from.parent_path();
+
 	json samples          = json::array();
 	json sample_vol_left  = json::array();
 	json sample_vol_right = json::array();
 	for(auto & sample_file : sample_files) {
-		std::string compare_dir = sample_file.name.substr(0, std::min(dir.size(), sample_file.name.size()));
-		if (compare_dir != dir)
+		try {
+			std::string filename = std::filesystem::relative(sample_file.name, from_dir);
+			samples.push_back(filename);
+		}
+		// fs::relative throws filesystem_error if paths don't share a common prefix
+		catch(std::filesystem::filesystem_error & fe) {
 			samples.push_back(sample_file.name);
-		else
-			samples.push_back(get_filename(sample_file.name));
+		}
+
 		if (sample_file.s) {
 			sample_vol_left. push_back(sample_file.s->get_mapping_target_volume(0));
 			sample_vol_right.push_back(sample_file.s->get_mapping_target_volume(1));
