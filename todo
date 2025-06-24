@@ -1,3 +1,4 @@
 - set steps per channel? -> LCM
 - error dialog
-- midi input/output
+- midi input
+- fix .kaboem-file & samples: when loading, keep track of relative path immediately?
