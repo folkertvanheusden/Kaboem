@@ -123,12 +123,12 @@ std::vector<clickable> generate_menu_button(const int w, const int h)
 }
 
 struct up_down_widget {
-	size_t bpm_up;
-	size_t bpm_down;
-	size_t bpm_up_10;
-	size_t bpm_down_10;
-	int    bpm_x;
-	int    bpm_y;
+	size_t up;
+	size_t down;
+	size_t up_10;
+	size_t down_10;
+	int    x;
+	int    y;
 	int    text_w;
 	int    text_h;
 };
@@ -152,32 +152,32 @@ std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, 
 	y += menu_button_height / 3;
 	cbpm.where    = { x + x_offset, y, menu_button_width - x_offset, menu_button_height / 3 };
 	cbpm.text     = "↑";
-	pars->bpm_up    = clickables.size() + click_offset;
+	pars->up      = clickables.size() + click_offset;
 	clickables.push_back(cbpm);
 	y += menu_button_height / 3;
 	cbpm.where    = { x + x_offset, y, menu_button_width - x_offset, menu_button_height / 3 };
 	cbpm.text     = "↑↑↑";
-	pars->bpm_up_10 = clickables.size() + click_offset;
+	pars->up_10   = clickables.size() + click_offset;
 	clickables.push_back(cbpm);
 	y += menu_button_height / 3;
-	pars->bpm_x = x + x_offset;
-	pars->bpm_y = y;
+	pars->x       = x + x_offset;
+	pars->y       = y;
 	y += menu_button_height / 3;
 	cbpm.where    = { x + x_offset, y, menu_button_width - x_offset, menu_button_height / 3 };
 	cbpm.text     = "↓";
-	pars->bpm_down     = clickables.size() + click_offset;
+	pars->down    = clickables.size() + click_offset;
 	clickables.push_back(cbpm);
 	y += menu_button_height / 3;
 	cbpm.where    = { x + x_offset, y, menu_button_width - x_offset, menu_button_height / 3 };
 	cbpm.text     = "↓↓↓";
-	pars->bpm_down_10  = clickables.size() + click_offset;
+	pars->down_10 = clickables.size() + click_offset;
 	clickables.push_back(cbpm);
 	y += menu_button_height / 3;
 
 	return clickables;
 }
 
-std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *bpm_widget_pars, size_t *const record_idx)
+std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx, up_down_widget *const volume_widget_pars)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -229,6 +229,9 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 
 	std::vector<clickable> bpm_widget = generate_up_down_widget(w, h, 0, y, "BPM", clickables.size(), bpm_widget_pars);
 	std::copy(bpm_widget.begin(), bpm_widget.end(), std::back_inserter(clickables));
+
+	std::vector<clickable> volume_widget = generate_up_down_widget(w, h, menu_button_width, y, "vol", clickables.size(), volume_widget_pars);
+	std::copy(volume_widget.begin(), volume_widget.end(), std::back_inserter(clickables));
 
 	return clickables;
 }
@@ -369,6 +372,7 @@ int main(int argc, char *argv[])
 	bool redraw = true;
 	int  steps  = 16;
 	int  bpm    = 135;
+	int  vol    = 100;
 
 	enum { m_pattern, m_menu } mode                = m_pattern;
 	enum { fs_load, fs_save, fs_none, fs_load_sample, fs_record } fs_action = fs_none;
@@ -388,7 +392,8 @@ int main(int argc, char *argv[])
 	size_t         quit_idx    = 0;
 	up_down_widget bpm_widget   { };
 	size_t         record_idx  = 0;
-	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx);
+	up_down_widget vol_widget   { };
+	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget);
 	std::string            menu_status;
 
 	for(size_t i=0; i<pattern_groups; i++)
@@ -521,7 +526,8 @@ int main(int argc, char *argv[])
 				}
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 				draw_clickables(font, screen, menu_buttons_clickables, { }, { });
-				draw_text(font, screen, bpm_widget.bpm_x, bpm_widget.bpm_y, std::format("{}", bpm), { { bpm_widget.text_w, bpm_widget.text_h } });
+				draw_text(font, screen, bpm_widget.x, bpm_widget.y, std::format("{}", bpm), { { bpm_widget.text_w, bpm_widget.text_h } });
+				draw_text(font, screen, vol_widget.x, vol_widget.y, std::format("{}", vol), { { vol_widget.text_w, vol_widget.text_h } });
 			}
 			else {
 				fprintf(stderr, "Internal error: %d\n", mode);
@@ -604,17 +610,29 @@ int main(int argc, char *argv[])
 						else if (idx == quit_idx) {
 							do_exit = true;
 						}
-						else if (idx == bpm_widget.bpm_up) {
+						else if (idx == bpm_widget.up) {
 							bpm++;
 						}
-						else if (idx == bpm_widget.bpm_up_10) {
+						else if (idx == bpm_widget.up_10) {
 							bpm += 10;
 						}
-						else if (idx == bpm_widget.bpm_down) {
+						else if (idx == bpm_widget.down) {
 							bpm = std::max(1, bpm - 1);
 						}
-						else if (idx == bpm_widget.bpm_down_10) {
+						else if (idx == bpm_widget.down_10) {
 							bpm = std::max(1, bpm - 10);
+						}
+						else if (idx == vol_widget.up) {
+							vol = std::min(110, vol + 1);  // this one goes to 11
+						}
+						else if (idx == vol_widget.up_10) {
+							vol = std::min(110, vol + 10);
+						}
+						else if (idx == vol_widget.down) {
+							vol = std::max(0, vol - 1);
+						}
+						else if (idx == vol_widget.down_10) {
+							vol = std::max(0, vol - 10);
 						}
 						else if (idx == record_idx) {
 							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
@@ -632,7 +650,9 @@ int main(int argc, char *argv[])
 								SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters_record, 1, path.c_str());
 							}
 						}
-						sleep_ms = 60 * 1000 / bpm;
+						sleep_ms                 = 60 * 1000 / bpm;
+						std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+						sound_pars.global_volume = vol / 100.;
 					}
 					else if (sample_clicked.has_value()) {
 						fs_action_sample_index = sample_clicked.value();
