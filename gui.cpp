@@ -513,7 +513,7 @@ int main(int argc, char *argv[])
 						if (s.s) {
 							bool is_stereo = s.s->get_n_channels() >= 2;
 							s.s->add_mapping(0, 0, 1.0);
-							s.s->add_mapping(is_stereo ? 0 : 1, 1, 1.0);
+							s.s->add_mapping(is_stereo ? 1 : 0, 1, 1.0);
 
 							menu_status = "file " + get_filename(fs_data.file) + " read";
 							channel_clickables[fs_action_sample_index].text = get_filename(s.name).substr(0, 5);
@@ -573,10 +573,12 @@ int main(int argc, char *argv[])
 			}
 			else if (mode == m_sample) {
 				std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-				int vol_left  = 0;
-				int vol_right = 0;
+				int  vol_left  = 0;
+				int  vol_right = 0;
+				bool is_stereo = false;
 				sound_sample *const s = samples[fs_action_sample_index].s;
 				if (s) {
+					is_stereo = s->get_n_channels() >= 2;
 					vol_left  = s->get_mapping_target_volume(0) * 100;
 					vol_right = s->get_mapping_target_volume(1) * 100;
 				}
@@ -588,8 +590,10 @@ int main(int argc, char *argv[])
 				draw_clickables(font, screen, sample_buttons_clickables, { }, { });
 				draw_text(font, screen, sample_vol_widget_left.x,  sample_vol_widget_left.y,  std::to_string(vol_left),
 					{ { sample_vol_widget_left.text_w,  sample_vol_widget_left.text_h } });
-				draw_text(font, screen, sample_vol_widget_right.x, sample_vol_widget_right.y, std::to_string(vol_right),
-					{ { sample_vol_widget_right.text_w, sample_vol_widget_right.text_h } });
+				if (is_stereo) {
+					draw_text(font, screen, sample_vol_widget_right.x, sample_vol_widget_right.y, std::to_string(vol_right),
+						{ { sample_vol_widget_right.text_w, sample_vol_widget_right.text_h } });
+				}
 			}
 			else {
 				fprintf(stderr, "Internal error: %d\n", mode);
@@ -756,32 +760,43 @@ int main(int argc, char *argv[])
 						else {
 							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 							sound_sample *const s = samples[fs_action_sample_index].s;
+							bool is_stereo = s->get_n_channels() >= 2;
 
 							if (s == nullptr) {
 							}
 							else if (idx == sample_vol_widget_left.up) {
 								s->set_mapping_target_volume(0, std::min(1.1, s->get_mapping_target_volume(0) + 0.01));
+								if (!is_stereo)
+									s->set_mapping_target_volume(1, std::min(1.1, s->get_mapping_target_volume(1) + 0.01));
 							}
 							else if (idx == sample_vol_widget_left.up_10) {
 								s->set_mapping_target_volume(0, std::min(1.1, s->get_mapping_target_volume(0) + 0.1));
+								if (!is_stereo)
+									s->set_mapping_target_volume(1, std::min(1.1, s->get_mapping_target_volume(1) + 0.1));
 							}
 							else if (idx == sample_vol_widget_left.down) {
 								s->set_mapping_target_volume(0, std::max(0., s->get_mapping_target_volume(0) - 0.01));
+								if (!is_stereo)
+									s->set_mapping_target_volume(1, std::max(0., s->get_mapping_target_volume(1) - 0.01));
 							}
 							else if (idx == sample_vol_widget_left.down_10) {
 								s->set_mapping_target_volume(0, std::max(0., s->get_mapping_target_volume(0) - 0.1));
+								if (!is_stereo)
+									s->set_mapping_target_volume(1, std::max(0., s->get_mapping_target_volume(1) - 0.1));
 							}
-							else if (idx == sample_vol_widget_right.up) {
-								s->set_mapping_target_volume(1, std::min(1.1, s->get_mapping_target_volume(1) + 0.01));
-							}
-							else if (idx == sample_vol_widget_right.up_10) {
-								s->set_mapping_target_volume(1, std::min(1.1, s->get_mapping_target_volume(1) + 0.1));
-							}
-							else if (idx == sample_vol_widget_right.down) {
-								s->set_mapping_target_volume(1, std::max(0., s->get_mapping_target_volume(1) - 0.01));
-							}
-							else if (idx == sample_vol_widget_right.down_10) {
-								s->set_mapping_target_volume(1, std::max(0., s->get_mapping_target_volume(1) - 0.1));
+							else if (is_stereo) {
+								if (idx == sample_vol_widget_right.up) {
+									s->set_mapping_target_volume(1, std::min(1.1, s->get_mapping_target_volume(1) + 0.01));
+								}
+								else if (idx == sample_vol_widget_right.up_10) {
+									s->set_mapping_target_volume(1, std::min(1.1, s->get_mapping_target_volume(1) + 0.1));
+								}
+								else if (idx == sample_vol_widget_right.down) {
+									s->set_mapping_target_volume(1, std::max(0., s->get_mapping_target_volume(1) - 0.01));
+								}
+								else if (idx == sample_vol_widget_right.down_10) {
+									s->set_mapping_target_volume(1, std::max(0., s->get_mapping_target_volume(1) - 0.1));
+								}
 							}
 						}
 					}
