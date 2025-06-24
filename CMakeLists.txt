@@ -16,6 +16,7 @@ add_executable(
   io.cpp
   pipewire.cpp
   pipewire-audio.cpp
+  player.cpp
   sample.cpp
   sound.cpp
 )

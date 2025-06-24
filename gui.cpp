@@ -14,6 +14,7 @@
 #include "io.h"
 #include "pipewire.h"
 #include "pipewire-audio.h"
+#include "player.h"
 #include "sample.h"
 #include "sound.h"
 
@@ -23,13 +24,6 @@ std::atomic_bool do_exit { false };
 void sigh(int s)
 {
 	do_exit = true;
-}
-
-uint64_t get_ms()
-{
-	timespec ts { };
-	clock_gettime(CLOCK_REALTIME, &ts);
-	return uint64_t(ts.tv_sec) * uint64_t(1000) + uint64_t(ts.tv_nsec / 1000000);
 }
 
 struct fileselector_data {
@@ -451,21 +445,17 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	int    sleep_ms       = 60 * 1000 / bpm;
-	size_t prev_pat_index = size_t(-1);
-	bool   paused         = false;
+	std::atomic_int  sleep_ms       = 60 * 1000 / bpm;
+	size_t           prev_pat_index = size_t(-1);
+	std::atomic_bool paused         = false;
+
+	std::thread player_thread([pat_clickables, samples, &sleep_ms, &sound_pars, &paused] {
+			player(pat_clickables, samples, &sleep_ms, &sound_pars, &paused, &do_exit);
+			});
 
 	while(!do_exit) {
 		size_t pat_index = get_ms() / sleep_ms % steps;
 		if (pat_index != prev_pat_index && !paused) {
-			std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-			for(size_t i=0; i<pattern_groups; i++) {
-				if (pat_clickables[i][pat_index].selected && samples[i].s)
-					sound_pars.sounds.push_back({ samples[i].s, 0 });
-			}
-			printf("%zu\n", sound_pars.sounds.size());
-			lck.unlock();
-			
 			redraw = true;
 			prev_pat_index = pat_index;
 		}
@@ -812,6 +802,8 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
+
+	player_thread.join();
 
 	pw_main_loop_quit(sound_pars.pw.loop);
 	sound_pars.pw.th->join();
