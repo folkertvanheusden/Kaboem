@@ -35,19 +35,31 @@ bool write_file(const std::string & file_name, const std::array<std::vector<clic
 	}
 
 	std::string dir = get_dirname(file_name);
-	json samples = json::array();
+	json samples          = json::array();
+	json sample_vol_left  = json::array();
+	json sample_vol_right = json::array();
 	for(auto & sample_file : sample_files) {
 		std::string compare_dir = sample_file.name.substr(0, std::min(dir.size(), sample_file.name.size()));
 		if (compare_dir != dir)
 			samples.push_back(sample_file.name);
 		else
 			samples.push_back(get_filename(sample_file.name));
+		if (sample_file.s) {
+			sample_vol_left. push_back(sample_file.s->get_mapping_target_volume(0));
+			sample_vol_right.push_back(sample_file.s->get_mapping_target_volume(1));
+		}
+		else {
+			sample_vol_left. push_back(0.);
+			sample_vol_right.push_back(0.);
+		}
 	}
 
 	json out;
-	out["bpm"]      = bpm;
-	out["patterns"] = patterns;
-	out["samples"]  = samples;
+	out["bpm"]              = bpm;
+	out["patterns"]         = patterns;
+	out["samples"]          = samples;
+	out["sample-vol-left"]  = sample_vol_left;
+	out["sample-vol-right"] = sample_vol_right;
 
 	try {
 		std::ofstream o(file_name);
@@ -104,8 +116,21 @@ bool read_file(const std::string & file_name, std::array<std::vector<clickable>,
 				s.s = find_sample(search_paths, s.name);
 				if (!s.s)
 					return false;
-				s.s->add_mapping(0, 0, 1.0);  // mono -> left
-				s.s->add_mapping(0, 1, 1.0);  // mono -> right
+				bool is_stereo = s.s->get_n_channels() >= 2;
+				if (j.contains("sample-vol-left")) {
+					s.s->add_mapping(0, 0, j["sample-vol-left"][group]);
+					if (is_stereo)
+						s.s->add_mapping(1, 1, j["sample-vol-right"][group]);
+					else
+						s.s->add_mapping(0, 1, 1.0);  // mono -> right
+				}
+				else {
+					s.s->add_mapping(0, 0, 1.0);
+					if (is_stereo)
+						s.s->add_mapping(0, 1, 1.0);  // mono -> right
+					else
+						s.s->add_mapping(1, 1, 1.0);
+				}
 			}
 		}
 

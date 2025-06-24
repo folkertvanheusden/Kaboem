@@ -71,6 +71,17 @@ public:
 		input_output_matrix[from].insert({ to, volume });
 	}
 
+	double get_mapping_target_volume(const int to)
+	{
+		for(auto & mapping: input_output_matrix) {
+			auto it = mapping.find(to);
+			if (it != mapping.end())
+				return it->second;
+		}
+
+		return 0.1;
+	}
+
 	void remove_mapping(const int from, const int to)
 	{
 		input_output_matrix[from].erase(to);
@@ -84,6 +95,17 @@ public:
 	void set_volume(const int from, const int to, const double v)
 	{
 		input_output_matrix[from][to] = v;
+	}
+
+	void set_mapping_target_volume(const int to, const double volume)
+	{
+		for(auto & mapping: input_output_matrix) {
+			auto it = mapping.find(to);
+			if (it != mapping.end()) {
+				it->second = volume;
+				break;
+			}
+		}
 	}
 
 	void set_volume(const double v)

@@ -2,3 +2,4 @@
   - stepper in seperate thread
 - error dialog
 - midi input/output
+- store samples with relative paths
