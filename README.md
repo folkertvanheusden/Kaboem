@@ -7,12 +7,7 @@ dim_cowbell_single_shot_studio_euf.wav, small-reverb-bass-drum-sound-a-key-10-G8
 
 To be able to compile and run this program, you need to install:
 
-    fonts-freefont-ttf
-    libpipewire-0.3-dev
-    libsdl3-dev
-    libsdl3-ttf-dev
-    libsndfile1-dev
-    nlohmann-json3-dev
+sudo apt install fonts-freefont-ttf libpipewire-0.3-dev libsdl3-dev libsdl3-ttf-dev libsndfile1-dev nlohmann-json3-dev
 
 To compile:
 * mkdir build

@@ -4,7 +4,6 @@
 #include <cmath>
 #include <csignal>
 #include <ctime>
-#include <format>
 #include <optional>
 #include <sndfile.h>
 #include <vector>
@@ -526,8 +525,8 @@ int main(int argc, char *argv[])
 				}
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 				draw_clickables(font, screen, menu_buttons_clickables, { }, { });
-				draw_text(font, screen, bpm_widget.x, bpm_widget.y, std::format("{}", bpm), { { bpm_widget.text_w, bpm_widget.text_h } });
-				draw_text(font, screen, vol_widget.x, vol_widget.y, std::format("{}", vol), { { vol_widget.text_w, vol_widget.text_h } });
+				draw_text(font, screen, bpm_widget.x, bpm_widget.y, std::to_string(bpm), { { bpm_widget.text_w, bpm_widget.text_h } });
+				draw_text(font, screen, vol_widget.x, vol_widget.y, std::to_string(vol), { { vol_widget.text_w, vol_widget.text_h } });
 			}
 			else {
 				fprintf(stderr, "Internal error: %d\n", mode);
