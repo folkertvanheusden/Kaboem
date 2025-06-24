@@ -176,7 +176,7 @@ std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, 
 	return clickables;
 }
 
-std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx, up_down_widget *const volume_widget_pars)
+std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx, up_down_widget *const volume_widget_pars, size_t *const pause_idx)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -185,6 +185,14 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 
 	int x = 0;
 	int y = 0;
+	{
+		clickable c { };
+		c.where    = { x, y, menu_button_width, menu_button_height };
+		c.text     = "pause";
+		*pause_idx = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
 	{
 		clickable c { };
 		c.where    = { x, y, menu_button_width, menu_button_height };
@@ -391,8 +399,9 @@ int main(int argc, char *argv[])
 	size_t         quit_idx    = 0;
 	up_down_widget bpm_widget   { };
 	size_t         record_idx  = 0;
+	size_t         pause_idx   = 0;
 	up_down_widget vol_widget   { };
-	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget);
+	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget, &pause_idx);
 	std::string            menu_status;
 
 	for(size_t i=0; i<pattern_groups; i++)
@@ -413,10 +422,11 @@ int main(int argc, char *argv[])
 
 	int    sleep_ms       = 60 * 1000 / bpm;
 	size_t prev_pat_index = size_t(-1);
+	bool   paused         = false;
 
 	while(!do_exit) {
 		size_t pat_index = get_ms() / sleep_ms % steps;
-		if (pat_index != prev_pat_index) {
+		if (pat_index != prev_pat_index && !paused) {
 			std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 			for(size_t i=0; i<pattern_groups; i++) {
 				if (pat_clickables[i][pat_index].selected && samples[i].s)
@@ -648,6 +658,10 @@ int main(int argc, char *argv[])
 								fs_action = fs_record;
 								SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters_record, 1, path.c_str());
 							}
+						}
+						else if (idx == pause_idx) {
+							paused = !paused;
+							menu_buttons_clickables[pause_idx].selected = paused;
 						}
 						sleep_ms                 = 60 * 1000 / bpm;
 						std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
