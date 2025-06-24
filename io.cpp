@@ -41,6 +41,7 @@ bool write_file(const std::string & file_name, const std::array<std::vector<clic
 	json samples          = json::array();
 	json sample_vol_left  = json::array();
 	json sample_vol_right = json::array();
+	json midi_notes       = json::array();
 	for(auto & sample_file : sample_files) {
 		try {
 			std::string filename = std::filesystem::relative(sample_file.name, from_dir);
@@ -59,6 +60,11 @@ bool write_file(const std::string & file_name, const std::array<std::vector<clic
 			sample_vol_left. push_back(0.);
 			sample_vol_right.push_back(0.);
 		}
+
+		if (sample_file.midi_note.has_value())
+			midi_notes.push_back(sample_file.midi_note.value());
+		else
+			midi_notes.push_back(-1);
 	}
 
 	json out;
@@ -67,6 +73,7 @@ bool write_file(const std::string & file_name, const std::array<std::vector<clic
 	out["samples"]          = samples;
 	out["sample-vol-left"]  = sample_vol_left;
 	out["sample-vol-right"] = sample_vol_right;
+	out["midi-notes"]       = midi_notes;
 
 	try {
 		std::ofstream o(file_name);
@@ -80,17 +87,6 @@ bool write_file(const std::string & file_name, const std::array<std::vector<clic
 	}
 
 	return false;
-}
-
-sound_sample *find_sample(const std::vector<std::string> & search_paths, const std::string & file_name)
-{
-	for(auto & path: search_paths) {
-		sound_sample *s = new sound_sample(sample_rate, path + "/" + file_name);
-		if (s->begin())
-			return s;
-		delete s;
-	}
-	return nullptr;
 }
 
 bool read_file(const std::string & file_name, std::array<std::vector<clickable>, pattern_groups> *const data, int *const bpm, std::array<sample, pattern_groups> *const sample_files)
@@ -116,11 +112,20 @@ bool read_file(const std::string & file_name, std::array<std::vector<clickable>,
 			sample & s = (*sample_files)[group];
 			s.name = j["samples"][group];
 			delete s.s;
-			if (s.name.empty())
-				s.s = nullptr;
-			else {
-				std::vector<std::string> search_paths { "./", get_dirname(file_name), get_current_dir_name() };
-				s.s = find_sample(search_paths, s.name);
+			s.s = nullptr;
+
+			if (j.contains("midi-notes")) {
+				int note = j["midi-notes"][group];
+				if (note != -1)
+					s.midi_note = note;
+			}
+
+			if (s.name.empty() == false) {
+				s.s = new sound_sample(sample_rate, s.name);
+				if (s.s->begin() == false) {
+					delete s.s;
+					s.s = nullptr;
+				}
 				if (!s.s)
 					return false;
 				bool is_stereo = s.s->get_n_channels() >= 2;

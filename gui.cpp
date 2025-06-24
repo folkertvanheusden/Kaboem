@@ -236,7 +236,7 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 	return clickables;
 }
 
-std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t *const sample_load_idx, up_down_widget *const vol_widget_left_pars, up_down_widget *const vol_widget_right_pars)
+std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t *const sample_load_idx, up_down_widget *const vol_widget_left_pars, up_down_widget *const vol_widget_right_pars, up_down_widget *const midi_note_widget_pars)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -259,6 +259,9 @@ std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t 
 
 	std::vector<clickable> vol_right_widget = generate_up_down_widget(w, h, menu_button_width, y, "right", clickables.size(), vol_widget_right_pars);
 	std::copy(vol_right_widget.begin(), vol_right_widget.end(), std::back_inserter(clickables));
+
+	std::vector<clickable> midi_note_widget = generate_up_down_widget(w, h, menu_button_width * 2, y, "MIDI note", clickables.size(), midi_note_widget_pars);
+	std::copy(midi_note_widget.begin(), midi_note_widget.end(), std::back_inserter(clickables));
 
 	return clickables;
 }
@@ -405,6 +408,7 @@ int main(int argc, char *argv[])
 	enum { fs_load, fs_save, fs_none, fs_load_sample, fs_record } fs_action = fs_none;
 	size_t fs_action_sample_index                  = 0;
 	fileselector_data      fs_data { };
+	std::shared_mutex      pat_clickables_lock;
 	std::array<std::vector<clickable>, pattern_groups> pat_clickables;
 	std::optional<size_t>  pat_clickable_selected;
 	size_t                 pattern_group           = 0;
@@ -427,7 +431,8 @@ int main(int argc, char *argv[])
 	size_t         sample_load_idx        = 0;
 	up_down_widget sample_vol_widget_left   { };
 	up_down_widget sample_vol_widget_right  { };
-	std::vector<clickable> sample_buttons_clickables = generate_sample_buttons(display_mode->w, display_mode->h, &sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right);
+	up_down_widget midi_note_widget_pars    { };
+	std::vector<clickable> sample_buttons_clickables = generate_sample_buttons(display_mode->w, display_mode->h, &sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right, &midi_note_widget_pars);
 
 	for(size_t i=0; i<pattern_groups; i++)
 		pat_clickables[i] = generate_pattern_grid(display_mode->w, display_mode->h, steps);
@@ -449,8 +454,8 @@ int main(int argc, char *argv[])
 	size_t           prev_pat_index = size_t(-1);
 	std::atomic_bool paused         = false;
 
-	std::thread player_thread([pat_clickables, samples, &sleep_ms, &sound_pars, &paused] {
-			player(pat_clickables, samples, &sleep_ms, &sound_pars, &paused, &do_exit);
+	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused] {
+			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &do_exit);
 			});
 
 	while(!do_exit) {
@@ -465,8 +470,11 @@ int main(int argc, char *argv[])
 			if (fs_action == fs_load) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
+						{
+							std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+							read_file(fs_data.file, &pat_clickables, &bpm, &samples);
+						}
 						std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-						read_file(fs_data.file, &pat_clickables, &bpm, &samples);
 						sleep_ms = 60 * 1000 / bpm;
 						for(size_t i=0; i<pattern_groups; i++) {
 							if (samples[i].name.empty() == false)
@@ -485,6 +493,7 @@ int main(int argc, char *argv[])
 						size_t      file_len = file.size();
 						if (file_len > 7 && file.substr(file_len - 7) != ".kaboem")
 							file += ".kaboem";
+						std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 						write_file(file, pat_clickables, bpm, samples);
 						menu_status = "file " + get_filename(fs_data.file) + " written";
 					}
@@ -498,8 +507,13 @@ int main(int argc, char *argv[])
 						sample & s = samples[fs_action_sample_index];
 						s.name = fs_data.file;
 						delete s.s;
-						std::vector<std::string> search_paths { "./", path, get_current_dir_name(), "" };
-						s.s    = find_sample(search_paths, s.name);
+
+                                		s.s = new sound_sample(sample_rate, s.name);
+						if (s.s->begin() == false) {
+							delete s.s;
+							s.s = nullptr;
+						}
+
 						if (s.s) {
 							bool is_stereo = s.s->get_n_channels() >= 2;
 							s.s->add_mapping(0, 0, 1.0);
@@ -507,6 +521,7 @@ int main(int argc, char *argv[])
 
 							menu_status = "file " + get_filename(fs_data.file) + " read";
 							channel_clickables[fs_action_sample_index].text = get_filename(s.name).substr(0, 5);
+							printf("HIER %d\n", is_stereo);
 						}
 						else {
 							menu_status = "file " + get_filename(fs_data.file) + " NOT FOUND";
@@ -548,6 +563,7 @@ int main(int argc, char *argv[])
 			draw_clickables(font, screen, menu_button_clickables, { }, { });
 
 			if (mode == m_pattern) {
+				std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 				draw_clickables(font, screen, pat_clickables[pattern_group], pat_clickable_selected, pat_index);
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 				if (samples[pattern_group].name.empty() == false)
@@ -567,6 +583,7 @@ int main(int argc, char *argv[])
 				int  vol_right = 0;
 				bool is_stereo = false;
 				sound_sample *const s = samples[fs_action_sample_index].s;
+				auto midi_note = samples[fs_action_sample_index].midi_note;
 				if (s) {
 					is_stereo = s->get_n_channels() >= 2;
 					vol_left  = s->get_mapping_target_volume(0) * 100;
@@ -583,6 +600,10 @@ int main(int argc, char *argv[])
 				if (is_stereo) {
 					draw_text(font, screen, sample_vol_widget_right.x, sample_vol_widget_right.y, std::to_string(vol_right),
 						{ { sample_vol_widget_right.text_w, sample_vol_widget_right.text_h } });
+				}
+				if (midi_note.has_value()) {
+					draw_text(font, screen, midi_note_widget_pars.x, midi_note_widget_pars.y,  std::to_string(midi_note.value() + 1),
+						{ { midi_note_widget_pars.text_w,  midi_note_widget_pars.text_h } });
 				}
 			}
 			else {
@@ -622,6 +643,7 @@ int main(int argc, char *argv[])
 							channel_clickables[pattern_group].selected = true;
 						}
 						else {
+							std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 							pat_clickable_selected = find_clickable(pat_clickables[pattern_group], event.button.x, event.button.y);
 						}
 					}
@@ -640,18 +662,29 @@ int main(int argc, char *argv[])
 					else if (menus_clicked.has_value()) {
 						size_t idx = menus_clicked.value();
 						if (idx == clear_idx) {
-							write_file(path + "/before_clear.kaboem", pat_clickables, bpm, samples);
-							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-							sound_pars.sounds.clear();
-							for(size_t i=0; i<pattern_groups; i++) {
-								for(auto & element: pat_clickables[i])
-									element.selected = false;
+							{
+								std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+								write_file(path + "/before_clear.kaboem", pat_clickables, bpm, samples);
+							}
+							{
+								std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+								sound_pars.sounds.clear();
+							}
+							{
+								std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+								for(size_t i=0; i<pattern_groups; i++) {
+									for(auto & element: pat_clickables[i])
+										element.selected = false;
 
-								sample & s = samples[i];
-								delete s.s;
-								s.s = nullptr;
-								s.name.clear();
-								channel_clickables[i].text.clear();
+									{
+										std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+										sample & s = samples[i];
+										delete s.s;
+										s.s = nullptr;
+										s.name.clear();
+									}
+									channel_clickables[i].text.clear();
+								}
 							}
 							menu_status = "cleared";
 						}
@@ -750,9 +783,41 @@ int main(int argc, char *argv[])
 						else {
 							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 							sound_sample *const s = samples[fs_action_sample_index].s;
-							bool is_stereo = s->get_n_channels() >= 2;
+							auto & midi_note = samples[fs_action_sample_index].midi_note;
+							bool is_stereo   = s ? s->get_n_channels() >= 2 : false;
 
-							if (s == nullptr) {
+							if (idx == midi_note_widget_pars.up) {
+								if (midi_note.has_value() == false)
+									midi_note = 0;
+								else
+									midi_note = std::min(127, midi_note.value() + 1);
+							}
+							else if (idx == midi_note_widget_pars.up_10) {
+								if (midi_note.has_value() == false)
+									midi_note = 0;
+								else
+									midi_note = std::min(127, midi_note.value() + 10);
+							}
+							else if (idx == midi_note_widget_pars.down) {
+								if (midi_note.has_value() == false)
+									midi_note = 127;
+								else {
+									midi_note = std::max(-1, midi_note.value() - 1);
+									if (midi_note == -1)
+										midi_note.reset();
+								}
+							}
+							else if (idx == midi_note_widget_pars.down_10) {
+								if (midi_note.has_value() == false)
+									midi_note = 127;
+								else {
+									midi_note = std::max(-1, midi_note.value() - 10);
+									if (midi_note == -1)
+										midi_note.reset();
+								}
+							}
+							else if (s == nullptr) {
+								// skip volume when no sample
 							}
 							else if (idx == sample_vol_widget_left.up) {
 								s->set_mapping_target_volume(0, std::min(1.1, s->get_mapping_target_volume(0) + 0.01));
@@ -794,6 +859,7 @@ int main(int argc, char *argv[])
 				redraw = true;
 			}
 			else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+				std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 				if (pat_clickable_selected.has_value()) {
 					pat_clickables[pattern_group][pat_clickable_selected.value()].selected = !pat_clickables[pattern_group][pat_clickable_selected.value()].selected;
 					pat_clickable_selected.reset();
@@ -815,7 +881,10 @@ int main(int argc, char *argv[])
 			sf_close(sound_pars.record_handle);
 	}
 
-	write_file(path + "/default.kaboem", pat_clickables, bpm, samples);
+	{
+		std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+		write_file(path + "/default.kaboem", pat_clickables, bpm, samples);
+	}
 
 	unload_sample_cache();
 

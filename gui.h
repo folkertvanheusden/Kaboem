@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <SDL3/SDL.h>
 
@@ -14,8 +15,9 @@ struct clickable {
 
 struct sample
 {
-	sound_sample *s;
-	std::string   name;
+	sound_sample      *s;
+	std::string        name;
+	std::optional<int> midi_note;
 };
 
 constexpr const int    sample_rate    = 44100;

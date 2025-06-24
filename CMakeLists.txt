@@ -43,6 +43,11 @@ target_link_libraries(kaboem ${SNDFILE_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${SNDFILE_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${SNDFILE_CFLAGS_OTHER})
 
+pkg_check_modules(MIDI REQUIRED alsa)
+target_link_libraries(kaboem ${MIDI_LIBRARIES})
+target_include_directories(kaboem PUBLIC ${MIDI_INCLUDE_DIRS})
+target_compile_options(kaboem PUBLIC ${MIDI_CFLAGS_OTHER})
+
 find_package(PipeWire)
 pkg_check_modules(PIPEWIRE libpipewire-0.3)
 target_link_libraries(kaboem ${PIPEWIRE_LIBRARIES})

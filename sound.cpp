@@ -33,7 +33,7 @@ void on_process_audio(void *userdata)
 	//printf("latency: %.2fms, channel count: %d\n", period_size * 1000.0 / sp->sample_rate, sp->n_channels);
 
 	{
-		std::shared_lock lck(sp->sounds_lock);
+		std::shared_lock<std::shared_mutex> lck(sp->sounds_lock);
 
 		for(int t=0; t<period_size; t++) {
 			double *current_sample_base = &temp_buffer[t * sp->n_channels];
