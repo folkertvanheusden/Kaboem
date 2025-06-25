@@ -942,12 +942,12 @@ int main(int argc, char *argv[])
 								}
 							}
 							else if (idx == n_steps_pars.up) {
-								pat_clickables[pattern_group].dim = std::min(max_pattern_dim, pat_clickables[pattern_group].dim + 1);
-								regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
+								pat_clickables[fs_action_sample_index].dim = std::min(max_pattern_dim, pat_clickables[fs_action_sample_index].dim + 1);
+								regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[fs_action_sample_index]);
 							}
 							else if (idx == n_steps_pars.down) {
-								pat_clickables[pattern_group].dim = std::max(size_t(2), pat_clickables[pattern_group].dim - 1);
-								regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
+								pat_clickables[fs_action_sample_index].dim = std::max(size_t(2), pat_clickables[fs_action_sample_index].dim - 1);
+								regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[fs_action_sample_index]);
 							}
 							else if (s == nullptr) {
 								// skip volume when no sample
@@ -1027,8 +1027,8 @@ int main(int argc, char *argv[])
 
 	unload_sample_cache();
 
-	TTF_Quit();
 	SDL_Quit();
+	TTF_Quit();
 
 	return 0;
 }
