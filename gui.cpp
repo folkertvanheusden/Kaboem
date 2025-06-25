@@ -593,27 +593,34 @@ int main(int argc, char *argv[])
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
 						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
-						sample & s = samples[fs_action_sample_index];
-						s.name = fs_data.file;
-						delete s.s;
+						sample *const s = &samples[fs_action_sample_index];
+						s->name = fs_data.file;
+						auto *old_s_pointer = s->s;
+						delete s->s;
 
-                                		s.s = new sound_sample(sample_rate, s.name);
-						if (s.s->begin() == false) {
-							delete s.s;
-							s.s = nullptr;
+                                		s->s = new sound_sample(sample_rate, s->name);
+						if (s->s->begin() == false) {
+							delete s->s;
+							s->s = nullptr;
 						}
 
-						if (s.s) {
-							bool is_stereo = s.s->get_n_channels() >= 2;
-							s.s->add_mapping(0, 0, 1.0);
-							s.s->add_mapping(is_stereo ? 1 : 0, 1, 1.0);
+						if (s->s) {
+							bool is_stereo = s->s->get_n_channels() >= 2;
+							s->s->add_mapping(0, 0, 1.0);
+							s->s->add_mapping(is_stereo ? 1 : 0, 1, 1.0);
 
 							menu_status = "file " + get_filename(fs_data.file) + " read";
-							channel_clickables[fs_action_sample_index].text = get_filename(s.name).substr(0, 5);
+							channel_clickables[fs_action_sample_index].text = get_filename(s->name).substr(0, 5);
 						}
 						else {
 							menu_status = "file " + get_filename(fs_data.file) + " NOT FOUND";
 						}
+
+						for(size_t i=0; i<sound_pars.sounds.size(); i++) {
+							if (sound_pars.sounds[i].first == old_s_pointer)
+								sound_pars.sounds[i].first = s->s;
+						}
+
 						redraw = true;
 					}
 					fs_action = fs_none;

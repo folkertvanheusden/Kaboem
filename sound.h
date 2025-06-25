@@ -32,12 +32,12 @@ class sound
 {
 protected:
 	int    sample_rate { 44100 };
-	double frequency   { 100. };
+	double frequency   { 100.  };
 
-	double pitchbend   { 1.   };
+	double pitchbend   { 1.    };
 
-	double t           { 0.   };
-	double delta_t     { 0.   };
+	double t           { 0.    };
+	double delta_t     { 0.    };
 
 	double volume_at_end_start { 0. };
 
