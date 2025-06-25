@@ -158,7 +158,7 @@ struct up_down_widget {
 	int    text_h;
 };
 
-std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, int y, const std::string & name, const size_t click_offset, up_down_widget *const pars)
+std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, int y, const std::string & name, const size_t click_offset, up_down_widget *const pars, const bool step10 = true)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -179,22 +179,32 @@ std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, 
 	pars->up      = clickables.size() + click_offset;
 	clickables.push_back(cbpm);
 	y += menu_button_height / 3;
-	cbpm.where    = { x, y, menu_button_width, menu_button_height / 3 };
-	cbpm.text     = "↑↑↑";
-	pars->up_10   = clickables.size() + click_offset;
-	clickables.push_back(cbpm);
+	if (step10) {
+		cbpm.where    = { x, y, menu_button_width, menu_button_height / 3 };
+		cbpm.text     = "↑↑↑";
+		pars->up_10   = clickables.size() + click_offset;
+		clickables.push_back(cbpm);
+	}
+	else {
+		pars->up_10   = size_t(-1);
+	}
 	y += menu_button_height / 3;
 	pars->x       = x;
 	pars->y       = y;
 	y += menu_button_height / 3;
+	if (step10) {
+		cbpm.where    = { x, y, menu_button_width, menu_button_height / 3 };
+		cbpm.text     = "↓↓↓";
+		pars->down_10 = clickables.size() + click_offset;
+		clickables.push_back(cbpm);
+	}
+	else {
+		pars->down_10 = size_t(-1);
+	}
+	y += menu_button_height / 3;
 	cbpm.where    = { x, y, menu_button_width, menu_button_height / 3 };
 	cbpm.text     = "↓";
 	pars->down    = clickables.size() + click_offset;
-	clickables.push_back(cbpm);
-	y += menu_button_height / 3;
-	cbpm.where    = { x, y, menu_button_width, menu_button_height / 3 };
-	cbpm.text     = "↓↓↓";
-	pars->down_10 = clickables.size() + click_offset;
 	clickables.push_back(cbpm);
 	y += menu_button_height / 3;
 
@@ -271,7 +281,7 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 	return clickables;
 }
 
-std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t *const sample_load_idx, up_down_widget *const vol_widget_left_pars, up_down_widget *const vol_widget_right_pars, up_down_widget *const midi_note_widget_pars)
+std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t *const sample_load_idx, up_down_widget *const vol_widget_left_pars, up_down_widget *const vol_widget_right_pars, up_down_widget *const midi_note_widget_pars, up_down_widget *const n_steps_pars)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -298,34 +308,54 @@ std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t 
 	std::vector<clickable> midi_note_widget = generate_up_down_widget(w, h, menu_button_width * 2, y, "MIDI note", clickables.size(), midi_note_widget_pars);
 	std::copy(midi_note_widget.begin(), midi_note_widget.end(), std::back_inserter(clickables));
 
+	std::vector<clickable> n_steps_widget = generate_up_down_widget(w, h, menu_button_width * 3, y, "steps", clickables.size(), n_steps_pars, false);
+	std::copy(n_steps_widget.begin(), n_steps_widget.end(), std::back_inserter(clickables));
+
 	return clickables;
 }
 
-std::vector<clickable> generate_pattern_grid(const int w, const int h, const int steps)
+pattern generate_pattern_grid(const int w, const int h, const int steps)
 {
 	int pattern_w   = w * 85 / 100;
 	int pattern_h   = h * 95 / 100;
 	int offset_h    = h * 5 / 100;
 
-	int sq_steps    = sqrt(steps);
-	int steps_w     = steps / sq_steps;
-	int steps_h     = steps / steps_w;
+	int steps_sq    = ceil(sqrt(steps));
+	int step_width  = pattern_w / steps_sq;
+	int step_height = pattern_h / steps_sq;
 
-	int step_width  = pattern_w / steps_w;
-	int step_height = pattern_h / steps_h;
-
-	std::vector<clickable> clickables;
+	pattern p;
+	p.pattern.resize(max_pattern_dim);
+	p.dim = steps;
 
 	for(int i=0; i<steps; i++) {
-		int x = (i % steps_w) * step_width;
-		int y = (i / steps_w) * step_height + offset_h;
+		int x = (i % steps_sq) * step_width;
+		int y = (i / steps_sq) * step_height + offset_h;
 		clickable c { };
 		c.where    = { x, y, step_width, step_height };
 		c.selected = false;
-		clickables.push_back(c);
+		p.pattern.at(i) = c;
 	}
 
-	return clickables;
+	return p;
+}
+
+void regenerate_pattern_grid(const int w, const int h, pattern *const p)
+{
+	int pattern_w   = w * 85 / 100;
+	int pattern_h   = h * 95 / 100;
+	int offset_h    = h * 5 / 100;
+
+	int steps_sq    = ceil(sqrt(p->dim));
+	printf("%zu: %d\n", p->dim, steps_sq);
+	int step_width  = pattern_w / steps_sq;
+	int step_height = pattern_h / steps_sq;
+
+	for(size_t i=0; i<p->dim; i++) {
+		int x = (i % steps_sq) * step_width;
+		int y = (i / steps_sq) * step_height + offset_h;
+		p->pattern.at(i).where = { x, y, step_width, step_height };
+	}
 }
 
 void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, const int y, const std::string & text, const std::optional<std::pair<int, int> > & center_in)
@@ -352,9 +382,11 @@ void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, co
 	SDL_DestroySurface(surface);
 }
 
-void draw_clickables(TTF_Font *const font, SDL_Renderer *const screen, const std::vector<clickable> & clickables, const std::optional<size_t> hl_index, const std::optional<size_t> play_index)
+void draw_clickables(TTF_Font *const font, SDL_Renderer *const screen, const std::vector<clickable> & clickables, const std::optional<size_t> hl_index, const std::optional<size_t> play_index, const ssize_t draw_limit = -1)
 {
-	for(size_t i=0; i<clickables.size(); i++) {
+	size_t draw_n = draw_limit == -1 ? clickables.size() : draw_limit;
+
+	for(size_t i=0; i<draw_n; i++) {
 		bool hl = hl_index  .has_value() == true && hl_index  .value() == i;
 		bool pl = play_index.has_value() == true && play_index.value() == i;
 		std::vector<int> color;
@@ -447,7 +479,7 @@ int main(int argc, char *argv[])
 	size_t fs_action_sample_index                  = 0;
 	fileselector_data      fs_data { };
 	std::shared_mutex      pat_clickables_lock;
-	std::array<std::vector<clickable>, pattern_groups> pat_clickables;
+	std::array<pattern, pattern_groups> pat_clickables;
 	std::optional<size_t>  pat_clickable_selected;
 	size_t                 pattern_group           = 0;
 
@@ -472,7 +504,8 @@ int main(int argc, char *argv[])
 	up_down_widget sample_vol_widget_left   { };
 	up_down_widget sample_vol_widget_right  { };
 	up_down_widget midi_note_widget_pars    { };
-	std::vector<clickable> sample_buttons_clickables = generate_sample_buttons(display_mode->w, display_mode->h, &sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right, &midi_note_widget_pars);
+	up_down_widget n_steps_pars             { };
+	std::vector<clickable> sample_buttons_clickables = generate_sample_buttons(display_mode->w, display_mode->h, &sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right, &midi_note_widget_pars, &n_steps_pars);
 
 	for(size_t i=0; i<pattern_groups; i++)
 		pat_clickables[i] = generate_pattern_grid(display_mode->w, display_mode->h, steps);
@@ -488,6 +521,8 @@ int main(int argc, char *argv[])
 			if (samples[i].name.empty() == false)
 				channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
 		}
+
+		regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
 	}
 
 	std::atomic_int  sleep_ms       = 60 * 1000 / bpm;
@@ -500,7 +535,7 @@ int main(int argc, char *argv[])
 			});
 
 	while(!do_exit) {
-		size_t pat_index = get_ms() / sleep_ms % steps;
+		size_t pat_index = get_ms() / sleep_ms % pat_clickables[pattern_group].dim;
 		if (pat_index != prev_pat_index && !paused) {
 			redraw = true;
 			prev_pat_index = pat_index;
@@ -513,7 +548,7 @@ int main(int argc, char *argv[])
 				uint8_t ch = ev->data.note.channel;
 				if (selected_midi_channel.has_value() && ch == selected_midi_channel) {
 					std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-					pat_clickables[pattern_group][pat_index].selected = true;
+					pat_clickables[pattern_group].pattern[pat_index].selected = true;
 					redraw = true;
 				}
 			}
@@ -524,11 +559,10 @@ int main(int argc, char *argv[])
 			if (fs_action == fs_load) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
-						{
-							std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-							read_file(fs_data.file, &pat_clickables, &bpm, &samples);
-						}
 						std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+						read_file(fs_data.file, &pat_clickables, &bpm, &samples);
+
 						sleep_ms = 60 * 1000 / bpm;
 						for(size_t i=0; i<pattern_groups; i++) {
 							if (samples[i].name.empty() == false)
@@ -536,6 +570,7 @@ int main(int argc, char *argv[])
 						}
 						redraw = true;
 						menu_status = "file " + get_filename(fs_data.file) + " read";
+						regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
 					}
 					fs_action = fs_none;
 				}
@@ -618,7 +653,7 @@ int main(int argc, char *argv[])
 
 			if (mode == m_pattern) {
 				std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-				draw_clickables(font, screen, pat_clickables[pattern_group], pat_clickable_selected, pat_index);
+				draw_clickables(font, screen, pat_clickables[pattern_group].pattern, pat_clickable_selected, pat_index, pat_clickables[pattern_group].dim);
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 				if (samples[pattern_group].name.empty() == false)
 					draw_text(font, screen, 0, display_mode->h / 2 / 100, samples[pattern_group].name, { });
@@ -663,6 +698,8 @@ int main(int argc, char *argv[])
 					draw_text(font, screen, midi_note_widget_pars.x, midi_note_widget_pars.y,  std::to_string(midi_note.value() + 1),
 						{ { midi_note_widget_pars.text_w,  midi_note_widget_pars.text_h } });
 				}
+				draw_text(font, screen, n_steps_pars.x, n_steps_pars.y, std::to_string(pat_clickables[fs_action_sample_index].dim),
+					{ { n_steps_pars.text_w, n_steps_pars.text_h } });
 			}
 			else {
 				fprintf(stderr, "Internal error: %d\n", mode);
@@ -702,7 +739,7 @@ int main(int argc, char *argv[])
 						}
 						else {
 							std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-							pat_clickable_selected = find_clickable(pat_clickables[pattern_group], event.button.x, event.button.y);
+							pat_clickable_selected = find_clickable(pat_clickables[pattern_group].pattern, event.button.x, event.button.y);
 						}
 					}
 				}
@@ -731,7 +768,7 @@ int main(int argc, char *argv[])
 							{
 								std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 								for(size_t i=0; i<pattern_groups; i++) {
-									for(auto & element: pat_clickables[i])
+									for(auto & element: pat_clickables[i].pattern)
 										element.selected = false;
 
 									{
@@ -904,6 +941,14 @@ int main(int argc, char *argv[])
 										midi_note.reset();
 								}
 							}
+							else if (idx == n_steps_pars.up) {
+								pat_clickables[pattern_group].dim = std::min(max_pattern_dim, pat_clickables[pattern_group].dim + 1);
+								regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
+							}
+							else if (idx == n_steps_pars.down) {
+								pat_clickables[pattern_group].dim = std::max(size_t(2), pat_clickables[pattern_group].dim - 1);
+								regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
+							}
 							else if (s == nullptr) {
 								// skip volume when no sample
 							}
@@ -949,14 +994,14 @@ int main(int argc, char *argv[])
 			else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
 				std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 				if (pat_clickable_selected.has_value()) {
-					pat_clickables[pattern_group][pat_clickable_selected.value()].selected = !pat_clickables[pattern_group][pat_clickable_selected.value()].selected;
+					pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected = !pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected;
 					pat_clickable_selected.reset();
 					redraw = true;
 				}
 			}
 			else if (event.type == SDL_EVENT_KEY_DOWN && event.key.scancode == SDL_SCANCODE_SPACE) {
 				std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-				pat_clickables[pattern_group][pat_index].selected = !pat_clickables[pattern_group][pat_index].selected;
+				pat_clickables[pattern_group].pattern[pat_index].selected = !pat_clickables[pattern_group].pattern[pat_index].selected;
 				redraw        = true;
 				force_trigger = true;
 			}

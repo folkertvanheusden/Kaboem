@@ -23,43 +23,48 @@ std::string get_filename(const std::string & path)
 	return path.substr(slash + 1);
 }
 
-bool write_file(const std::string & file_name, const std::array<std::vector<clickable>, pattern_groups> & data, const int bpm, const std::array<sample, pattern_groups> & sample_files)
+bool write_file(const std::string & file_name, const std::array<pattern, pattern_groups> & data, const int bpm, const std::array<sample, pattern_groups> & sample_files)
 {
 	json patterns = json::array();
 	for(auto & group: data) {
 		json group_pattern = json::array();
-
-		for(auto & element: group)
+		for(auto & element: group.pattern)
 			group_pattern.push_back(element.selected);
 
-		patterns.push_back(group_pattern);
+		json pattern_data;
+		pattern_data["dim"]     = group.dim;
+		pattern_data["pattern"] = group_pattern;
+
+		patterns.push_back(pattern_data);
 	}
 
 	std::filesystem::path from     = file_name;
 	std::filesystem::path from_dir = from.parent_path();
 
-	json samples          = json::array();
-	json sample_vol_left  = json::array();
-	json sample_vol_right = json::array();
-	json midi_notes       = json::array();
+	json samples    = json::array();
+	json midi_notes = json::array();
 	for(auto & sample_file : sample_files) {
+		json sample;
+
 		try {
 			std::string filename = std::filesystem::relative(sample_file.name, from_dir);
-			samples.push_back(filename);
+			sample["file-name"] = filename;
 		}
 		// fs::relative throws filesystem_error if paths don't share a common prefix
 		catch(std::filesystem::filesystem_error & fe) {
-			samples.push_back(sample_file.name);
+			sample["file-name"] = sample_file.name;
 		}
 
 		if (sample_file.s) {
-			sample_vol_left. push_back(sample_file.s->get_mapping_target_volume(0));
-			sample_vol_right.push_back(sample_file.s->get_mapping_target_volume(1));
+			sample["vol-left"]  = sample_file.s->get_mapping_target_volume(0);
+			sample["vol-right"] = sample_file.s->get_mapping_target_volume(1);
 		}
 		else {
-			sample_vol_left. push_back(0.);
-			sample_vol_right.push_back(0.);
+			sample["vol-left"]  = 0.;
+			sample["vol-right"] = 0.;
 		}
+
+		samples.push_back(sample);
 
 		if (sample_file.midi_note.has_value())
 			midi_notes.push_back(sample_file.midi_note.value());
@@ -71,8 +76,6 @@ bool write_file(const std::string & file_name, const std::array<std::vector<clic
 	out["bpm"]              = bpm;
 	out["patterns"]         = patterns;
 	out["samples"]          = samples;
-	out["sample-vol-left"]  = sample_vol_left;
-	out["sample-vol-right"] = sample_vol_right;
 	out["midi-notes"]       = midi_notes;
 
 	try {
@@ -89,7 +92,7 @@ bool write_file(const std::string & file_name, const std::array<std::vector<clic
 	return false;
 }
 
-bool read_file(const std::string & file_name, std::array<std::vector<clickable>, pattern_groups> *const data, int *const bpm, std::array<sample, pattern_groups> *const sample_files)
+bool read_file(const std::string & file_name, std::array<pattern, pattern_groups> *const data, int *const bpm, std::array<sample, pattern_groups> *const sample_files)
 {
 	try {
 		std::ifstream ifs(file_name);
@@ -102,15 +105,18 @@ bool read_file(const std::string & file_name, std::array<std::vector<clickable>,
 		*bpm = j["bpm"];
 
 		for(size_t group=0; group<pattern_groups; group++) {
-			auto & group_vector = (*data)[group];
+			(*data)[group].dim  = j["patterns"][group]["dim"];
+			auto & group_vector = (*data)[group].pattern;
 			size_t index        = 0;
-			for(auto & element: j["patterns"][group])
+			for(auto & element: j["patterns"][group]["pattern"])
 				group_vector[index++].selected = element;
+			if (index < (*data)[group].dim)
+				return false;
 		}
 
 		for(size_t group=0; group<pattern_groups; group++) {
 			sample & s = (*sample_files)[group];
-			s.name = j["samples"][group];
+			s.name = j["samples"][group]["file-name"];
 			delete s.s;
 			s.s = nullptr;
 
@@ -129,20 +135,11 @@ bool read_file(const std::string & file_name, std::array<std::vector<clickable>,
 				if (!s.s)
 					return false;
 				bool is_stereo = s.s->get_n_channels() >= 2;
-				if (j.contains("sample-vol-left")) {
-					s.s->add_mapping(0, 0, j["sample-vol-left"][group]);
-					if (is_stereo)
-						s.s->add_mapping(1, 1, j["sample-vol-right"][group]);
-					else
-						s.s->add_mapping(0, 1, 1.0);  // mono -> right
-				}
-				else {
-					s.s->add_mapping(0, 0, 1.0);
-					if (is_stereo)
-						s.s->add_mapping(0, 1, 1.0);  // mono -> right
-					else
-						s.s->add_mapping(1, 1, 1.0);
-				}
+				s.s->add_mapping(0, 0, j["samples"][group]["vol-left"]);
+				if (is_stereo)
+					s.s->add_mapping(1, 1, j["samples"][group]["vol-right"]);
+				else
+					s.s->add_mapping(0, 1, 1.0);  // mono -> right
 			}
 		}
 

@@ -48,16 +48,17 @@ static void send_note(snd_seq_t *const seq, const int out_port, const int note, 
         snd_seq_event_output_direct(seq, &ev);
 }
 
-void player(const std::array<std::vector<clickable>, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock,
+void player(const std::array<pattern, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock,
 		const std::array<sample, pattern_groups> *const samples,
 		std::atomic_int *const sleep_ms, sound_parameters *const sound_pars,
 		std::atomic_bool *const pause, std::atomic_bool *const do_exit,
 		std::atomic_bool *const force_trigger)
 {
-	auto      midi_port      = allocate_midi_output_port();
+	auto                               midi_port      = allocate_midi_output_port();
+	std::array<size_t, pattern_groups> prev_pat_index;
 
-	size_t    prev_pat_index = size_t(-1);
-	const int steps          = 16;
+	for(size_t i=0; i<pattern_groups; i++)
+		prev_pat_index[i] = size_t(-1);
 
 	while(!*do_exit) {
 		if (*pause) {
@@ -66,21 +67,24 @@ void player(const std::array<std::vector<clickable>, pattern_groups> *const pat_
 		}
 
 		{
+			auto now = get_ms();
+
 			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
-			size_t pat_index = get_ms() / *sleep_ms % steps;
-			if (pat_index != prev_pat_index || force_trigger->exchange(false)) {
-				std::unique_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
-				for(size_t i=0; i<pattern_groups; i++) {
-					if ((*pat_clickables)[i][pat_index].selected) {
+			for(size_t i=0; i<pattern_groups; i++) {
+				size_t pat_index = now / *sleep_ms % (*pat_clickables)[i].dim;
+
+				if (pat_index != prev_pat_index[i] || force_trigger->exchange(false)) {
+					prev_pat_index[i] = pat_index;
+
+					std::unique_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
+					if ((*pat_clickables)[i].pattern[pat_index].selected) {
 						if ((*samples)[i].s)
 							sound_pars->sounds.push_back({ (*samples)[i].s, 0 });
+
 						if ((*samples)[i].midi_note.has_value())
 							send_note(midi_port.first, midi_port.second, (*samples)[i].midi_note.value(), 127);
 					}
 				}
-				printf("%zu\n", sound_pars->sounds.size());
-				lck.unlock();
-				prev_pat_index = pat_index;
 			}
 		}
 
