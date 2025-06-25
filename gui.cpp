@@ -610,7 +610,6 @@ int main(int argc, char *argv[])
 
 							menu_status = "file " + get_filename(fs_data.file) + " read";
 							channel_clickables[fs_action_sample_index].text = get_filename(s.name).substr(0, 5);
-							printf("HIER %d\n", is_stereo);
 						}
 						else {
 							menu_status = "file " + get_filename(fs_data.file) + " NOT FOUND";
