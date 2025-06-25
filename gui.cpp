@@ -393,7 +393,8 @@ int main(int argc, char *argv[])
 	configure_pipewire_audio(&sound_pars);
 	sound_pars.global_volume = 1.;
 
-	std::string path = get_current_dir_name();
+	const std::string path      = get_current_dir_name();
+	std::string       work_path = path;
 
 	auto midi_in = allocate_midi_input_port();
 
@@ -603,7 +604,7 @@ int main(int argc, char *argv[])
 			if (fs_data.finished && fs_data.file.empty() == false) {
 				auto slash = fs_data.file.find_last_of('/');
 				if (slash != std::string::npos)
-					path = fs_data.file.substr(0, slash);
+					work_path = fs_data.file.substr(0, slash);
 			}
 		}
 
@@ -748,12 +749,12 @@ int main(int argc, char *argv[])
 						else if (idx == pattern_load_idx) {
 							fs_data.finished = false;
 							fs_action = fs_load;
-							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, path.c_str(), false);
+							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, work_path.c_str(), false);
 						}
 						else if (idx == save_idx) {
 							fs_data.finished = false;
 							fs_action = fs_save;
-							SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters, 1, path.c_str());
+							SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters, 1, work_path.c_str());
 						}
 						else if (idx == quit_idx) {
 							do_exit = true;
@@ -825,7 +826,7 @@ int main(int argc, char *argv[])
 
 								fs_data.finished = false;
 								fs_action = fs_record;
-								SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters_record, 1, path.c_str());
+								SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters_record, 1, work_path.c_str());
 							}
 						}
 						else if (idx == pause_idx) {
@@ -865,7 +866,7 @@ int main(int argc, char *argv[])
 						if (idx == sample_load_idx) {
 							fs_data.finished = false;
 							fs_action = fs_load_sample;
-							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters_sample, 1, path.c_str(), false);
+							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters_sample, 1, work_path.c_str(), false);
 						}
 						else {
 							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
