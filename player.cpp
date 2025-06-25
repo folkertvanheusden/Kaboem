@@ -76,7 +76,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 				if (pat_index != prev_pat_index[i] || force_trigger->exchange(false)) {
 					prev_pat_index[i] = pat_index;
 
-					std::unique_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
+					std::lock_guard<std::shared_mutex> lck(sound_pars->sounds_lock);
 					if ((*pat_clickables)[i].pattern[pat_index].selected) {
 						if ((*samples)[i].s)
 							sound_pars->sounds.push_back({ (*samples)[i].s, 0 });

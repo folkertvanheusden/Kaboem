@@ -58,7 +58,7 @@ struct fileselector_data {
 void fs_callback(void *userdata, const char * const *filelist, int filter)
 {
 	fileselector_data *fs_data = reinterpret_cast<fileselector_data *>(userdata);
-	std::unique_lock<std::mutex> lck(fs_data->lock);
+	std::lock_guard<std::mutex> lck(fs_data->lock);
 	if (filelist && filelist[0]) {
 		char *temp = realpath(filelist[0], nullptr);
 		if (temp) {
@@ -547,7 +547,7 @@ int main(int argc, char *argv[])
 			if (ev->type == SND_SEQ_EVENT_NOTEON) {
 				uint8_t ch = ev->data.note.channel;
 				if (selected_midi_channel.has_value() && ch == selected_midi_channel) {
-					std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+					std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
 					pat_clickables[pattern_group].pattern[pat_index].selected = true;
 					redraw = true;
 				}
@@ -555,12 +555,12 @@ int main(int argc, char *argv[])
 		}
 
 		if (fs_action != fs_none) {
-			std::unique_lock<std::mutex> lck(fs_data.lock);
+			std::lock_guard<std::mutex> fs_lck(fs_data.lock);
 			if (fs_action == fs_load) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
-						std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
+						std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
 						read_file(fs_data.file, &pat_clickables, &bpm, &samples);
 
 						sleep_ms = 60 * 1000 / bpm;
@@ -592,7 +592,7 @@ int main(int argc, char *argv[])
 			else if (fs_action == fs_load_sample) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
-						std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 						sample & s = samples[fs_action_sample_index];
 						s.name = fs_data.file;
 						delete s.s;
@@ -621,7 +621,7 @@ int main(int argc, char *argv[])
 			}
 			else if (fs_action == fs_record) {
 				if (fs_data.finished) {
-					std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+					std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 					SF_INFO si { };
 					si.samplerate = sample_rate;
 					si.channels   = 2;
@@ -761,7 +761,7 @@ int main(int argc, char *argv[])
 								write_file(path + "/before_clear.kaboem", pat_clickables, bpm, samples);
 							}
 							{
-								std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+								std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 								sound_pars.sounds.clear();
 							}
 							{
@@ -771,7 +771,7 @@ int main(int argc, char *argv[])
 										element.selected = false;
 
 									{
-										std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+										std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 										sample & s = samples[i];
 										delete s.s;
 										s.s = nullptr;
@@ -870,7 +870,7 @@ int main(int argc, char *argv[])
 							menu_buttons_clickables[pause_idx].selected = paused;
 						}
 						sleep_ms                 = 60 * 1000 / bpm;
-						std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 						sound_pars.global_volume = vol / 100.;
 					}
 					else if (sample_clicked.has_value()) {
@@ -905,7 +905,7 @@ int main(int argc, char *argv[])
 							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters_sample, 1, work_path.c_str(), false);
 						}
 						else {
-							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+							std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 							sound_sample *const s = samples[fs_action_sample_index].s;
 							auto & midi_note = samples[fs_action_sample_index].midi_note;
 							bool is_stereo   = s ? s->get_n_channels() >= 2 : false;
@@ -991,7 +991,7 @@ int main(int argc, char *argv[])
 				redraw = true;
 			}
 			else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
-				std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
 				if (pat_clickable_selected.has_value()) {
 					pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected = !pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected;
 					pat_clickable_selected.reset();
@@ -999,7 +999,7 @@ int main(int argc, char *argv[])
 				}
 			}
 			else if (event.type == SDL_EVENT_KEY_DOWN && event.key.scancode == SDL_SCANCODE_SPACE) {
-				std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
 				pat_clickables[pattern_group].pattern[pat_index].selected = !pat_clickables[pattern_group].pattern[pat_index].selected;
 				redraw        = true;
 				force_trigger = true;
@@ -1014,7 +1014,7 @@ int main(int argc, char *argv[])
 	delete sound_pars.pw.th;
 
 	{  // stop any recording
-		std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+		std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 		if (sound_pars.record_handle)
 			sf_close(sound_pars.record_handle);
 	}
