@@ -7,6 +7,7 @@
 #include <optional>
 #include <sndfile.h>
 #include <vector>
+#include <alsa/asoundlib.h>
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
@@ -24,6 +25,28 @@ std::atomic_bool do_exit { false };
 void sigh(int s)
 {
 	do_exit = true;
+}
+
+static std::pair<snd_seq_t *, int> allocate_midi_input_port()
+{
+        snd_seq_t *seq = nullptr;
+        if (snd_seq_open(&seq, "default", SND_SEQ_OPEN_INPUT, 0) == -1) {
+                fprintf(stderr, "Error opening ALSA sequencer\n");
+                return { nullptr, -1 };
+        }
+
+        snd_seq_set_client_name(seq, "Kaboem");
+
+        int in_port = snd_seq_create_simple_port(seq, "input",
+                        SND_SEQ_PORT_CAP_WRITE|SND_SEQ_PORT_CAP_SUBS_WRITE,
+                        SND_SEQ_PORT_TYPE_MIDI_GENERIC|SND_SEQ_PORT_TYPE_APPLICATION);
+
+        if (in_port == -1) {
+                fprintf(stderr, "Error creating sequencer port\n");
+                return { nullptr, -1 };
+        }
+
+        return { seq, in_port };
 }
 
 struct fileselector_data {
@@ -169,7 +192,7 @@ std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, 
 	return clickables;
 }
 
-std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx, up_down_widget *const volume_widget_pars, size_t *const pause_idx)
+std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx, up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -230,8 +253,11 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 	std::vector<clickable> bpm_widget = generate_up_down_widget(w, h, 0, y, "BPM", clickables.size(), bpm_widget_pars);
 	std::copy(bpm_widget.begin(), bpm_widget.end(), std::back_inserter(clickables));
 
-	std::vector<clickable> volume_widget = generate_up_down_widget(w, h, menu_button_width, y, "vol", clickables.size(), volume_widget_pars);
+	std::vector<clickable> volume_widget = generate_up_down_widget(w, h, menu_button_width, y, "volume", clickables.size(), volume_widget_pars);
 	std::copy(volume_widget.begin(), volume_widget.end(), std::back_inserter(clickables));
+
+	std::vector<clickable> midi_ch_widget = generate_up_down_widget(w, h, menu_button_width * 2, y, "midi ch.", clickables.size(), midi_ch_widget_pars);
+	std::copy(midi_ch_widget.begin(), midi_ch_widget.end(), std::back_inserter(clickables));
 
 	return clickables;
 }
@@ -360,6 +386,8 @@ int main(int argc, char *argv[])
 
 	std::string path = get_current_dir_name();
 
+	auto midi_in = allocate_midi_input_port();
+
 	signal(SIGTERM, sigh);
 	atexit(SDL_Quit);
 
@@ -425,7 +453,9 @@ int main(int argc, char *argv[])
 	size_t         record_idx       = 0;
 	size_t         pause_idx        = 0;
 	up_down_widget vol_widget         { };
-	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget, &pause_idx);
+	up_down_widget midi_ch_widget     { };
+	std::optional<int> selected_midi_channel;
+	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget, &pause_idx, &midi_ch_widget);
 	std::string    menu_status;
 
 	size_t         sample_load_idx        = 0;
@@ -463,6 +493,19 @@ int main(int argc, char *argv[])
 		if (pat_index != prev_pat_index && !paused) {
 			redraw = true;
 			prev_pat_index = pat_index;
+		}
+
+		if (snd_seq_event_input_pending(midi_in.first, 1) != 0) {
+			snd_seq_event_t *ev { nullptr };
+			snd_seq_event_input(midi_in.first, &ev);
+			if (ev->type == SND_SEQ_EVENT_NOTEON) {
+				uint8_t ch = ev->data.note.channel;
+				if (selected_midi_channel.has_value() && ch == selected_midi_channel) {
+					std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+					pat_clickables[pattern_group][pat_index].selected = true;
+					redraw = true;
+				}
+			}
 		}
 
 		if (fs_action != fs_none) {
@@ -576,6 +619,10 @@ int main(int argc, char *argv[])
 				draw_clickables(font, screen, menu_buttons_clickables, { }, { });
 				draw_text(font, screen, bpm_widget.x, bpm_widget.y, std::to_string(bpm), { { bpm_widget.text_w, bpm_widget.text_h } });
 				draw_text(font, screen, vol_widget.x, vol_widget.y, std::to_string(vol), { { vol_widget.text_w, vol_widget.text_h } });
+				if (selected_midi_channel.has_value()) {
+					draw_text(font, screen, midi_ch_widget.x, midi_ch_widget.y,  std::to_string(selected_midi_channel.value() + 1),
+						{ { midi_ch_widget.text_w, midi_ch_widget.text_h } });
+				}
 			}
 			else if (mode == m_sample) {
 				std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
@@ -724,6 +771,36 @@ int main(int argc, char *argv[])
 						}
 						else if (idx == vol_widget.down_10) {
 							vol = std::max(0, vol - 10);
+						}
+						else if (idx == midi_ch_widget.up) {
+							if (selected_midi_channel.has_value() == false)
+								selected_midi_channel = 0;
+							else
+								selected_midi_channel = std::min(15, selected_midi_channel.value() + 1);
+						}
+						else if (idx == midi_ch_widget.up_10) {
+							if (selected_midi_channel.has_value() == false)
+								selected_midi_channel = 0;
+							else
+								selected_midi_channel = std::min(15, selected_midi_channel.value() + 10);
+						}
+						else if (idx == midi_ch_widget.down) {
+							if (selected_midi_channel.has_value() == false)
+								selected_midi_channel = 15;
+							else {
+								selected_midi_channel = std::max(-1, selected_midi_channel.value() - 1);
+								if (selected_midi_channel == -1)
+									selected_midi_channel.reset();
+							}
+						}
+						else if (idx == midi_ch_widget.down_10) {
+							if (selected_midi_channel.has_value() == false)
+								selected_midi_channel = 15;
+							else {
+								selected_midi_channel = std::max(-1, selected_midi_channel.value() - 10);
+								if (selected_midi_channel == -1)
+									selected_midi_channel.reset();
+							}
 						}
 						else if (idx == record_idx) {
 							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
