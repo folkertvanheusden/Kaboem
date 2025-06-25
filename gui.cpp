@@ -59,10 +59,19 @@ void fs_callback(void *userdata, const char * const *filelist, int filter)
 {
 	fileselector_data *fs_data = reinterpret_cast<fileselector_data *>(userdata);
 	std::unique_lock<std::mutex> lck(fs_data->lock);
-	if (filelist && filelist[0])
-		fs_data->file = filelist[0];
-	else
+	if (filelist && filelist[0]) {
+		char *temp = realpath(filelist[0], nullptr);
+		if (temp) {
+			fs_data->file = temp;
+			free(temp);
+		}
+		else if (errno == ENOENT) {  // save
+			fs_data->file = filelist[0];
+		}
+	}
+	else {
 		fs_data->file.clear();
+	}
 	fs_data->finished = true;
 }
 
