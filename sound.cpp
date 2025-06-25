@@ -32,8 +32,12 @@ void on_process_audio(void *userdata)
 
 	//printf("latency: %.2fms, channel count: %d\n", period_size * 1000.0 / sp->sample_rate, sp->n_channels);
 
+	double global_volume = 0;
+
 	{
 		std::shared_lock<std::shared_mutex> lck(sp->sounds_lock);
+
+		global_volume = sp->global_volume;
 
 		for(int t=0; t<period_size; t++) {
 			double *current_sample_base = &temp_buffer[t * sp->n_channels];
@@ -69,7 +73,7 @@ void on_process_audio(void *userdata)
 			double *current_sample_base_out = &dest[t * sp->n_channels];
 
 			for(int c=0; c<sp->n_channels; c++)
-				current_sample_base_out[c] = std::clamp(current_sample_base_in[c] * sp->global_volume, -1., 1.);
+				current_sample_base_out[c] = std::clamp(current_sample_base_in[c] * global_volume, -1., 1.);
 		}
 
 		buf->datas[0].chunk->offset = 0;
