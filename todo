@@ -1,3 +1,2 @@
 - set steps per channel? -> LCM
 - error dialog
-- fix .kaboem-file & samples: when loading, keep track of relative path immediately?
