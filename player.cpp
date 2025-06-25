@@ -51,7 +51,8 @@ static void send_note(snd_seq_t *const seq, const int out_port, const int note, 
 void player(const std::array<std::vector<clickable>, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock,
 		const std::array<sample, pattern_groups> *const samples,
 		std::atomic_int *const sleep_ms, sound_parameters *const sound_pars,
-		std::atomic_bool *const pause, std::atomic_bool *const do_exit)
+		std::atomic_bool *const pause, std::atomic_bool *const do_exit,
+		std::atomic_bool *const force_trigger)
 {
 	auto      midi_port      = allocate_midi_output_port();
 
@@ -67,7 +68,7 @@ void player(const std::array<std::vector<clickable>, pattern_groups> *const pat_
 		{
 			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
 			size_t pat_index = get_ms() / *sleep_ms % steps;
-			if (pat_index != prev_pat_index) {
+			if (pat_index != prev_pat_index || force_trigger->exchange(false)) {
 				std::unique_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
 				for(size_t i=0; i<pattern_groups; i++) {
 					if ((*pat_clickables)[i][pat_index].selected) {

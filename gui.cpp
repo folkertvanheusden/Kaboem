@@ -492,9 +492,10 @@ int main(int argc, char *argv[])
 	std::atomic_int  sleep_ms       = 60 * 1000 / bpm;
 	size_t           prev_pat_index = size_t(-1);
 	std::atomic_bool paused         = false;
+	std::atomic_bool force_trigger  = false;
 
-	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused] {
-			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &do_exit);
+	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &force_trigger] {
+			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &do_exit, &force_trigger);
 			});
 
 	while(!do_exit) {
@@ -951,6 +952,12 @@ int main(int argc, char *argv[])
 					pat_clickable_selected.reset();
 					redraw = true;
 				}
+			}
+			else if (event.type == SDL_EVENT_KEY_DOWN && event.key.scancode == SDL_SCANCODE_SPACE) {
+				std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+				pat_clickables[pattern_group][pat_index].selected = !pat_clickables[pattern_group][pat_index].selected;
+				redraw        = true;
+				force_trigger = true;
 			}
 		}
 	}
