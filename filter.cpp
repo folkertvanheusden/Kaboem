@@ -31,12 +31,12 @@ void filter_butterworth::configure(const double frequency)
 	}
 }
 
-double filter_butterworth::apply(const double newInput)
+double filter_butterworth::apply(const double new_input)
 {
-	double new_output = a1 * newInput + a2 * input_history[0] + a3 * input_history[1] - b1 * output_history[0] - b2 * output_history[1];
+	double new_output = a1 * new_input + a2 * input_history[0] + a3 * input_history[1] - b1 * output_history[0] - b2 * output_history[1];
 
 	input_history[1]  = input_history[0];
-	input_history[0]  = newInput;
+	input_history[0]  = new_input;
 
 	output_history[2] = output_history[1];
 	output_history[1] = output_history[0];
