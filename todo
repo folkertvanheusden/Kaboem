@@ -1,3 +1,2 @@
 - error dialog
 - store global settings
-- saturation of audio: pow(amplitude, 0.1 ... 1.0)

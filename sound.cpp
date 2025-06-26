@@ -1,4 +1,4 @@
-#include <math.h>
+#include <cmath>
 
 #include "pipewire-audio.h"
 #include "sample.h"
@@ -75,7 +75,7 @@ void on_process_audio(void *userdata)
 				temp = sp->filter_lp->apply(temp);
 			if (sp->filter_hp)
 				temp = sp->filter_hp->apply(temp);
-			current_sample_base_out[c] = temp;
+			current_sample_base_out[c] = pow(temp, sp->sound_saturation);
 		}
 	}
 

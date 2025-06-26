@@ -43,10 +43,11 @@ public:
 
 	std::shared_mutex    sounds_lock;
 	std::vector<std::pair<sound *, double> > sounds;
-	SNDFILE             *record_handle   { nullptr };
-	filter_butterworth  *filter_lp       { nullptr };
-	filter_butterworth  *filter_hp       { nullptr };
-	double               global_volume   { 1.      };
+	SNDFILE             *record_handle    { nullptr };
+	filter_butterworth  *filter_lp        { nullptr };
+	filter_butterworth  *filter_hp        { nullptr };
+	double               global_volume    { 1.      };
+	double               sound_saturation { 1.      };
 };
 
 void configure_pipewire_audio(sound_parameters *const pw);

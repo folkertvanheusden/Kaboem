@@ -211,7 +211,7 @@ std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, 
 	return clickables;
 }
 
-std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx, up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars, up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars)
+std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx, up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars, up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars, up_down_widget *const sound_saturation_pars)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -283,6 +283,9 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 
 	std::vector<clickable> hp_filter_pars_widget = generate_up_down_widget(w, h, menu_button_width * 4, y, "high pass", clickables.size(), hp_filter_pars);
 	std::copy(hp_filter_pars_widget.begin(), hp_filter_pars_widget.end(), std::back_inserter(clickables));
+
+	std::vector<clickable> sound_saturation_pars_widget = generate_up_down_widget(w, h, menu_button_width * 4, y, "saturation", clickables.size(), sound_saturation_pars);
+	std::copy(sound_saturation_pars_widget.begin(), sound_saturation_pars_widget.end(), std::back_inserter(clickables));
 
 	return clickables;
 }
@@ -635,10 +638,12 @@ int main(int argc, char *argv[])
 	up_down_widget midi_ch_widget     { };
 	up_down_widget lp_filter_widget   { };
 	up_down_widget hp_filter_widget   { };
+	up_down_widget sound_saturation_widget { };
+	int            sound_saturation = 0;
 	std::optional<double> lp_filter_f;
 	std::optional<double> hp_filter_f;
 	std::optional<int> selected_midi_channel;
-	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget, &pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget);
+	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget, &pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget, &sound_saturation_widget);
 	std::string    menu_status;
 
 	size_t         sample_load_idx        = 0;
@@ -820,6 +825,7 @@ int main(int argc, char *argv[])
 					draw_text(font, screen, lp_filter_widget.x, lp_filter_widget.y, std::to_string(int(lp_filter_f.value())), { { lp_filter_widget.text_w, lp_filter_widget.text_h } });
 				if (hp_filter_f.has_value())
 					draw_text(font, screen, hp_filter_widget.x, hp_filter_widget.y, std::to_string(int(hp_filter_f.value())), { { hp_filter_widget.text_w, hp_filter_widget.text_h } });
+				draw_text(font, screen, sound_saturation_widget.x, sound_saturation_widget.y, std::to_string(sound_saturation), { { sound_saturation_widget.text_w, sound_saturation_widget.text_h } });
 			}
 			else if (mode == m_sample) {
 				std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
@@ -950,6 +956,10 @@ int main(int argc, char *argv[])
 						else if (set_up_down_value(idx, bpm_widget, 1, 999, &bpm)) {
 						}
 						else if (set_up_down_value(idx, vol_widget, 0, 110, &vol)) {  // this one goes to 11!
+						}
+						else if (set_up_down_value(idx, sound_saturation_widget, 0, 1000, &sound_saturation)) {
+							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+							sound_pars.sound_saturation = sound_saturation / 1000.;
 						}
 						else if (configure_filter(&sound_pars, lp_filter_widget, idx, false, &lp_filter_f)) {
 							// taken
