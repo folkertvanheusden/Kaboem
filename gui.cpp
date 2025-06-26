@@ -483,6 +483,62 @@ bool configure_filter(sound_parameters *const sound_pars, const up_down_widget &
 	return true;
 }
 
+bool set_up_down_value(const size_t idx, const up_down_widget & widget, const int min_value, const int max_value, int *const value)
+{
+	if (idx == widget.up)
+		(*value) = std::min(max_value, *value + 1);
+	else if (idx == widget.up_10)
+		(*value) = std::min(max_value, *value + 10);
+	else if (idx == widget.down)
+		(*value) = std::max(min_value, (*value) - 1);
+	else if (idx == widget.down_10)
+		(*value) = std::max(min_value, (*value) - 10);
+	else {
+		return false;
+	}
+
+	return true;
+}
+
+bool set_up_down_value(const size_t idx, const up_down_widget & widget, const int min_value, const int max_value, std::optional<int> *const value)
+{
+	if (idx == widget.up) {
+		if (value->has_value() == false)
+			*value = min_value;
+		else
+			*value = std::min(max_value, value->value() + 1);
+	}
+	else if (idx == widget.up_10) {
+		if (value->has_value() == false)
+			*value = min_value;
+		else
+			*value = std::min(max_value, value->value() + 10);
+	}
+	else if (idx == widget.down) {
+		if (value->has_value() == false)
+			*value = max_value;
+		else {
+			*value = std::max(min_value - 1, value->value() - 1);
+			if (*value == min_value - 1)
+				value->reset();
+		}
+	}
+	else if (idx == widget.down_10) {
+		if (value->has_value() == false)
+			*value = max_value;
+		else {
+			*value = std::max(min_value - 1, value->value() - 10);
+			if (*value == min_value - 1)
+				value->reset();
+		}
+	}
+	else {
+		return false;
+	}
+
+	return true;
+}
+
 int main(int argc, char *argv[])
 {
 	init_pipewire(&argc, &argv);
@@ -875,29 +931,9 @@ int main(int argc, char *argv[])
 						else if (idx == quit_idx) {
 							do_exit = true;
 						}
-						else if (idx == bpm_widget.up) {
-							bpm++;
+						else if (set_up_down_value(idx, bpm_widget, 1, 999, &bpm)) {
 						}
-						else if (idx == bpm_widget.up_10) {
-							bpm += 10;
-						}
-						else if (idx == bpm_widget.down) {
-							bpm = std::max(1, bpm - 1);
-						}
-						else if (idx == bpm_widget.down_10) {
-							bpm = std::max(1, bpm - 10);
-						}
-						else if (idx == vol_widget.up) {
-							vol = std::min(110, vol + 1);  // this one goes to 11
-						}
-						else if (idx == vol_widget.up_10) {
-							vol = std::min(110, vol + 10);
-						}
-						else if (idx == vol_widget.down) {
-							vol = std::max(0, vol - 1);
-						}
-						else if (idx == vol_widget.down_10) {
-							vol = std::max(0, vol - 10);
+						else if (set_up_down_value(idx, vol_widget, 0, 110, &vol)) {  // this one goes to 11!
 						}
 						else if (configure_filter(&sound_pars, lp_filter_widget, idx, false, &lp_filter_f)) {
 							// taken
@@ -905,35 +941,8 @@ int main(int argc, char *argv[])
 						else if (configure_filter(&sound_pars, hp_filter_widget, idx, false, &hp_filter_f)) {
 							// taken
 						}
-						else if (idx == midi_ch_widget.up) {
-							if (selected_midi_channel.has_value() == false)
-								selected_midi_channel = 0;
-							else
-								selected_midi_channel = std::min(15, selected_midi_channel.value() + 1);
-						}
-						else if (idx == midi_ch_widget.up_10) {
-							if (selected_midi_channel.has_value() == false)
-								selected_midi_channel = 0;
-							else
-								selected_midi_channel = std::min(15, selected_midi_channel.value() + 10);
-						}
-						else if (idx == midi_ch_widget.down) {
-							if (selected_midi_channel.has_value() == false)
-								selected_midi_channel = 15;
-							else {
-								selected_midi_channel = std::max(-1, selected_midi_channel.value() - 1);
-								if (selected_midi_channel == -1)
-									selected_midi_channel.reset();
-							}
-						}
-						else if (idx == midi_ch_widget.down_10) {
-							if (selected_midi_channel.has_value() == false)
-								selected_midi_channel = 15;
-							else {
-								selected_midi_channel = std::max(-1, selected_midi_channel.value() - 10);
-								if (selected_midi_channel == -1)
-									selected_midi_channel.reset();
-							}
+						else if (set_up_down_value(idx, midi_ch_widget, 0, 15, &selected_midi_channel)) {
+							// taken
 						}
 						else if (idx == record_idx) {
 							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
@@ -996,35 +1005,8 @@ int main(int argc, char *argv[])
 							auto & midi_note = samples[fs_action_sample_index].midi_note;
 							bool is_stereo   = s ? s->get_n_channels() >= 2 : false;
 
-							if (idx == midi_note_widget_pars.up) {
-								if (midi_note.has_value() == false)
-									midi_note = 0;
-								else
-									midi_note = std::min(127, midi_note.value() + 1);
-							}
-							else if (idx == midi_note_widget_pars.up_10) {
-								if (midi_note.has_value() == false)
-									midi_note = 0;
-								else
-									midi_note = std::min(127, midi_note.value() + 10);
-							}
-							else if (idx == midi_note_widget_pars.down) {
-								if (midi_note.has_value() == false)
-									midi_note = 127;
-								else {
-									midi_note = std::max(-1, midi_note.value() - 1);
-									if (midi_note == -1)
-										midi_note.reset();
-								}
-							}
-							else if (idx == midi_note_widget_pars.down_10) {
-								if (midi_note.has_value() == false)
-									midi_note = 127;
-								else {
-									midi_note = std::max(-1, midi_note.value() - 10);
-									if (midi_note == -1)
-										midi_note.reset();
-								}
+							if (set_up_down_value(idx, midi_note_widget_pars, 0, 127, &midi_note)) {
+								// taken
 							}
 							else if (idx == n_steps_pars.up) {
 								pat_clickables[fs_action_sample_index].dim = std::min(max_pattern_dim, pat_clickables[fs_action_sample_index].dim + 1);
