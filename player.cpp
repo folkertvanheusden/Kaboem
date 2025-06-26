@@ -18,7 +18,7 @@ uint64_t get_ms()
 static std::pair<snd_seq_t *, int> allocate_midi_output_port()
 {
 	snd_seq_t *seq = nullptr;
-	if (snd_seq_open(&seq, "default", SND_SEQ_OPEN_OUTPUT, 0) == -1) {
+	if (snd_seq_open(&seq, "default", SND_SEQ_OPEN_OUTPUT, 0) < 0) {
 		fprintf(stderr, "Error opening ALSA sequencer\n");
 		return { nullptr, -1 };
 	}
@@ -29,7 +29,7 @@ static std::pair<snd_seq_t *, int> allocate_midi_output_port()
 			SND_SEQ_PORT_CAP_READ|SND_SEQ_PORT_CAP_SUBS_READ,
 			SND_SEQ_PORT_TYPE_MIDI_GENERIC|SND_SEQ_PORT_TYPE_APPLICATION);
 
-	if (out_port == -1) {
+	if (out_port < 0) {
 		fprintf(stderr, "Error creating sequencer port\n");
 		return { nullptr, -1 };
 	}

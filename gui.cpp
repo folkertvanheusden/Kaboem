@@ -30,7 +30,7 @@ void sigh(int s)
 static std::pair<snd_seq_t *, int> allocate_midi_input_port()
 {
         snd_seq_t *seq = nullptr;
-        if (snd_seq_open(&seq, "default", SND_SEQ_OPEN_INPUT, 0) == -1) {
+        if (snd_seq_open(&seq, "default", SND_SEQ_OPEN_INPUT, 0) < 0) {
                 fprintf(stderr, "Error opening ALSA sequencer\n");
                 return { nullptr, -1 };
         }
@@ -41,7 +41,7 @@ static std::pair<snd_seq_t *, int> allocate_midi_input_port()
                         SND_SEQ_PORT_CAP_WRITE|SND_SEQ_PORT_CAP_SUBS_WRITE,
                         SND_SEQ_PORT_TYPE_MIDI_GENERIC|SND_SEQ_PORT_TYPE_APPLICATION);
 
-        if (in_port == -1) {
+        if (in_port < 0) {
                 fprintf(stderr, "Error creating sequencer port\n");
                 return { nullptr, -1 };
         }
@@ -682,7 +682,7 @@ int main(int argc, char *argv[])
 			prev_pat_index = pat_index;
 		}
 
-		if (snd_seq_event_input_pending(midi_in.first, 1) != 0) {
+		if (midi_in.first && snd_seq_event_input_pending(midi_in.first, 1) != 0) {
 			snd_seq_event_t *ev { nullptr };
 			snd_seq_event_input(midi_in.first, &ev);
 			if (ev->type == SND_SEQ_EVENT_NOTEON) {
