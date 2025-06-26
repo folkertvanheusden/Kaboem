@@ -19,77 +19,75 @@ void on_process_audio(void *userdata)
 	if (b == nullptr) {
 		printf("pw_stream_dequeue_buffer failed\n");
 		pw_log_warn("out of buffers: %m");
-
 		return;
 	}
 
-	spa_buffer *buf = b->buffer;
+	spa_buffer *buf     = b->buffer;
 
-	int stride      = sizeof(double) * sp->n_channels;
-	int period_size = std::min(buf->datas[0].maxsize / stride, uint32_t(sp->sample_rate / 200));
+	int     stride      = sizeof(double) * sp->n_channels;
+	int     period_size = std::min(buf->datas[0].maxsize / stride, uint32_t(sp->sample_rate / 200));
+
+	double *dest        = reinterpret_cast<double *>(buf->datas[0].data);
+	if (!dest) {
+		printf("no buffer\n");
+		return;
+	}
 
 	double *temp_buffer = new double[sp->n_channels * period_size]();
 
 	//printf("latency: %.2fms, channel count: %d\n", period_size * 1000.0 / sp->sample_rate, sp->n_channels);
 
-	double global_volume = 0;
+	std::shared_lock<std::shared_mutex> lck(sp->sounds_lock);
 
-	{
-		std::shared_lock<std::shared_mutex> lck(sp->sounds_lock);
+	for(int t=0; t<period_size; t++) {
+		double *current_sample_base = &temp_buffer[t * sp->n_channels];
 
-		global_volume = sp->global_volume;
-
-		for(int t=0; t<period_size; t++) {
-			double *current_sample_base = &temp_buffer[t * sp->n_channels];
-
-			for(size_t s_idx=0; s_idx<sp->sounds.size();) {
-				if (sp->sounds[s_idx].first) {
-					if (sp->sounds[s_idx].first->set_time(sp->sounds[s_idx].second)) {
-						sp->sounds.erase(sp->sounds.begin() + s_idx);
-						continue;
-					}
-
-					size_t n_source_channels = sp->sounds[s_idx].first->get_n_channels();
-
-					for(size_t ch=0; ch<n_source_channels; ch++) {
-						auto   rc    = sp->sounds[s_idx].first->get_sample(ch);
-						double value = rc.first;
-
-						for(auto mapping : rc.second)
-							current_sample_base[mapping.first] += value * mapping.second;
-					}
+		for(size_t s_idx=0; s_idx<sp->sounds.size();) {
+			if (sp->sounds[s_idx].first) {
+				if (sp->sounds[s_idx].first->set_time(sp->sounds[s_idx].second)) {
+					sp->sounds.erase(sp->sounds.begin() + s_idx);
+					continue;
 				}
 
-				sp->sounds[s_idx].second++;
-				s_idx++;
+				size_t n_source_channels = sp->sounds[s_idx].first->get_n_channels();
+
+				for(size_t ch=0; ch<n_source_channels; ch++) {
+					auto   rc    = sp->sounds[s_idx].first->get_sample(ch);
+					double value = rc.first;
+
+					for(auto mapping : rc.second)
+						current_sample_base[mapping.first] += value * mapping.second;
+				}
 			}
+
+			sp->sounds[s_idx].second++;
+			s_idx++;
 		}
 	}
 
-	double *dest = reinterpret_cast<double *>(buf->datas[0].data);
-	if (dest) {
-		for(int t=0; t<period_size; t++) {
-			double *current_sample_base_in  = &temp_buffer[t * sp->n_channels];
-			double *current_sample_base_out = &dest[t * sp->n_channels];
+	for(int t=0; t<period_size; t++) {
+		double *current_sample_base_in  = &temp_buffer[t * sp->n_channels];
+		double *current_sample_base_out = &dest[t * sp->n_channels];
 
-			for(int c=0; c<sp->n_channels; c++)
-				current_sample_base_out[c] = std::clamp(current_sample_base_in[c] * global_volume, -1., 1.);
+		for(int c=0; c<sp->n_channels; c++) {
+			double temp = std::clamp(current_sample_base_in[c] * sp->global_volume, -1., 1.);
+			if (sp->filter_lp)
+				temp = sp->filter_lp->apply(temp);
+			if (sp->filter_hp)
+				temp = sp->filter_hp->apply(temp);
+			current_sample_base_out[c] = temp;
 		}
-
-		buf->datas[0].chunk->offset = 0;
-		buf->datas[0].chunk->stride = stride;
-		buf->datas[0].chunk->size   = period_size * stride;
-
-		if (pw_stream_queue_buffer(sp->pw.stream, b))
-			printf("pw_stream_queue_buffer failed\n");
-
-		std::shared_lock lck(sp->sounds_lock);
-		if (sp->record_handle) 
-			sf_writef_double(sp->record_handle, dest, period_size);
 	}
-	else {
-		printf("no buffer\n");
-	}
+
+	buf->datas[0].chunk->offset = 0;
+	buf->datas[0].chunk->stride = stride;
+	buf->datas[0].chunk->size   = period_size * stride;
+
+	if (pw_stream_queue_buffer(sp->pw.stream, b))
+		printf("pw_stream_queue_buffer failed\n");
+
+	if (sp->record_handle) 
+		sf_writef_double(sp->record_handle, dest, period_size);
 
 	delete [] temp_buffer;
 }

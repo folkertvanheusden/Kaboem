@@ -12,6 +12,7 @@ set(CMAKE_BUILD_TYPE RelWithDebInfo)
 
 add_executable(
   kaboem
+  filter.cpp
   gui.cpp
   io.cpp
   pipewire.cpp

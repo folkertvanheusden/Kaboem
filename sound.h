@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#include "filter.h"
+
 
 double f_to_delta_t(const double frequency, const int sample_rate);
 
