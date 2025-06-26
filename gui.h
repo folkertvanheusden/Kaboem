@@ -8,6 +8,7 @@
 
 
 #define PROG_NAME "Kaboem"
+#define PROG_EXT  "kaboem"
 
 struct clickable {
 	SDL_Rect    where;

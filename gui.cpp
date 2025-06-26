@@ -512,11 +512,11 @@ int main(int argc, char *argv[])
 
 	std::array<sample, pattern_groups> samples { };
 
-	SDL_DialogFileFilter sf_filters[]        { { "Kaboem files", "kaboem"  } };
+	SDL_DialogFileFilter sf_filters[]        { { "Kaboem files", PROG_EXT  } };
 	SDL_DialogFileFilter sf_filters_sample[] { { "Samples",      "wav;mp3" } };
 	SDL_DialogFileFilter sf_filters_record[] { { "Record",       "wav"     } };
 
-	if (read_file("default.kaboem", &pat_clickables, &bpm, &samples)) {
+	if (read_file("default." PROG_EXT, &pat_clickables, &bpm, &samples)) {
 		for(size_t i=0; i<pattern_groups; i++) {
 			if (samples[i].name.empty() == false)
 				channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
@@ -580,8 +580,8 @@ int main(int argc, char *argv[])
 					if (fs_data.file.empty() == false) {
 						std::string file     = fs_data.file;
 						size_t      file_len = file.size();
-						if (file_len > 7 && file.substr(file_len - 7) != ".kaboem")
-							file += ".kaboem";
+						if (file_len > 7 && file.substr(file_len - 7) != "." PROG_EXT)
+							file += "." PROG_EXT;
 						std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 						write_file(file, pat_clickables, bpm, samples);
 						menu_status = "file " + get_filename(fs_data.file) + " written";
@@ -765,7 +765,7 @@ int main(int argc, char *argv[])
 						if (idx == clear_idx) {
 							{
 								std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-								write_file(path + "/before_clear.kaboem", pat_clickables, bpm, samples);
+								write_file(path + "/before_clear." PROG_EXT, pat_clickables, bpm, samples);
 							}
 							{
 								std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
@@ -1028,7 +1028,7 @@ int main(int argc, char *argv[])
 
 	{
 		std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-		write_file(path + "/default.kaboem", pat_clickables, bpm, samples);
+		write_file(path + "/default." PROG_EXT, pat_clickables, bpm, samples);
 	}
 
 	unload_sample_cache();
