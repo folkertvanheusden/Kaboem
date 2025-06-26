@@ -23,7 +23,7 @@ static std::pair<snd_seq_t *, int> allocate_midi_output_port()
 		return { nullptr, -1 };
 	}
 
-	snd_seq_set_client_name(seq, "Kaboem");
+	snd_seq_set_client_name(seq, PROG_NAME);
 
 	int out_port = snd_seq_create_simple_port(seq, "output",
 			SND_SEQ_PORT_CAP_READ|SND_SEQ_PORT_CAP_SUBS_READ,

@@ -7,6 +7,8 @@
 #include "sound.h"
 
 
+#define PROG_NAME "Kaboem"
+
 struct clickable {
 	SDL_Rect    where;
 	bool        selected;

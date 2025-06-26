@@ -3,6 +3,7 @@
 #include <pipewire/pipewire.h>
 #include <spa/param/audio/format-utils.h>
 
+#include "gui.h"
 #include "pipewire-audio.h"
 
 
@@ -15,7 +16,7 @@ static void on_state_changed(void *data, enum pw_stream_state old, enum pw_strea
 
 void configure_pipewire_audio(sound_parameters *const target)
 {
-	const char prog_name[] = "kaboem";
+	const char prog_name[] = PROG_NAME;
 
 	target->pw.th = new std::thread([prog_name, target]() {
 			target->pw.b    = SPA_POD_BUILDER_INIT(target->pw.buffer, sizeof(target->pw.buffer));

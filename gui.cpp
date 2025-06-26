@@ -35,7 +35,7 @@ static std::pair<snd_seq_t *, int> allocate_midi_input_port()
                 return { nullptr, -1 };
         }
 
-        snd_seq_set_client_name(seq, "Kaboem");
+        snd_seq_set_client_name(seq, PROG_NAME);
 
         int in_port = snd_seq_create_simple_port(seq, "input",
                         SND_SEQ_PORT_CAP_WRITE|SND_SEQ_PORT_CAP_SUBS_WRITE,
@@ -456,7 +456,7 @@ int main(int argc, char *argv[])
 
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER,      "software");
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1"       );
-	SDL_Window *win = SDL_CreateWindow("Kaboem",
+	SDL_Window *win = SDL_CreateWindow(PROG_NAME,
                           display_mode->w, display_mode->h,
                           (full_screen ? SDL_WINDOW_FULLSCREEN: 0));
 	assert(win);
