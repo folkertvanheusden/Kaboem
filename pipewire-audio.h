@@ -45,7 +45,7 @@ public:
 	std::vector<std::pair<sound *, double> > sounds;
 	SNDFILE             *record_handle   { nullptr };
 
-	double               global_volume;
+	double               global_volume   { 1.      };
 };
 
 void configure_pipewire_audio(sound_parameters *const pw);
