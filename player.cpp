@@ -62,6 +62,8 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 	for(size_t i=0; i<pattern_groups; i++)
 		prev_pat_index[i] = size_t(-1);
 
+	std::array<int, pattern_groups> swing;
+
 	while(!*do_exit) {
 		if (*pause) {
 			usleep(10000);
@@ -70,11 +72,6 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 
 		{
 			auto now = get_ms();
-			int sw_fac = *swing_factor;
-			printf("%d\n", sw_fac);
-			if (sw_fac)
-				now += (rand() % sw_fac) - sw_fac / 2;
-
 			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
 			size_t max_steps = 0;
 			if (!*polyrythmic) {
@@ -88,10 +85,18 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 				size_t pat_index   = 0;
 				size_t current_dim = (*pat_clickables)[i].dim;
 
+				if (prev_pat_index[i] == current_dim - 1) {
+					int sw_fac = *swing_factor;
+					if (sw_fac)
+						swing[i] = (rand() % sw_fac) - sw_fac / 2;
+					else
+						swing[i] = 0;
+				}
+
 				if (*polyrythmic)
-					pat_index = now / *sleep_ms % current_dim;
+					pat_index = (now - swing[i]) / *sleep_ms % current_dim;
 				else
-					pat_index = size_t(now / double(*sleep_ms) * current_dim / double(max_steps)) % current_dim;
+					pat_index = size_t((now - swing[i]) / double(*sleep_ms) * current_dim / double(max_steps)) % current_dim;
 
 				if (pat_index != prev_pat_index[i] || force_trigger->exchange(false)) {
 					if (pat_index < prev_pat_index[i] && pat_index != 0)
