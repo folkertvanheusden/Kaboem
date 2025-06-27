@@ -75,7 +75,8 @@ void on_process_audio(void *userdata)
 				temp = sp->filter_lp->apply(temp);
 			if (sp->filter_hp)
 				temp = sp->filter_hp->apply(temp);
-			current_sample_base_out[c] = pow(temp, sp->sound_saturation);
+			double sign = temp < 0 ? -1 : 1;
+			current_sample_base_out[c] = pow(fabs(temp), sp->sound_saturation) * sign;
 		}
 	}
 
