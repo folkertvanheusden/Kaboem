@@ -60,10 +60,12 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 		if (sample_file.s) {
 			sample["vol-left"]  = sample_file.s->get_mapping_target_volume(0);
 			sample["vol-right"] = sample_file.s->get_mapping_target_volume(1);
+			sample["pitch"]     = sample_file.s->get_pitch_bend();
 		}
 		else {
 			sample["vol-left"]  = 0.;
 			sample["vol-right"] = 0.;
+			sample["pitch"]     = 1.;
 		}
 
 		samples.push_back(sample);
@@ -182,6 +184,7 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 					s.s->add_mapping(1, 1, j["samples"][group]["vol-right"]);
 				else
 					s.s->add_mapping(0, 1, 1.0);  // mono -> right
+				s.s->set_pitch_bend(j["samples"][group]["pitch"]);
 			}
 		}
 

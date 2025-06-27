@@ -307,7 +307,7 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 	return clickables;
 }
 
-std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t *const sample_load_idx, up_down_widget *const vol_widget_left_pars, up_down_widget *const vol_widget_right_pars, up_down_widget *const midi_note_widget_pars, up_down_widget *const n_steps_pars)
+std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t *const sample_load_idx, up_down_widget *const vol_widget_left_pars, up_down_widget *const vol_widget_right_pars, up_down_widget *const midi_note_widget_pars, up_down_widget *const n_steps_pars, up_down_widget *const pitch_pars)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -336,6 +336,9 @@ std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t 
 
 	std::vector<clickable> n_steps_widget = generate_up_down_widget(w, h, menu_button_width * 3, y, "steps", clickables.size(), n_steps_pars, false);
 	std::copy(n_steps_widget.begin(), n_steps_widget.end(), std::back_inserter(clickables));
+
+	std::vector<clickable> pitch_widget = generate_up_down_widget(w, h, menu_button_width * 4, y, "pitch", clickables.size(), pitch_pars, true);
+	std::copy(pitch_widget.begin(), pitch_widget.end(), std::back_inserter(clickables));
 
 	return clickables;
 }
@@ -682,7 +685,8 @@ int main(int argc, char *argv[])
 	up_down_widget sample_vol_widget_right  { };
 	up_down_widget midi_note_widget_pars    { };
 	up_down_widget n_steps_pars             { };
-	std::vector<clickable> sample_buttons_clickables = generate_sample_buttons(display_mode->w, display_mode->h, &sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right, &midi_note_widget_pars, &n_steps_pars);
+	up_down_widget pitch_pars               { };
+	std::vector<clickable> sample_buttons_clickables = generate_sample_buttons(display_mode->w, display_mode->h, &sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right, &midi_note_widget_pars, &n_steps_pars, &pitch_pars);
 
 	for(size_t i=0; i<pattern_groups; i++)
 		pat_clickables[i] = generate_pattern_grid(display_mode->w, display_mode->h, steps);
@@ -929,6 +933,8 @@ int main(int argc, char *argv[])
 				}
 				draw_text(font, screen, n_steps_pars.x, n_steps_pars.y, std::to_string(pat_clickables[fs_action_sample_index].dim),
 					{ { n_steps_pars.text_w, n_steps_pars.text_h } });
+				draw_text(font, screen, pitch_pars.x, pitch_pars.y, std::to_string(s ? s->get_pitch_bend() : 0),
+					{ { pitch_pars.text_w, pitch_pars.text_h } });
 			}
 			else {
 				fprintf(stderr, "Internal error: %d\n", mode);
@@ -1110,9 +1116,14 @@ int main(int argc, char *argv[])
 							sound_sample *const s = samples[fs_action_sample_index].s;
 							auto & midi_note = samples[fs_action_sample_index].midi_note;
 							bool is_stereo   = s ? s->get_n_channels() >= 2 : false;
+							int  pitch       = s ? s->get_pitch_bend() * 1000 : 0;
 
 							if (set_up_down_value(idx, midi_note_widget_pars, 0, 127, &midi_note, shift)) {
 								// taken
+							}
+							else if (set_up_down_value(idx, pitch_pars, 0, 10000, &pitch, shift)) {
+								if (s)
+									s->set_pitch_bend(pitch / 1000.);
 							}
 							else if (idx == n_steps_pars.up) {
 								pat_clickables[fs_action_sample_index].dim = std::min(max_pattern_dim, pat_clickables[fs_action_sample_index].dim + 1);

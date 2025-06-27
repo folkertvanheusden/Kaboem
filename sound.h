@@ -94,6 +94,11 @@ public:
 		pitchbend = pb;
 	}
 
+	double get_pitch_bend()
+	{
+		return pitchbend;
+	}
+
 	void set_volume(const int from, const int to, const double v)
 	{
 		input_output_matrix[from][to] = v;
