@@ -8,6 +8,7 @@ dim_cowbell_single_shot_studio_euf.wav, small-reverb-bass-drum-sound-a-key-10-G8
 To be able to compile and run this program, you need to install:
 
 sudo apt install fonts-freefont-ttf libpipewire-0.3-dev libsdl3-dev libsdl3-ttf-dev libsndfile1-dev nlohmann-json3-dev
+(and of course build-essential, git and cmake)
 
 Note that this requires at least Debian Trixie (13), Ubuntu Plucky (25.04) or equivalent (because of SDL3).
 
