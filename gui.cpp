@@ -583,7 +583,7 @@ int main(int argc, char *argv[])
 
 	TTF_Init();
 
-	bool full_screen = false;
+	bool full_screen = true;
 
 	SDL_Init(SDL_INIT_VIDEO);
 
