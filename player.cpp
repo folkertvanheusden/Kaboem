@@ -50,10 +50,11 @@ static void send_note(snd_seq_t *const seq, const int out_port, const int note, 
 
 void player(const std::array<pattern, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock,
 		const std::array<sample, pattern_groups> *const samples,
-		std::atomic_int *const sleep_ms, sound_parameters *const sound_pars,
-		std::atomic_bool *const pause, std::atomic_bool *const do_exit,
+		std::atomic_int  *const sleep_ms, sound_parameters *const sound_pars,
+		std::atomic_bool *const pause,    std::atomic_bool *const do_exit,
 		std::atomic_bool *const force_trigger,
-		std::atomic_bool *const polyrythmic)
+		std::atomic_bool *const polyrythmic,
+		std::atomic_int  *const swing_factor)
 {
 	auto                               midi_port      = allocate_midi_output_port();
 	std::array<size_t, pattern_groups> prev_pat_index;
@@ -69,6 +70,10 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 
 		{
 			auto now = get_ms();
+			int sw_fac = *swing_factor;
+			printf("%d\n", sw_fac);
+			if (sw_fac)
+				now += (rand() % sw_fac) - sw_fac / 2;
 
 			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
 			size_t max_steps = 0;
@@ -89,6 +94,8 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 					pat_index = size_t(now / double(*sleep_ms) * current_dim / double(max_steps)) % current_dim;
 
 				if (pat_index != prev_pat_index[i] || force_trigger->exchange(false)) {
+					if (pat_index < prev_pat_index[i] && pat_index != 0)
+						continue;
 					prev_pat_index[i] = pat_index;
 
 					std::lock_guard<std::shared_mutex> lck(sound_pars->sounds_lock);

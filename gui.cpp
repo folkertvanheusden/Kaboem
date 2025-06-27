@@ -211,7 +211,7 @@ std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, 
 	return clickables;
 }
 
-std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx, up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars, up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars, up_down_widget *const sound_saturation_pars, size_t *const polyrythmic_idx)
+std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx, up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars, up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars, up_down_widget *const sound_saturation_pars, size_t *const polyrythmic_idx, up_down_widget *const swing_widget_pars)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -289,11 +289,15 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 
 	int up_down_height = menu_button_height / 3 * 6;
 	x = 0;
-	y += menu_button_height + up_down_height;
+	y += up_down_height;
+
+	std::vector<clickable> swing_widget = generate_up_down_widget(w, h, x, y, "swing", clickables.size(), swing_widget_pars);
+	std::copy(swing_widget.begin(), swing_widget.end(), std::back_inserter(clickables));
+	y += up_down_height;
 
 	{
 		clickable c { };
-		c.where          = { x, y, menu_button_width, menu_button_height };
+		c.where          = { x, y + menu_button_height, menu_button_width, menu_button_height };
 		c.text           = "polyrythmic";
 		*polyrythmic_idx = clickables.size();
 		clickables.push_back(c);
@@ -665,9 +669,11 @@ int main(int argc, char *argv[])
 	std::optional<double> hp_filter_f;
 	std::optional<int> selected_midi_channel;
 	size_t         polyrythmic_idx  = 0;
-	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget, &pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget, &sound_saturation_widget, &polyrythmic_idx);
+	up_down_widget swing_widget       { };
+	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget, &pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget, &sound_saturation_widget, &polyrythmic_idx, &swing_widget);
 	std::string    menu_status;
 	std::atomic_bool polyrythmic    = false;
+	int            swing_amount     = 0;
 
 	size_t         sample_load_idx        = 0;
 	up_down_widget sample_vol_widget_left   { };
@@ -690,11 +696,13 @@ int main(int argc, char *argv[])
 		{ "volume",       file_parameter::T_INT,    &vol,              nullptr,                nullptr, nullptr,      nullptr, nullptr      },
 		{ "saturation",   file_parameter::T_INT,    &sound_saturation, nullptr,                nullptr, nullptr,      nullptr, nullptr      },
 		{ "midi-channel", file_parameter::T_INT,    nullptr,           &selected_midi_channel, nullptr, nullptr,      nullptr, nullptr      },
+		{ "swing-factor", file_parameter::T_INT,    &swing_amount,     nullptr,                nullptr, nullptr,      nullptr, nullptr      },
 		{ "lp-filter",    file_parameter::T_FLOAT,  nullptr,           nullptr,                nullptr, &lp_filter_f, nullptr, nullptr      },
 		{ "hp-filter",    file_parameter::T_FLOAT,  nullptr,           nullptr,                nullptr, &hp_filter_f, nullptr, nullptr      },
 		{ "polyrythmic",  file_parameter::T_ABOOL,  nullptr,           nullptr,                nullptr, nullptr,      nullptr, &polyrythmic }
 	};
 
+	std::atomic_int swing_amount_parameter { swing_amount };
 	if (read_file("default." PROG_EXT, &pat_clickables, &samples, &file_parameters)) {
 		for(size_t i=0; i<pattern_groups; i++) {
 			if (samples[i].name.empty() == false)
@@ -704,6 +712,7 @@ int main(int argc, char *argv[])
 		sound_pars.global_volume = vol / 100.;
 		menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
 		regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
+		swing_amount_parameter   = swing_amount;
 	}
 
 	std::atomic_int  sleep_ms       = 60 * 1000 / bpm;
@@ -712,8 +721,8 @@ int main(int argc, char *argv[])
 	std::atomic_bool force_trigger  = false;
 	bool             shift          = false;
 
-	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &force_trigger, &polyrythmic] {
-			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic);
+	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &force_trigger, &polyrythmic, &swing_amount_parameter] {
+			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &swing_amount_parameter);
 			});
 
 	while(!do_exit) {
@@ -765,7 +774,8 @@ int main(int argc, char *argv[])
 						read_file(fs_data.file, &pat_clickables, &samples, &file_parameters);
 
 						sound_pars.global_volume = vol / 100.;
-						sleep_ms = 60 * 1000 / bpm;
+						swing_amount_parameter   = swing_amount;
+						sleep_ms                 = 60 * 1000 / bpm;
 						menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
 						for(size_t i=0; i<pattern_groups; i++) {
 							if (samples[i].name.empty() == false)
@@ -885,6 +895,7 @@ int main(int argc, char *argv[])
 				if (hp_filter_f.has_value())
 					draw_text(font, screen, hp_filter_widget.x, hp_filter_widget.y, std::to_string(int(hp_filter_f.value())), { { hp_filter_widget.text_w, hp_filter_widget.text_h } });
 				draw_text(font, screen, sound_saturation_widget.x, sound_saturation_widget.y, std::to_string(sound_saturation), { { sound_saturation_widget.text_w, sound_saturation_widget.text_h } });
+				draw_text(font, screen, swing_widget.x, swing_widget.y, std::to_string(swing_amount), { { swing_widget.text_w, swing_widget.text_h } });
 			}
 			else if (mode == m_sample) {
 				std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
@@ -1012,6 +1023,9 @@ int main(int argc, char *argv[])
 						}
 						else if (idx == quit_idx) {
 							do_exit = true;
+						}
+						else if (set_up_down_value(idx, swing_widget, 0, 200, &swing_amount, shift)) {
+							swing_amount_parameter = swing_amount;
 						}
 						else if (set_up_down_value(idx, bpm_widget, 1, 999, &bpm, shift)) {
 						}
