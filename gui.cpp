@@ -442,25 +442,27 @@ void set_filter_cutoff(sound_parameters *const sound_pars, filter_butterworth **
 	}
 }
 
-bool configure_filter(sound_parameters *const sound_pars, const up_down_widget & widget, const size_t widget_idx, const bool is_highpass, std::optional<double> *const f)
+bool configure_filter(sound_parameters *const sound_pars, const up_down_widget & widget, const size_t widget_idx, const bool is_highpass, std::optional<double> *const f, const bool shift)
 {
+	int mul = shift ? 3 : 1;
+
 	if (widget_idx == widget.up) {
 		if (f->has_value() == false)
 			*f = 1.;
 		else
-			*f = std::min(sample_rate / 2., f->value() + 25);
+			*f = std::min(sample_rate / 2., f->value() + 20 * mul);
 	}
 	else if (widget_idx == widget.up_10) {
 		if (f->has_value() == false)
 			*f = 1.;
 		else
-			*f = std::min(sample_rate / 2., f->value() + 1000);
+			*f = std::min(sample_rate / 2., f->value() + 1000 * mul);
 	}
 	else if (widget_idx == widget.down) {
 		if (f->has_value() == false)
 			*f = sample_rate / 2.;
 		else {
-			*f = std::max(0., f->value() - 25);
+			*f = std::max(0., f->value() - 20 * mul);
 			if (*f < 1.)
 				f->reset();
 		}
@@ -469,7 +471,7 @@ bool configure_filter(sound_parameters *const sound_pars, const up_down_widget &
 		if (f->has_value() == false)
 			*f = sample_rate / 2.;
 		else {
-			*f = std::max(0., f->value() - 1000);
+			*f = std::max(0., f->value() - 1000 * mul);
 			if (*f < 1.)
 				f->reset();
 		}
@@ -486,16 +488,18 @@ bool configure_filter(sound_parameters *const sound_pars, const up_down_widget &
 	return true;
 }
 
-bool set_up_down_value(const size_t idx, const up_down_widget & widget, const int min_value, const int max_value, int *const value)
+bool set_up_down_value(const size_t idx, const up_down_widget & widget, const int min_value, const int max_value, int *const value, const bool shift)
 {
+	int mul = shift ? 3 : 1;
+
 	if (idx == widget.up)
-		(*value) = std::min(max_value, *value + 1);
+		(*value) = std::min(max_value, *value + 1 * mul);
 	else if (idx == widget.up_10)
-		(*value) = std::min(max_value, *value + 10);
+		(*value) = std::min(max_value, *value + 10 * mul);
 	else if (idx == widget.down)
-		(*value) = std::max(min_value, (*value) - 1);
+		(*value) = std::max(min_value, (*value) - 1 * mul);
 	else if (idx == widget.down_10)
-		(*value) = std::max(min_value, (*value) - 10);
+		(*value) = std::max(min_value, (*value) - 10 * mul);
 	else {
 		return false;
 	}
@@ -503,25 +507,27 @@ bool set_up_down_value(const size_t idx, const up_down_widget & widget, const in
 	return true;
 }
 
-bool set_up_down_value(const size_t idx, const up_down_widget & widget, const int min_value, const int max_value, std::optional<int> *const value)
+bool set_up_down_value(const size_t idx, const up_down_widget & widget, const int min_value, const int max_value, std::optional<int> *const value, const bool shift)
 {
+	int mul = shift ? 3 : 1;
+
 	if (idx == widget.up) {
 		if (value->has_value() == false)
 			*value = min_value;
 		else
-			*value = std::min(max_value, value->value() + 1);
+			*value = std::min(max_value, value->value() + 1 * mul);
 	}
 	else if (idx == widget.up_10) {
 		if (value->has_value() == false)
 			*value = min_value;
 		else
-			*value = std::min(max_value, value->value() + 10);
+			*value = std::min(max_value, value->value() + 10 * mul);
 	}
 	else if (idx == widget.down) {
 		if (value->has_value() == false)
 			*value = max_value;
 		else {
-			*value = std::max(min_value - 1, value->value() - 1);
+			*value = std::max(min_value - 1, value->value() - 1 * mul);
 			if (*value == min_value - 1)
 				value->reset();
 		}
@@ -530,7 +536,7 @@ bool set_up_down_value(const size_t idx, const up_down_widget & widget, const in
 		if (value->has_value() == false)
 			*value = max_value;
 		else {
-			*value = std::max(min_value - 1, value->value() - 10);
+			*value = std::max(min_value - 1, value->value() - 10 * mul);
 			if (*value == min_value - 1)
 				value->reset();
 		}
@@ -542,16 +548,18 @@ bool set_up_down_value(const size_t idx, const up_down_widget & widget, const in
 	return true;
 }
 
-bool configure_volume(sound_parameters *const sound_pars, const up_down_widget & widget, const size_t widget_idx, sound_sample *const s, const int channel_index)
+bool configure_volume(sound_parameters *const sound_pars, const up_down_widget & widget, const size_t widget_idx, sound_sample *const s, const int channel_index, const bool shift)
 {
+	int mul = shift ? 3 : 1;
+
 	if (widget_idx == widget.up)
-		s->set_mapping_target_volume(channel_index, std::min(1.1, s->get_mapping_target_volume(channel_index) + 0.01));
+		s->set_mapping_target_volume(channel_index, std::min(1.1, s->get_mapping_target_volume(channel_index) + 0.01 * mul));
 	else if (widget_idx == widget.up_10)
-		s->set_mapping_target_volume(channel_index, std::min(1.1, s->get_mapping_target_volume(channel_index) + 0.1));
+		s->set_mapping_target_volume(channel_index, std::min(1.1, s->get_mapping_target_volume(channel_index) + 0.1 * mul));
 	else if (widget_idx == widget.down)
-		s->set_mapping_target_volume(channel_index, std::max(0., s->get_mapping_target_volume(channel_index) - 0.01));
+		s->set_mapping_target_volume(channel_index, std::max(0., s->get_mapping_target_volume(channel_index) - 0.01 * mul));
 	else if (widget_idx == widget.down_10)
-		s->set_mapping_target_volume(channel_index, std::max(0., s->get_mapping_target_volume(channel_index) - 0.1));
+		s->set_mapping_target_volume(channel_index, std::max(0., s->get_mapping_target_volume(channel_index) - 0.1 * mul));
 	else
 		return false;
 
@@ -686,6 +694,7 @@ int main(int argc, char *argv[])
 	size_t           prev_pat_index = size_t(-1);
 	std::atomic_bool paused         = false;
 	std::atomic_bool force_trigger  = false;
+	bool             shift          = false;
 
 	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &force_trigger] {
 			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &do_exit, &force_trigger);
@@ -965,21 +974,21 @@ int main(int argc, char *argv[])
 						else if (idx == quit_idx) {
 							do_exit = true;
 						}
-						else if (set_up_down_value(idx, bpm_widget, 1, 999, &bpm)) {
+						else if (set_up_down_value(idx, bpm_widget, 1, 999, &bpm, shift)) {
 						}
-						else if (set_up_down_value(idx, vol_widget, 0, 110, &vol)) {  // this one goes to 11!
+						else if (set_up_down_value(idx, vol_widget, 0, 110, &vol, shift)) {  // this one goes to 11!
 						}
-						else if (set_up_down_value(idx, sound_saturation_widget, 0, 1000, &sound_saturation)) {
+						else if (set_up_down_value(idx, sound_saturation_widget, 0, 1000, &sound_saturation, shift)) {
 							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 							sound_pars.sound_saturation = 1. - sound_saturation / 1000.;
 						}
-						else if (configure_filter(&sound_pars, lp_filter_widget, idx, false, &lp_filter_f)) {
+						else if (configure_filter(&sound_pars, lp_filter_widget, idx, false, &lp_filter_f, shift)) {
 							// taken
 						}
-						else if (configure_filter(&sound_pars, hp_filter_widget, idx, false, &hp_filter_f)) {
+						else if (configure_filter(&sound_pars, hp_filter_widget, idx, false, &hp_filter_f, shift)) {
 							// taken
 						}
-						else if (set_up_down_value(idx, midi_ch_widget, 0, 15, &selected_midi_channel)) {
+						else if (set_up_down_value(idx, midi_ch_widget, 0, 15, &selected_midi_channel, shift)) {
 							// taken
 						}
 						else if (idx == record_idx) {
@@ -1043,7 +1052,7 @@ int main(int argc, char *argv[])
 							auto & midi_note = samples[fs_action_sample_index].midi_note;
 							bool is_stereo   = s ? s->get_n_channels() >= 2 : false;
 
-							if (set_up_down_value(idx, midi_note_widget_pars, 0, 127, &midi_note)) {
+							if (set_up_down_value(idx, midi_note_widget_pars, 0, 127, &midi_note, shift)) {
 								// taken
 							}
 							else if (idx == n_steps_pars.up) {
@@ -1057,9 +1066,9 @@ int main(int argc, char *argv[])
 							else if (s == nullptr) {
 								// skip volume when no sample
 							}
-							else if (configure_volume(&sound_pars, sample_vol_widget_left, idx, s, 0)) {
+							else if (configure_volume(&sound_pars, sample_vol_widget_left, idx, s, 0, shift)) {
 							}
-							else if (is_stereo && configure_volume(&sound_pars, sample_vol_widget_right, idx, s, 1)) {
+							else if (is_stereo && configure_volume(&sound_pars, sample_vol_widget_right, idx, s, 1, shift)) {
 							}
 							else if (!is_stereo) {
 								s->set_mapping_target_volume(1, s->get_mapping_target_volume(0));
@@ -1077,11 +1086,21 @@ int main(int argc, char *argv[])
 					redraw = true;
 				}
 			}
-			else if (event.type == SDL_EVENT_KEY_DOWN && event.key.scancode == SDL_SCANCODE_SPACE) {
-				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
-				pat_clickables[pattern_group].pattern[pat_index].selected = !pat_clickables[pattern_group].pattern[pat_index].selected;
-				redraw        = true;
-				force_trigger = true;
+			else if (event.type == SDL_EVENT_KEY_DOWN) {
+				if (event.key.scancode == SDL_SCANCODE_SPACE) {
+					std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
+					pat_clickables[pattern_group].pattern[pat_index].selected = !pat_clickables[pattern_group].pattern[pat_index].selected;
+					redraw        = true;
+					force_trigger = true;
+				}
+				else if (event.key.scancode == SDL_SCANCODE_LSHIFT || event.key.scancode == SDL_SCANCODE_RSHIFT) {
+					shift = true;
+				}
+			}
+			else if (event.type == SDL_EVENT_KEY_UP) {
+				if (event.key.scancode == SDL_SCANCODE_LSHIFT || event.key.scancode == SDL_SCANCODE_RSHIFT) {
+					shift = false;
+				}
 			}
 		}
 	}
