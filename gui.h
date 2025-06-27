@@ -19,6 +19,7 @@ struct clickable {
 struct pattern
 {
 	std::vector<clickable> pattern;
+	std::vector<double>    pitch;
 	size_t                 dim;
 };
 

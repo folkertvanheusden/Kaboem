@@ -32,10 +32,14 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 		json group_pattern = json::array();
 		for(auto & element: group.pattern)
 			group_pattern.push_back(element.selected);
+		json group_pitch   = json::array();
+		for(auto & element: group.pitch)
+			group_pitch.push_back(element);
 
 		json pattern_data;
 		pattern_data["dim"]     = group.dim;
 		pattern_data["pattern"] = group_pattern;
+		pattern_data["pitch"]   = group_pitch;
 
 		patterns.push_back(pattern_data);
 	}
@@ -149,13 +153,24 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 		}
 
 		for(size_t group=0; group<pattern_groups; group++) {
-			(*data)[group].dim  = j["patterns"][group]["dim"];
-			auto & group_vector = (*data)[group].pattern;
-			size_t index        = 0;
+			(*data)[group].dim   = j["patterns"][group]["dim"];
+			auto & group_data    = (*data)[group];
+
+			size_t index_pitch   = 0;
+			for(auto & element: j["patterns"][group]["pitch"])
+				group_data.pitch  [index_pitch++]            = element;
+
+			size_t index_pattern = 0;
 			for(auto & element: j["patterns"][group]["pattern"])
-				group_vector[index++].selected = element;
-			if (index < (*data)[group].dim)
+				group_data.pattern[index_pattern++].selected = element;
+
+			if (index_pattern < (*data)[group].dim || index_pitch != index_pattern)
 				return false;
+
+			for(size_t index=0; index<index_pattern; index++) {
+				if (group_data.pitch[index] != 1.)
+					group_data.pattern[index].text = std::to_string(group_data.pitch[index]);
+			}
 		}
 
 		for(size_t group=0; group<pattern_groups; group++) {

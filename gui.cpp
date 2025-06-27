@@ -363,6 +363,7 @@ pattern generate_pattern_grid(const int w, const int h, const int steps)
 
 	pattern p;
 	p.pattern.resize(max_pattern_dim);
+	p.pitch  .resize(max_pattern_dim);
 	p.dim = steps;
 
 	for(int i=0; i<steps; i++) {
@@ -372,6 +373,7 @@ pattern generate_pattern_grid(const int w, const int h, const int steps)
 		c.where    = { x, y, step_width, step_height };
 		c.selected = false;
 		p.pattern.at(i) = c;
+		p.pitch  .at(i) = 1.;
 	}
 
 	return p;
@@ -848,8 +850,8 @@ int main(int argc, char *argv[])
 						}
 
 						for(size_t i=0; i<sound_pars.sounds.size(); i++) {
-							if (sound_pars.sounds[i].first == old_s_pointer)
-								sound_pars.sounds[i].first = s->s;
+							if (sound_pars.sounds[i].s == old_s_pointer)
+								sound_pars.sounds[i].s = s->s;
 						}
 
 						redraw = true;
@@ -1129,7 +1131,7 @@ int main(int argc, char *argv[])
 							channel_clickables[fs_action_sample_index].text.clear();
 							// remove from queue
 							for(size_t i=0; i<sound_pars.sounds.size();) {
-								if (sound_pars.sounds[i].first == s.s)
+								if (sound_pars.sounds[i].s == s.s)
 									sound_pars.sounds.erase(sound_pars.sounds.begin() + i);
 								else
 									i++;
@@ -1198,6 +1200,24 @@ int main(int argc, char *argv[])
 			else if (event.type == SDL_EVENT_KEY_UP) {
 				if (event.key.scancode == SDL_SCANCODE_LSHIFT || event.key.scancode == SDL_SCANCODE_RSHIFT) {
 					shift = false;
+				}
+			}
+			else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
+				auto & pattern = pat_clickables[pattern_group];
+				auto   idx     = find_clickable(pat_clickables[pattern_group].pattern, event.wheel.mouse_x, event.wheel.mouse_y);
+				if (idx.has_value()) {
+					constexpr const double big_change = 0.03;
+					constexpr const double small_change = 0.001;
+					double direction = 0;
+					if (event.wheel.y < 0)
+						direction = shift ? -big_change : -small_change;
+					else if (event.wheel.y > 0)
+						direction = shift ?  big_change :  small_change;
+
+					pattern.pitch[idx.value()]       += direction;
+					pattern.pattern[idx.value()].text = std::to_string(pattern.pitch[idx.value()]);
+					redraw = true;
 				}
 			}
 		}

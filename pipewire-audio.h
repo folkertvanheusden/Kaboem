@@ -42,7 +42,12 @@ public:
 	pipewire_data_audio  pw;
 
 	std::shared_mutex    sounds_lock;
-	std::vector<std::pair<sound *, double> > sounds;
+	struct queued_sound {
+		sound *s;
+		double t;
+		double pitch;
+	};
+	std::vector<queued_sound> sounds;
 	SNDFILE             *record_handle    { nullptr };
 	filter_butterworth  *filter_lp        { nullptr };
 	filter_butterworth  *filter_hp        { nullptr };

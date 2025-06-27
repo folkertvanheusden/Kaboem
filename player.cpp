@@ -105,8 +105,13 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 
 					std::lock_guard<std::shared_mutex> lck(sound_pars->sounds_lock);
 					if ((*pat_clickables)[i].pattern[pat_index].selected) {
-						if ((*samples)[i].s)
-							sound_pars->sounds.push_back({ (*samples)[i].s, 0 });
+						if ((*samples)[i].s) {
+							sound_parameters::queued_sound qs { };
+							qs.s     = (*samples)[i].s;
+							qs.t     = 0;
+							qs.pitch = (*pat_clickables)[i].pitch[pat_index];
+							sound_pars->sounds.push_back(qs);
+						}
 
 						if ((*samples)[i].midi_note.has_value() && midi_port.first)
 							send_note(midi_port.first, midi_port.second, (*samples)[i].midi_note.value(), 127);
