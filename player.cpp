@@ -52,7 +52,8 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		const std::array<sample, pattern_groups> *const samples,
 		std::atomic_int *const sleep_ms, sound_parameters *const sound_pars,
 		std::atomic_bool *const pause, std::atomic_bool *const do_exit,
-		std::atomic_bool *const force_trigger)
+		std::atomic_bool *const force_trigger,
+		std::atomic_bool *const polyrythmic)
 {
 	auto                               midi_port      = allocate_midi_output_port();
 	std::array<size_t, pattern_groups> prev_pat_index;
@@ -70,8 +71,22 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 			auto now = get_ms();
 
 			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
+			size_t max_steps = 0;
+			if (!*polyrythmic) {
+				for(size_t i=0; i<pattern_groups; i++) {
+					if ((*samples)[i].s != nullptr)
+						max_steps = std::max(max_steps, (*pat_clickables)[i].dim);
+				}
+			}
+
 			for(size_t i=0; i<pattern_groups; i++) {
-				size_t pat_index = now / *sleep_ms % (*pat_clickables)[i].dim;
+				size_t pat_index   = 0;
+				size_t current_dim = (*pat_clickables)[i].dim;
+
+				if (*polyrythmic)
+					pat_index = now / *sleep_ms % current_dim;
+				else
+					pat_index = size_t(now / double(*sleep_ms) * current_dim / double(max_steps)) % current_dim;
 
 				if (pat_index != prev_pat_index[i] || force_trigger->exchange(false)) {
 					prev_pat_index[i] = pat_index;

@@ -211,7 +211,7 @@ std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, 
 	return clickables;
 }
 
-std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx, up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars, up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars, up_down_widget *const sound_saturation_pars)
+std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx, up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars, up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars, up_down_widget *const sound_saturation_pars, size_t *const polyrythmic_idx)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -286,6 +286,19 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 
 	std::vector<clickable> sound_saturation_pars_widget = generate_up_down_widget(w, h, menu_button_width * 5, y, "saturation", clickables.size(), sound_saturation_pars);
 	std::copy(sound_saturation_pars_widget.begin(), sound_saturation_pars_widget.end(), std::back_inserter(clickables));
+
+	int up_down_height = menu_button_height / 3 * 6;
+	x = 0;
+	y += menu_button_height + up_down_height;
+
+	{
+		clickable c { };
+		c.where          = { x, y, menu_button_width, menu_button_height };
+		c.text           = "polyrythmic";
+		*polyrythmic_idx = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
 
 	return clickables;
 }
@@ -651,8 +664,10 @@ int main(int argc, char *argv[])
 	std::optional<double> lp_filter_f;
 	std::optional<double> hp_filter_f;
 	std::optional<int> selected_midi_channel;
-	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget, &pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget, &sound_saturation_widget);
+	size_t         polyrythmic_idx  = 0;
+	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget, &pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget, &sound_saturation_widget, &polyrythmic_idx);
 	std::string    menu_status;
+	std::atomic_bool polyrythmic    = false;
 
 	size_t         sample_load_idx        = 0;
 	up_down_widget sample_vol_widget_left   { };
@@ -671,12 +686,13 @@ int main(int argc, char *argv[])
 	SDL_DialogFileFilter sf_filters_record[] { { "Record",       "wav"     } };
 
 	const std::vector<file_parameter> file_parameters {
-		{ "bpm",          false, &bpm,              nullptr,                nullptr, nullptr      },
-		{ "volume",       false, &vol,              nullptr,                nullptr, nullptr      },
-		{ "saturation",   false, &sound_saturation, nullptr,                nullptr, nullptr      },
-		{ "midi-channel", false, nullptr,           &selected_midi_channel, nullptr, nullptr      },
-		{ "lp-filter",    true,  nullptr,           nullptr,                nullptr, &lp_filter_f },
-		{ "hp-filter",    true,  nullptr,           nullptr,                nullptr, &hp_filter_f },
+		{ "bpm",          file_parameter::T_INT,    &bpm,              nullptr,                nullptr, nullptr,      nullptr, nullptr      },
+		{ "volume",       file_parameter::T_INT,    &vol,              nullptr,                nullptr, nullptr,      nullptr, nullptr      },
+		{ "saturation",   file_parameter::T_INT,    &sound_saturation, nullptr,                nullptr, nullptr,      nullptr, nullptr      },
+		{ "midi-channel", file_parameter::T_INT,    nullptr,           &selected_midi_channel, nullptr, nullptr,      nullptr, nullptr      },
+		{ "lp-filter",    file_parameter::T_FLOAT,  nullptr,           nullptr,                nullptr, &lp_filter_f, nullptr, nullptr      },
+		{ "hp-filter",    file_parameter::T_FLOAT,  nullptr,           nullptr,                nullptr, &hp_filter_f, nullptr, nullptr      },
+		{ "polyrythmic",  file_parameter::T_ABOOL,  nullptr,           nullptr,                nullptr, nullptr,      nullptr, &polyrythmic }
 	};
 
 	if (read_file("default." PROG_EXT, &pat_clickables, &samples, &file_parameters)) {
@@ -686,7 +702,7 @@ int main(int argc, char *argv[])
 		}
 
 		sound_pars.global_volume = vol / 100.;
-
+		menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
 		regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
 	}
 
@@ -696,17 +712,35 @@ int main(int argc, char *argv[])
 	std::atomic_bool force_trigger  = false;
 	bool             shift          = false;
 
-	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &force_trigger] {
-			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &do_exit, &force_trigger);
+	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &force_trigger, &polyrythmic] {
+			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic);
 			});
 
 	while(!do_exit) {
-		size_t pat_index = get_ms() / sleep_ms % pat_clickables[pattern_group].dim;
+		// determine pattern index
+		size_t pat_index = 0;
+		{
+			auto   now         = get_ms();
+			std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+			size_t current_dim = pat_clickables[pattern_group].dim;
+
+                        if (polyrythmic)
+				pat_index = now / sleep_ms % current_dim;
+			else {
+				size_t max_steps = 0;
+                                for(size_t i=0; i<pattern_groups; i++) {
+                                        if (samples[i].s != nullptr)
+                                                max_steps = std::max(max_steps, pat_clickables[i].dim);
+                                }
+				pat_index = size_t(now / double(sleep_ms) * current_dim / double(max_steps)) % current_dim;
+                        }
+		}
 		if (pat_index != prev_pat_index && !paused) {
 			redraw = true;
 			prev_pat_index = pat_index;
 		}
 
+		// check for midi events
 		if (midi_in.first && snd_seq_event_input_pending(midi_in.first, 1) != 0) {
 			snd_seq_event_t *ev { nullptr };
 			snd_seq_event_input(midi_in.first, &ev);
@@ -720,6 +754,7 @@ int main(int argc, char *argv[])
 			}
 		}
 
+		// did the user select a file in the fileselector?
 		if (fs_action != fs_none) {
 			std::lock_guard<std::mutex> fs_lck(fs_data.lock);
 			if (fs_action == fs_load) {
@@ -731,9 +766,11 @@ int main(int argc, char *argv[])
 
 						sound_pars.global_volume = vol / 100.;
 						sleep_ms = 60 * 1000 / bpm;
+						menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
 						for(size_t i=0; i<pattern_groups; i++) {
 							if (samples[i].name.empty() == false)
 								channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
+
 						}
 						redraw = true;
 						menu_status = "file " + get_filename(fs_data.file) + " read";
@@ -816,6 +853,7 @@ int main(int argc, char *argv[])
 			}
 		}
 
+		// redraw screen
 		if (redraw && fs_action == fs_none) {
 			SDL_SetRenderDrawColor(screen, 0, 0, 0, 255);
 			SDL_RenderClear(screen);
@@ -890,6 +928,7 @@ int main(int argc, char *argv[])
 
 		SDL_Delay(1);
 
+		// process mouse clicks etc
 		SDL_Event event { 0 };
 		if (SDL_PollEvent(&event)) {
 			if (event.type == SDL_EVENT_QUIT) {
@@ -1010,6 +1049,10 @@ int main(int argc, char *argv[])
 						else if (idx == pause_idx) {
 							paused = !paused;
 							menu_buttons_clickables[pause_idx].selected = paused;
+						}
+						else if (idx == polyrythmic_idx) {
+							polyrythmic = !polyrythmic;
+							menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
 						}
 						sleep_ms                 = 60 * 1000 / bpm;
 						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);

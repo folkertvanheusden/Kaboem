@@ -1,4 +1,5 @@
 #include <array>
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -8,11 +9,13 @@
 struct file_parameter
 {
 	std::string            name;
-	bool                   is_float { false };
-	int                   *i_value  { 0     };
-	std::optional<int>    *oi_value;
-	double                *d_value  { 0     };
-	std::optional<double> *od_value;
+	enum { T_INT, T_FLOAT, T_BOOL, T_ABOOL } type { T_INT };
+	int                   *i_value  { nullptr };
+	std::optional<int>    *oi_value { nullptr };
+	double                *d_value  { nullptr };
+	std::optional<double> *od_value { nullptr };
+	bool                  *b_value  { nullptr };
+	std::atomic_bool      *ab_value { nullptr };
 };
 
 bool write_file(const std::string & file_name, const std::array<pattern, pattern_groups> & data, const std::array<sample, pattern_groups> & sample_files,

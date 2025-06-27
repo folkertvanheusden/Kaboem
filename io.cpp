@@ -80,17 +80,22 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 	out["midi-notes"]       = midi_notes;
 
 	for(auto & element: parameters) {
-		if (element.is_float) {
+		if (element.type == file_parameter::T_FLOAT) {
 			if (element.d_value)
 				out[element.name] = *element.d_value;
 			else if (element.od_value->has_value())
 				out[element.name] = element.od_value->value();
 		}
-		else {
+		else if (element.type == file_parameter::T_INT) {
 			if (element.i_value)
 				out[element.name] = *element.i_value;
 			else if (element.oi_value->has_value())
 				out[element.name] = element.oi_value->value();
+		}
+		else if (element.type == file_parameter::T_BOOL)
+			out[element.name] = *element.b_value;
+		else if (element.type == file_parameter::T_ABOOL) {
+			out[element.name] = bool(*element.ab_value);
 		}
 	}
 
@@ -121,17 +126,22 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 
 		for(auto & element: *parameters) {
 			if (j.contains(element.name)) {
-				if (element.is_float) {
+				if (element.type == file_parameter::T_FLOAT) {
 					if (element.d_value)
 						*element.d_value = j[element.name];
 					else
 						*element.od_value = j[element.name];
 				}
-				else {
+				else if (element.type == file_parameter::T_INT) {
 					if (element.i_value)
 						*element.i_value = j[element.name];
 					else
 						*element.oi_value = j[element.name];
+				}
+				else if (element.type == file_parameter::T_BOOL)
+					*element.b_value = j[element.name];
+				else if (element.type == file_parameter::T_ABOOL) {
+					*element.ab_value = j[element.name];
 				}
 			}
 		}
