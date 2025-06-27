@@ -99,7 +99,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 					pat_index = size_t((now - swing[i]) / double(*sleep_ms) * current_dim / double(max_steps)) % current_dim;
 
 				if (pat_index != prev_pat_index[i] || force_trigger->exchange(false)) {
-					if (pat_index < prev_pat_index[i] && pat_index != 0)
+					if (pat_index < prev_pat_index[i] && pat_index != 0 && prev_pat_index[i] != size_t(-1))
 						continue;
 					prev_pat_index[i] = pat_index;
 
