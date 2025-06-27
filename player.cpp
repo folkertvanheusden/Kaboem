@@ -103,8 +103,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 			}
 		}
 
-		// TODO depending on next sample timestamp
-		usleep(1000);
+		usleep(1000000 / *sleep_ms);
 	}
 
 	if (midi_port.first)
