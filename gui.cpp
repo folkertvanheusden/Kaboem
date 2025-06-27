@@ -590,6 +590,8 @@ int main(int argc, char *argv[])
 	configure_pipewire_audio(&sound_pars);
 	sound_pars.global_volume = 1.;
 
+	srand(time(nullptr));
+
 	const std::string path      = get_current_dir_name();
 	std::string       work_path = path;
 
