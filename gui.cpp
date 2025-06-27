@@ -724,10 +724,11 @@ int main(int argc, char *argv[])
 				channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
 		}
 
-		sound_pars.global_volume = vol / 100.;
+		sound_pars.global_volume    = vol / 100.;
+		sound_pars.sound_saturation = 1. - sound_saturation / 1000.;
 		menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
 		regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
-		swing_amount_parameter   = swing_amount;
+		swing_amount_parameter      = swing_amount;
 	}
 
 	std::atomic_int  sleep_ms       = 60 * 1000 / bpm;
@@ -788,9 +789,10 @@ int main(int argc, char *argv[])
 						std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
 						read_file(fs_data.file, &pat_clickables, &samples, &file_parameters);
 
-						sound_pars.global_volume = vol / 100.;
-						swing_amount_parameter   = swing_amount;
-						sleep_ms                 = 60 * 1000 / bpm;
+						sound_pars.global_volume    = vol / 100.;
+						sound_pars.sound_saturation = 1. - sound_saturation / 1000.;
+						swing_amount_parameter      = swing_amount;
+						sleep_ms                    = 60 * 1000 / bpm;
 						menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
 						for(size_t i=0; i<pattern_groups; i++) {
 							if (samples[i].name.empty() == false)
