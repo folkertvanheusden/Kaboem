@@ -284,7 +284,7 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 	std::vector<clickable> hp_filter_pars_widget = generate_up_down_widget(w, h, menu_button_width * 4, y, "high pass", clickables.size(), hp_filter_pars);
 	std::copy(hp_filter_pars_widget.begin(), hp_filter_pars_widget.end(), std::back_inserter(clickables));
 
-	std::vector<clickable> sound_saturation_pars_widget = generate_up_down_widget(w, h, menu_button_width * 4, y, "saturation", clickables.size(), sound_saturation_pars);
+	std::vector<clickable> sound_saturation_pars_widget = generate_up_down_widget(w, h, menu_button_width * 5, y, "saturation", clickables.size(), sound_saturation_pars);
 	std::copy(sound_saturation_pars_widget.begin(), sound_saturation_pars_widget.end(), std::back_inserter(clickables));
 
 	return clickables;
@@ -959,7 +959,7 @@ int main(int argc, char *argv[])
 						}
 						else if (set_up_down_value(idx, sound_saturation_widget, 0, 1000, &sound_saturation)) {
 							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-							sound_pars.sound_saturation = sound_saturation / 1000.;
+							sound_pars.sound_saturation = 1. - sound_saturation / 1000.;
 						}
 						else if (configure_filter(&sound_pars, lp_filter_widget, idx, false, &lp_filter_f)) {
 							// taken
