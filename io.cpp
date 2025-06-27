@@ -3,6 +3,7 @@
 #include <nlohmann/json.hpp>
 
 #include "gui.h"
+#include "io.h"
 
 using json = nlohmann::json;
 
@@ -23,7 +24,8 @@ std::string get_filename(const std::string & path)
 	return path.substr(slash + 1);
 }
 
-bool write_file(const std::string & file_name, const std::array<pattern, pattern_groups> & data, const int bpm, const std::array<sample, pattern_groups> & sample_files)
+bool write_file(const std::string & file_name, const std::array<pattern, pattern_groups> & data, const std::array<sample, pattern_groups> & sample_files,
+		const std::vector<file_parameter> & parameters)
 {
 	json patterns = json::array();
 	for(auto & group: data) {
@@ -73,10 +75,24 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 	}
 
 	json out;
-	out["bpm"]              = bpm;
 	out["patterns"]         = patterns;
 	out["samples"]          = samples;
 	out["midi-notes"]       = midi_notes;
+
+	for(auto & element: parameters) {
+		if (element.is_float) {
+			if (element.d_value)
+				out[element.name] = *element.d_value;
+			else if (element.od_value->has_value())
+				out[element.name] = element.od_value->value();
+		}
+		else {
+			if (element.i_value)
+				out[element.name] = *element.i_value;
+			else if (element.oi_value->has_value())
+				out[element.name] = element.oi_value->value();
+		}
+	}
 
 	try {
 		std::ofstream o(file_name);
@@ -92,7 +108,8 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 	return false;
 }
 
-bool read_file(const std::string & file_name, std::array<pattern, pattern_groups> *const data, int *const bpm, std::array<sample, pattern_groups> *const sample_files)
+bool read_file(const std::string & file_name, std::array<pattern, pattern_groups> *const data, std::array<sample, pattern_groups> *const sample_files,
+		const std::vector<file_parameter> *const parameters)
 {
 	try {
 		std::ifstream ifs(file_name);
@@ -102,7 +119,22 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 
 		json j = json::parse(ifs);
 
-		*bpm = j["bpm"];
+		for(auto & element: *parameters) {
+			if (j.contains(element.name)) {
+				if (element.is_float) {
+					if (element.d_value)
+						*element.d_value = j[element.name];
+					else
+						*element.od_value = j[element.name];
+				}
+				else {
+					if (element.i_value)
+						*element.i_value = j[element.name];
+					else
+						*element.oi_value = j[element.name];
+				}
+			}
+		}
 
 		for(size_t group=0; group<pattern_groups; group++) {
 			(*data)[group].dim  = j["patterns"][group]["dim"];

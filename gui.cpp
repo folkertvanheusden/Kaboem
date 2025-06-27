@@ -662,7 +662,16 @@ int main(int argc, char *argv[])
 	SDL_DialogFileFilter sf_filters_sample[] { { "Samples",      "wav;mp3" } };
 	SDL_DialogFileFilter sf_filters_record[] { { "Record",       "wav"     } };
 
-	if (read_file("default." PROG_EXT, &pat_clickables, &bpm, &samples)) {
+	const std::vector<file_parameter> file_parameters {
+		{ "bpm",          false, &bpm,              nullptr,                nullptr, nullptr      },
+		{ "volume",       false, &vol,              nullptr,                nullptr, nullptr      },
+		{ "saturation",   false, &sound_saturation, nullptr,                nullptr, nullptr      },
+		{ "midi-channel", false, nullptr,           &selected_midi_channel, nullptr, nullptr      },
+		{ "lp-filter",    true,  nullptr,           nullptr,                nullptr, &lp_filter_f },
+		{ "hp-filter",    true,  nullptr,           nullptr,                nullptr, &hp_filter_f },
+	};
+
+	if (read_file("default." PROG_EXT, &pat_clickables, &samples, &file_parameters)) {
 		for(size_t i=0; i<pattern_groups; i++) {
 			if (samples[i].name.empty() == false)
 				channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
@@ -707,7 +716,7 @@ int main(int argc, char *argv[])
 					if (fs_data.file.empty() == false) {
 						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 						std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
-						read_file(fs_data.file, &pat_clickables, &bpm, &samples);
+						read_file(fs_data.file, &pat_clickables, &samples, &file_parameters);
 
 						sleep_ms = 60 * 1000 / bpm;
 						for(size_t i=0; i<pattern_groups; i++) {
@@ -729,7 +738,7 @@ int main(int argc, char *argv[])
 						if (file_len > 7 && file.substr(file_len - 7) != "." PROG_EXT)
 							file += "." PROG_EXT;
 						std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-						write_file(file, pat_clickables, bpm, samples);
+						write_file(file, pat_clickables, samples, file_parameters);
 						menu_status = "file " + get_filename(fs_data.file) + " written";
 					}
 					fs_action = fs_none;
@@ -916,7 +925,7 @@ int main(int argc, char *argv[])
 						if (idx == clear_idx) {
 							{
 								std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-								write_file(path + "/before_clear." PROG_EXT, pat_clickables, bpm, samples);
+								write_file(path + "/before_clear." PROG_EXT, pat_clickables, samples, file_parameters);
 							}
 							{
 								std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
@@ -1088,7 +1097,7 @@ int main(int argc, char *argv[])
 
 	{
 		std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-		write_file(path + "/default." PROG_EXT, pat_clickables, bpm, samples);
+		write_file(path + "/default." PROG_EXT, pat_clickables, samples, file_parameters);
 	}
 
 	unload_sample_cache();
