@@ -62,7 +62,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 	for(size_t i=0; i<pattern_groups; i++)
 		prev_pat_index[i] = size_t(-1);
 
-	std::array<int, pattern_groups> swing;
+	std::array<int, pattern_groups> swing { };
 
 	while(!*do_exit) {
 		if (*pause) {
