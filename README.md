@@ -21,3 +21,5 @@ Preview:
 ![main screen with a pattern](images/kaboem-main-w-pattern.png)
 
 ![settings screen](images/kaboem-settings.png)
+
+![settings of a channel](images/kaboem-channel-settings.png)
