@@ -13,6 +13,7 @@ set(CMAKE_BUILD_TYPE RelWithDebInfo)
 add_executable(
   kaboem
   filter.cpp
+  frequencies.cpp
   gui.cpp
   io.cpp
   pipewire.cpp
@@ -59,5 +60,10 @@ pkg_check_modules(NLOHMANN_JSON REQUIRED nlohmann_json)
 target_link_libraries(kaboem ${NLOHMANN_JSON})
 target_include_directories(kaboem PUBLIC ${NLOHMANN_JSON})
 target_compile_options(kaboem PUBLIC ${NLOHMANN_JSON})
+
+pkg_search_module(FFTW REQUIRED fftw3 IMPORTED_TARGET)
+include_directories(PkgConfig::FFTW)
+link_libraries(PkgConfig::FFTW)
+target_link_libraries(kaboem fftw3)
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION True)

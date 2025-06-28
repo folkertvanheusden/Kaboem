@@ -1,5 +1,6 @@
 #include <cmath>
 
+#include "frequencies.h"
 #include "pipewire-audio.h"
 #include "sample.h"
 #include "sound.h"
@@ -104,16 +105,23 @@ bool sound_sample::begin()
 	auto            rc = load_sample(file_name);
 	if (rc.has_value() == false)
 		return false;
-	samples            = *rc.value().first;
-	sample_sample_rate =  rc.value().second;
-
-	delta_t = sample_sample_rate / double(sample_rate);
+	samples            = *std::get<0>(rc.value());
+	sample_sample_rate =  std::get<1>(rc.value());
+	base_frequency     =  ceil(std::get<2>(rc.value()));
+	base_midi_note     =  frequency_to_midi_note(base_frequency);
+	name               = midi_note_to_name(base_midi_note);
+	delta_t            = sample_sample_rate / double(sample_rate);
 
 	input_output_matrix.resize(samples.at(0).size());
 
-	printf("Sample %s has %zu channel(s) and is sampled at %uHz\n", file_name.c_str(), input_output_matrix.size(), sample_sample_rate);
+	printf("Sample %s has %zu channel(s), is sampled at %u Hz and sounds like a %s (%.2f Hz)\n", file_name.c_str(), input_output_matrix.size(), sample_sample_rate, name.c_str(), base_frequency);
 
 	return true;
+}
+
+std::string sound_sample::get_name() const
+{
+	return name;
 }
 
 std::pair<double, std::map<int, double> > sound_sample::get_sample(const size_t channel_nr)

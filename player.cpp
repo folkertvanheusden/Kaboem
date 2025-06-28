@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <alsa/asoundlib.h>
 
+#include "frequencies.h"
 #include "gui.h"
 #include "pipewire-audio.h"
 
@@ -109,7 +110,15 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 							sound_parameters::queued_sound qs { };
 							qs.s     = (*samples)[i].s;
 							qs.t     = 0;
-							qs.pitch = (*pat_clickables)[i].pitch[pat_index];
+
+							int    base_note       = qs.s->get_base_midi_note();
+							double base_note_f     = midi_note_to_frequency(base_note);
+							int    adjusted_note   = base_note + (*pat_clickables)[i].note_delta[pat_index];
+							int    adjusted_note_f = midi_note_to_frequency(adjusted_note);
+
+							double pitch           = base_note_f ? adjusted_note_f / base_note_f : 1.;
+							qs.pitch = pitch;
+
 							sound_pars->sounds.push_back(qs);
 						}
 

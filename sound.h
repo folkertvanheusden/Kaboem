@@ -154,7 +154,9 @@ public:
 		return false;
 	}
 
-	virtual std::string get_name() const = 0;
+	virtual std::string get_name()           const = 0;
+	virtual double      get_base_frequency() const = 0;
+	virtual int         get_base_midi_note() const = 0;
 };
 
 class sound_sample : public sound
@@ -162,6 +164,9 @@ class sound_sample : public sound
 private:
 	std::string                       file_name;
 	std::vector<std::vector<double> > samples;
+	double                            base_frequency { 0. };
+	int                               base_midi_note { 0  };
+	std::string                       name;
 
 public:
 	sound_sample(const int sample_rate, const std::string & file_name);
@@ -176,10 +181,9 @@ public:
 
 	std::pair<double, std::map<int, double> > get_sample(const size_t channel_nr) override;
 
-	std::string get_name() const override
-	{
-		return "sample";
-	}
+	std::string get_name() const override;
+	double      get_base_frequency() const { return base_frequency; }
+	int         get_base_midi_note() const { return base_midi_note; }
 
 	bool set_time(const uint64_t t_in) override
 	{

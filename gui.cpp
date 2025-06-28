@@ -11,6 +11,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
+#include "frequencies.h"
 #include "gui.h"
 #include "io.h"
 #include "pipewire.h"
@@ -362,8 +363,8 @@ pattern generate_pattern_grid(const int w, const int h, const int steps)
 	int step_height = pattern_h / steps_sq;
 
 	pattern p;
-	p.pattern.resize(max_pattern_dim);
-	p.pitch  .resize(max_pattern_dim);
+	p.pattern   .resize(max_pattern_dim);
+	p.note_delta.resize(max_pattern_dim);
 	p.dim = steps;
 
 	for(int i=0; i<steps; i++) {
@@ -373,7 +374,6 @@ pattern generate_pattern_grid(const int w, const int h, const int steps)
 		c.where    = { x, y, step_width, step_height };
 		c.selected = false;
 		p.pattern.at(i) = c;
-		p.pitch  .at(i) = 1.;
 	}
 
 	return p;
@@ -596,6 +596,29 @@ bool configure_volume(sound_parameters *const sound_pars, const up_down_widget &
 	return true;
 }
 
+void reset_pattern(std::array<pattern, pattern_groups> *const pat_clickables, const size_t pattern_group, sound_sample *const s, const bool zero)
+{
+	auto & pattern = (*pat_clickables)[pattern_group];
+
+	for(size_t i=0; i<pattern.pattern.size(); i++) {
+		if (zero)
+			pattern.note_delta[i] = 0;
+
+		std::string name = midi_note_to_name(s->get_base_midi_note() + pattern.note_delta[i]);
+		pattern.pattern[i].text = name;
+	}
+}
+
+void reset_all_patterns(std::array<pattern, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock, const std::array<sample, pattern_groups> & samples, const bool zero)
+{
+	std::lock_guard<std::shared_mutex> pat_lck(*pat_clickables_lock);
+
+	for(size_t i=0; i<pattern_groups; i++) {
+		if (samples[i].s)
+			reset_pattern(pat_clickables, i, samples[i].s, zero);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	int pw_argc = 1;
@@ -743,6 +766,8 @@ int main(int argc, char *argv[])
 		menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
 		regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
 		swing_amount_parameter      = swing_amount;
+
+		reset_all_patterns(&pat_clickables, &pat_clickables_lock, samples, false);
 	}
 
 	std::atomic_int  sleep_ms       = 60 * 1000 / bpm;
@@ -800,7 +825,7 @@ int main(int argc, char *argv[])
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
 						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
-						std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
+						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 						read_file(fs_data.file, &pat_clickables, &samples, &file_parameters);
 
 						sound_pars.global_volume    = vol / 100.;
@@ -816,6 +841,9 @@ int main(int argc, char *argv[])
 						redraw = true;
 						menu_status = "file " + get_filename(fs_data.file) + " read";
 						regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
+
+						pat_lck.unlock();
+						reset_all_patterns(&pat_clickables, &pat_clickables_lock, samples, false);
 					}
 					fs_action = fs_none;
 				}
@@ -837,7 +865,7 @@ int main(int argc, char *argv[])
 			else if (fs_action == fs_load_sample) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
-						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
+						std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 						sample *const s = &samples[fs_action_sample_index];
 						s->name = fs_data.file;
 						auto *old_s_pointer = s->s;
@@ -864,6 +892,12 @@ int main(int argc, char *argv[])
 						for(size_t i=0; i<sound_pars.sounds.size(); i++) {
 							if (sound_pars.sounds[i].s == old_s_pointer)
 								sound_pars.sounds[i].s = s->s;
+						}
+
+						if (s->s) {
+							lck.unlock();
+							std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
+							reset_pattern(&pat_clickables, pattern_group, s->s, false);
 						}
 
 						redraw = true;
@@ -930,11 +964,11 @@ int main(int argc, char *argv[])
 			}
 			else if (mode == m_sample) {
 				std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-				int  vol_left  = 0;
-				int  vol_right = 0;
-				bool is_stereo = false;
-				sound_sample *const s = samples[fs_action_sample_index].s;
-				auto midi_note = samples[fs_action_sample_index].midi_note;
+				int                 vol_left  = 0;
+				int                 vol_right = 0;
+				bool                is_stereo = false;
+				sound_sample *const s         = samples[fs_action_sample_index].s;
+				auto                midi_note = samples[fs_action_sample_index].midi_note;
 				if (s) {
 					is_stereo = s->get_n_channels() >= 2;
 					vol_left  = s->get_mapping_target_volume(0) * 100;
@@ -1155,10 +1189,10 @@ int main(int argc, char *argv[])
 						}
 						else {
 							std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
-							sound_sample *const s = samples[fs_action_sample_index].s;
-							auto & midi_note = samples[fs_action_sample_index].midi_note;
-							bool is_stereo   = s ? s->get_n_channels() >= 2 : false;
-							int  pitch       = s ? s->get_pitch_bend() * 1000 : 0;
+							sound_sample *const s         = samples[fs_action_sample_index].s;
+							auto              & midi_note = samples[fs_action_sample_index].midi_note;
+							bool                is_stereo = s ? s->get_n_channels() >= 2 : false;
+							int                 pitch     = s ? s->get_pitch_bend() * 1000 : 0;
 
 							if (set_up_down_value(idx, midi_note_widget_pars, 0, 127, &midi_note, shift)) {
 								// taken
@@ -1219,16 +1253,21 @@ int main(int argc, char *argv[])
 				auto & pattern = pat_clickables[pattern_group];
 				auto   idx     = find_clickable(pat_clickables[pattern_group].pattern, event.wheel.mouse_x, event.wheel.mouse_y);
 				if (idx.has_value()) {
-					constexpr const double big_change = 0.03;
-					constexpr const double small_change = 0.001;
+					constexpr const int big_change   = 12;
+					constexpr const int small_change = 1;
 					double direction = 0;
 					if (event.wheel.y < 0)
 						direction = shift ? -big_change : -small_change;
 					else if (event.wheel.y > 0)
 						direction = shift ?  big_change :  small_change;
 
-					pattern.pitch[idx.value()]       += direction;
-					pattern.pattern[idx.value()].text = std::to_string(pattern.pitch[idx.value()]);
+					pattern.note_delta[idx.value()] += direction;
+
+					std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+					sound_sample *const s = samples[pattern_group].s;
+					if (s)
+						pattern.pattern[idx.value()].text = midi_note_to_name(s->get_base_midi_note() + pattern.note_delta[idx.value()]);
+
 					redraw = true;
 				}
 			}

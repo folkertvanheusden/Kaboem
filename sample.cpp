@@ -6,12 +6,13 @@
 #include <vector>
 
 #include "error.h"
+#include "frequencies.h"
 
 
 static std::mutex sample_cache_lock;
-static std::map<std::string, std::pair<std::vector<std::vector<double> > *, unsigned int> > sample_cache;
+static std::map<std::string, std::tuple<std::vector<std::vector<double> > *, unsigned int, double> > sample_cache;
 
-std::optional<std::pair<std::vector<std::vector<double> > *, unsigned int> > load_sample(const std::string & filename)
+std::optional<std::tuple<std::vector<std::vector<double> > *, unsigned int, double> > load_sample(const std::string & filename)
 {
 	std::unique_lock<std::mutex> lck(sample_cache_lock);
 
@@ -38,27 +39,37 @@ std::optional<std::pair<std::vector<std::vector<double> > *, unsigned int> > loa
 			int offset = i * si.channels;
 
 			std::vector<double> row;
-
 			for(int j=offset; j<offset + si.channels; j++)
 				row.push_back(buffer[j]);
-
 			samples->push_back(row);
 		}
 	}
 
 	sf_close(sh);
-
 	delete [] buffer;
 
-	sample_cache.insert({ filename, { samples, si.samplerate } });
+	size_t  n_ch      = samples->at(0).size();
+	size_t  n_samples = samples->size();
+	double *mono      = new double[n_samples]();
+	for(size_t i=0; i<n_samples; i++) {
+		for(size_t ch=0; ch<n_ch; ch++)
+			mono[i] += (*samples)[i][ch];
+		mono[i] /= n_ch;
+	}
 
-	return { { samples, si.samplerate } };
+	double loudest_frequency = find_loudest_freq(mono, n_samples, si.samplerate);
+	printf("loudest_frequency: %f\n", loudest_frequency);
+	delete [] mono;
+
+	sample_cache.insert({ filename, { samples, si.samplerate, loudest_frequency } });
+
+	return { { samples, si.samplerate, loudest_frequency } };
 }
 
 void unload_sample_cache()
 {
 	std::unique_lock<std::mutex> lck(sample_cache_lock);
 	for(auto & entry : sample_cache)
-		delete entry.second.first;
+		delete std::get<0>(entry.second);
 	sample_cache.clear();
 }
