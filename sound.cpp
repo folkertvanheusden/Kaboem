@@ -13,29 +13,26 @@ double f_to_delta_t(const double frequency, const int sample_rate)
 void on_process_audio(void *userdata)
 {
 	sound_parameters *sp = reinterpret_cast<sound_parameters *>(userdata);
-
-	pw_buffer *b = pw_stream_dequeue_buffer(sp->pw.stream);
-
+	pw_buffer        *b  = pw_stream_dequeue_buffer(sp->pw.stream);
 	if (b == nullptr) {
 		printf("pw_stream_dequeue_buffer failed\n");
 		pw_log_warn("out of buffers: %m");
 		return;
 	}
+	spa_buffer *buf      = b->buffer;
 
-	spa_buffer *buf     = b->buffer;
+	int     stride       = sizeof(double) * sp->n_channels;
+	int     period_size  = std::min(buf->datas[0].maxsize / stride, uint32_t(sp->sample_rate / 200));
 
-	int     stride      = sizeof(double) * sp->n_channels;
-	int     period_size = std::min(buf->datas[0].maxsize / stride, uint32_t(sp->sample_rate / 200));
-
-	double *dest        = reinterpret_cast<double *>(buf->datas[0].data);
+	double *dest         = reinterpret_cast<double *>(buf->datas[0].data);
 	if (!dest) {
 		printf("no buffer\n");
 		return;
 	}
 
-	double *temp_buffer = new double[sp->n_channels * period_size]();
+	double *temp_buffer  = new double[sp->n_channels * period_size]();
 
-	//printf("latency: %.2fms, channel count: %d\n", period_size * 1000.0 / sp->sample_rate, sp->n_channels);
+	// printf("latency: %.2fms, channel count: %d\n", period_size * 1000.0 / sp->sample_rate, sp->n_channels);
 
 	std::shared_lock<std::shared_mutex> lck(sp->sounds_lock);
 
