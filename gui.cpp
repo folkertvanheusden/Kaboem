@@ -598,7 +598,21 @@ bool configure_volume(sound_parameters *const sound_pars, const up_down_widget &
 
 int main(int argc, char *argv[])
 {
-	init_pipewire(&argc, &argv);
+	int pw_argc = 1;
+	init_pipewire(&pw_argc, &argv);
+
+	bool full_screen = true;
+
+	int c = -1;
+	while((c = getopt(argc, argv, "-w")) != -1) {
+		if (c == 'w')
+			full_screen = false;
+		else {
+			fprintf(stderr, "\"-%c\" is not understood\n", c);
+			return 1;
+		}
+	}
+
 	sound_parameters sound_pars(sample_rate, 2);
 	configure_pipewire_audio(&sound_pars);
 	sound_pars.global_volume = 1.;
@@ -614,8 +628,6 @@ int main(int argc, char *argv[])
 	atexit(SDL_Quit);
 
 	TTF_Init();
-
-	bool full_screen = true;
 
 	SDL_Init(SDL_INIT_VIDEO);
 
@@ -1244,6 +1256,8 @@ int main(int argc, char *argv[])
 
 	SDL_Quit();
 	TTF_Quit();
+
+	pw_deinit();
 
 	return 0;
 }
