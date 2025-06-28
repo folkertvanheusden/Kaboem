@@ -132,9 +132,6 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 		}
 		ifs.exceptions(std::ifstream::badbit);
 
-		std::filesystem::path from     = file_name;
-		std::filesystem::path from_dir = from.parent_path();
-
 		json j = json::parse(ifs);
 
 		for(auto & element: *parameters) {
@@ -190,13 +187,12 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 			}
 
 			if (s.name.empty() == false) {
-				std::string load_file_name = from_dir.native() + std::string("/") + s.name;
-				s.s = new sound_sample(sample_rate, load_file_name);
+				s.s = new sound_sample(sample_rate, s.name);
 				if (s.s->begin() == false) {
 					delete s.s;
 					s.s = nullptr;
 					s.name.clear();
-					printf("Cannot init sample %s\n", load_file_name.c_str());
+					printf("Cannot init sample %s\n", s.name.c_str());
 				}
 				if (!s.s)
 					return false;
