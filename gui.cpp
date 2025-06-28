@@ -308,7 +308,7 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 	return clickables;
 }
 
-std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t *const sample_load_idx, up_down_widget *const vol_widget_left_pars, up_down_widget *const vol_widget_right_pars, up_down_widget *const midi_note_widget_pars, up_down_widget *const n_steps_pars, up_down_widget *const pitch_pars, size_t *const sample_unload_idx)
+std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t *const sample_load_idx, up_down_widget *const vol_widget_left_pars, up_down_widget *const vol_widget_right_pars, up_down_widget *const midi_note_widget_pars, up_down_widget *const n_steps_pars, up_down_widget *const pitch_pars, size_t *const sample_unload_idx, size_t *const mute_idx)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -330,6 +330,16 @@ std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t 
 		c.where          = { x, y, menu_button_width, menu_button_height };
 		c.text           = "unload";
 		*sample_unload_idx = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
+	x += menu_button_width;
+	x += menu_button_width;
+	{
+		clickable c { };
+		c.where          = { x, y, menu_button_width, menu_button_height };
+		c.text           = "mute";
+		*mute_idx = clickables.size();
 		clickables.push_back(c);
 		x += menu_button_width;
 	}
@@ -726,12 +736,13 @@ int main(int argc, char *argv[])
 
 	size_t         sample_load_idx        = 0;
 	size_t         sample_unload_idx      = 0;
+	size_t         mute_idx               = 0;
 	up_down_widget sample_vol_widget_left   { };
 	up_down_widget sample_vol_widget_right  { };
 	up_down_widget midi_note_widget_pars    { };
 	up_down_widget n_steps_pars             { };
 	up_down_widget pitch_pars               { };
-	std::vector<clickable> sample_buttons_clickables = generate_sample_buttons(display_mode->w, display_mode->h, &sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right, &midi_note_widget_pars, &n_steps_pars, &pitch_pars, &sample_unload_idx);
+	std::vector<clickable> sample_buttons_clickables = generate_sample_buttons(display_mode->w, display_mode->h, &sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right, &midi_note_widget_pars, &n_steps_pars, &pitch_pars, &sample_unload_idx, &mute_idx);
 
 	for(size_t i=0; i<pattern_groups; i++)
 		pat_clickables[i] = generate_pattern_grid(display_mode->w, display_mode->h, steps);
@@ -1189,6 +1200,13 @@ int main(int argc, char *argv[])
 							delete s.s;
 							s.s = nullptr;
 							s.name.clear();
+						}
+						else if (idx == mute_idx) {
+							std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
+							sound_sample *const s = samples[fs_action_sample_index].s;
+							bool new_state = !s->get_mute();
+							s->set_mute(new_state);
+							sample_buttons_clickables[mute_idx].selected = new_state;
 						}
 						else {
 							std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);

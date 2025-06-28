@@ -43,6 +43,8 @@ protected:
 
 	double volume_at_end_start { 0. };
 
+	bool   muted       { false };
+
 	// input channel, { output channel, volume }
 	std::vector<std::map<int, double> > input_output_matrix;
 
@@ -157,6 +159,16 @@ public:
 	virtual std::string get_name()           const = 0;
 	virtual double      get_base_frequency() const = 0;
 	virtual int         get_base_midi_note() const = 0;
+
+	void set_mute(const bool m)
+	{
+		muted = m;
+	}
+
+	bool get_mute() const
+	{
+		return muted;
+	}
 };
 
 class sound_sample : public sound

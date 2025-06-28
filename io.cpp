@@ -65,11 +65,13 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 			sample["vol-left"]  = sample_file.s->get_mapping_target_volume(0);
 			sample["vol-right"] = sample_file.s->get_mapping_target_volume(1);
 			sample["pitch"]     = sample_file.s->get_pitch_bend();
+			sample["mute"]      = sample_file.s->get_mute();
 		}
 		else {
 			sample["vol-left"]  = 0.;
 			sample["vol-right"] = 0.;
 			sample["pitch"]     = 1.;
+			sample["mute"]      = false;
 		}
 
 		samples.push_back(sample);
@@ -193,6 +195,7 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 				if (s.s->begin() == false) {
 					delete s.s;
 					s.s = nullptr;
+					s.name.clear();
 					printf("Cannot init sample %s\n", load_file_name.c_str());
 				}
 				if (!s.s)
@@ -204,6 +207,10 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 				else
 					s.s->add_mapping(0, 1, 1.0);  // mono -> right
 				s.s->set_pitch_bend(j["samples"][group]["pitch"]);
+				if (j["samples"][group].contains("mute"))
+					s.s->set_mute(j["samples"][group]["mute"]);
+				else
+					s.s->set_mute(false);
 			}
 		}
 

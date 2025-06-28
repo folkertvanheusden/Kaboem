@@ -48,14 +48,16 @@ void on_process_audio(void *userdata)
 					continue;
 				}
 
-				size_t n_source_channels = item.s->get_n_channels();
+				if (item.s->get_mute() == false) {
+					size_t n_source_channels = item.s->get_n_channels();
 
-				for(size_t ch=0; ch<n_source_channels; ch++) {
-					auto   rc    = item.s->get_sample(ch);
-					double value = rc.first;
+					for(size_t ch=0; ch<n_source_channels; ch++) {
+						auto   rc    = item.s->get_sample(ch);
+						double value = rc.first;
 
-					for(auto mapping : rc.second)
-						current_sample_base[mapping.first] += value * mapping.second;
+						for(auto mapping : rc.second)
+							current_sample_base[mapping.first] += value * mapping.second;
+					}
 				}
 			}
 
