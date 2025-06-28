@@ -103,8 +103,10 @@ bool sound_sample::begin()
 	unsigned sample_sample_rate = 0;
 
 	auto            rc = load_sample(file_name);
-	if (rc.has_value() == false)
+	if (rc.has_value() == false) {
+		printf("Cannot access sample \"%s\" in cache\n", file_name.c_str());
 		return false;
+	}
 	samples            = *std::get<0>(rc.value());
 	sample_sample_rate =  std::get<1>(rc.value());
 	base_frequency     =  ceil(std::get<2>(rc.value()));

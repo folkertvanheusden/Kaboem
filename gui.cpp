@@ -371,9 +371,10 @@ pattern generate_pattern_grid(const int w, const int h, const int steps)
 		int x = (i % steps_sq) * step_width;
 		int y = (i / steps_sq) * step_height + offset_h;
 		clickable c { };
-		c.where    = { x, y, step_width, step_height };
-		c.selected = false;
-		p.pattern.at(i) = c;
+		c.where            = { x, y, step_width, step_height };
+		c.selected         = false;
+		p.pattern.at(i)    = c;
+		p.note_delta.at(i) = 0;
 	}
 
 	return p;
@@ -611,8 +612,6 @@ void reset_pattern(std::array<pattern, pattern_groups> *const pat_clickables, co
 
 void reset_all_patterns(std::array<pattern, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock, const std::array<sample, pattern_groups> & samples, const bool zero)
 {
-	std::lock_guard<std::shared_mutex> pat_lck(*pat_clickables_lock);
-
 	for(size_t i=0; i<pattern_groups; i++) {
 		if (samples[i].s)
 			reset_pattern(pat_clickables, i, samples[i].s, zero);
@@ -694,7 +693,7 @@ int main(int argc, char *argv[])
 	size_t fs_action_sample_index                  = 0;
 	fileselector_data      fs_data { };
 	std::shared_mutex      pat_clickables_lock;
-	std::array<pattern, pattern_groups> pat_clickables;
+	std::array<pattern, pattern_groups> pat_clickables { };
 	std::optional<size_t>  pat_clickable_selected;
 	size_t                 pattern_group           = 0;
 
@@ -824,8 +823,8 @@ int main(int argc, char *argv[])
 			if (fs_action == fs_load) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
-						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
-						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+						std::lock_guard <std::shared_mutex> lck    (sound_pars.sounds_lock);
+						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock   );
 						if (read_file(fs_data.file, &pat_clickables, &samples, &file_parameters)) {
 							sound_pars.global_volume    = vol / 100.;
 							sound_pars.sound_saturation = 1. - sound_saturation / 1000.;
@@ -841,7 +840,6 @@ int main(int argc, char *argv[])
 							menu_status = "file " + get_filename(fs_data.file) + " read";
 							regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
 
-							pat_lck.unlock();
 							reset_all_patterns(&pat_clickables, &pat_clickables_lock, samples, false);
 						}
 						else {
@@ -897,11 +895,8 @@ int main(int argc, char *argv[])
 								sound_pars.sounds[i].s = s->s;
 						}
 
-						if (s->s) {
-							lck.unlock();
-							std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
-							reset_pattern(&pat_clickables, pattern_group, s->s, false);
-						}
+						if (s->s)
+							reset_pattern(&pat_clickables, fs_action_sample_index, s->s, false);
 
 						redraw = true;
 					}
@@ -1066,8 +1061,13 @@ int main(int argc, char *argv[])
 							{
 								std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 								for(size_t i=0; i<pattern_groups; i++) {
-									for(auto & element: pat_clickables[i].pattern)
+									for(auto & element: pat_clickables[i].pattern) {
 										element.selected = false;
+										element.text.clear();
+									}
+
+									for(auto & element: pat_clickables[i].note_delta)
+										element = 0;
 
 									{
 										std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);

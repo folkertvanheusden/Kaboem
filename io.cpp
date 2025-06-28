@@ -124,8 +124,10 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 {
 	try {
 		std::ifstream ifs(file_name);
-		if (ifs.is_open() == false)
+		if (ifs.is_open() == false) {
+			printf("Cannot access file\n");
 			return false;
+		}
 		ifs.exceptions(std::ifstream::badbit);
 
 		json j = json::parse(ifs);
@@ -164,8 +166,10 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 			for(auto & element: j["patterns"][group]["pattern"])
 				group_data.pattern   [index_pattern++   ].selected = element;
 
-			if (index_pattern < (*data)[group].dim || index_note_delta != index_pattern)
+			if (index_pattern < (*data)[group].dim || index_note_delta != index_pattern) {
+				printf("note-delta count (%zu) or pattern count (%zu) not %zu\n", index_note_delta, index_pattern, (*data)[group].dim);
 				return false;
+			}
 		}
 
 		for(size_t group=0; group<pattern_groups; group++) {
@@ -185,6 +189,7 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 				if (s.s->begin() == false) {
 					delete s.s;
 					s.s = nullptr;
+					printf("Cannot init sample\n");
 				}
 				if (!s.s)
 					return false;
