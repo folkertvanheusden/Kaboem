@@ -100,19 +100,31 @@ sound_sample::sound_sample(const int sample_rate, const std::string & file_name)
 {
 }
 
+sound_sample::sound_sample(const int sample_rate, const std::string & file_name, const std::vector<std::vector<double> > & sample_data, const unsigned sample_sample_rate) :
+	sound(sample_rate, sample_rate / 2),
+	file_name(file_name),
+	samples(sample_data),
+	sample_sample_rate(sample_sample_rate)
+{
+}
+
 bool sound_sample::begin()
 {
-	unsigned sample_sample_rate = 0;
-
-	auto            rc = load_sample(file_name);
-	if (rc.has_value() == false) {
-		printf("Cannot access sample \"%s\" in cache\n", file_name.c_str());
-		return false;
+	if (samples.empty() == true) {
+		auto            rc = load_sample(file_name);
+		if (rc.has_value() == false) {
+			printf("Cannot access sample \"%s\" in cache\n", file_name.c_str());
+			return false;
+		}
+		samples            = *std::get<0>(rc.value());
+		sample_sample_rate =  std::get<1>(rc.value());
+		base_frequency     =  ceil(std::get<2>(rc.value()));
 	}
-	samples            = *std::get<0>(rc.value());
-	sample_sample_rate =  std::get<1>(rc.value());
-	base_frequency     =  ceil(std::get<2>(rc.value()));
-	base_midi_note     =  frequency_to_midi_note(base_frequency);
+	else {
+		base_frequency     = find_loudest_frequency(samples, sample_sample_rate);
+	}
+
+	base_midi_note     = frequency_to_midi_note(base_frequency);
 	name               = midi_note_to_name(base_midi_note);
 	delta_t            = sample_sample_rate / double(sample_rate);
 

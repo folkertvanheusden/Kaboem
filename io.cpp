@@ -44,34 +44,27 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 		patterns.push_back(pattern_data);
 	}
 
-	std::filesystem::path from     = file_name;
-	std::filesystem::path from_dir = from.parent_path();
-
 	json samples    = json::array();
 	json midi_notes = json::array();
 	for(auto & sample_file : sample_files) {
 		json sample;
-
-		try {
-			std::string filename = std::filesystem::relative(sample_file.name, from_dir);
-			sample["file-name"] = filename;
-		}
-		// fs::relative throws filesystem_error if paths don't share a common prefix
-		catch(std::filesystem::filesystem_error & fe) {
-			sample["file-name"] = sample_file.name;
-		}
+		sample["file-name"] = sample_file.name;
 
 		if (sample_file.s) {
-			sample["vol-left"]  = sample_file.s->get_mapping_target_volume(0);
-			sample["vol-right"] = sample_file.s->get_mapping_target_volume(1);
-			sample["pitch"]     = sample_file.s->get_pitch_bend();
-			sample["mute"]      = sample_file.s->get_mute();
+			sample["vol-left"]    = sample_file.s->get_mapping_target_volume(0);
+			sample["vol-right"]   = sample_file.s->get_mapping_target_volume(1);
+			sample["pitch"]       = sample_file.s->get_pitch_bend();
+			sample["mute"]        = sample_file.s->get_mute();
+
+			const std::vector<std::vector<double> > & sample_data = sample_file.s->get_raw();
+			sample["data"]        = sample_data;
+			sample["sample-rate"] = sample_file.s->get_sample_rate();
 		}
 		else {
-			sample["vol-left"]  = 0.;
-			sample["vol-right"] = 0.;
-			sample["pitch"]     = 1.;
-			sample["mute"]      = false;
+			sample["vol-left"]    = 0.;
+			sample["vol-right"]   = 0.;
+			sample["pitch"]       = 1.;
+			sample["mute"]        = false;
 		}
 
 		samples.push_back(sample);
@@ -187,7 +180,9 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 			}
 
 			if (s.name.empty() == false) {
-				s.s = new sound_sample(sample_rate, s.name);
+				printf("Loading \"%s\"...\n", s.name.c_str());
+				const std::vector<std::vector<double> > sample_data = j["samples"][group]["data"];
+				s.s = new sound_sample(sample_rate, s.name, sample_data, j["samples"][group]["sample-rate"]);
 				if (s.s->begin() == false) {
 					delete s.s;
 					s.s = nullptr;

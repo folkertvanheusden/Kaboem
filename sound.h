@@ -176,12 +176,14 @@ class sound_sample : public sound
 private:
 	std::string                       file_name;
 	std::vector<std::vector<double> > samples;
-	double                            base_frequency { 0. };
-	int                               base_midi_note { 0  };
+	unsigned                          sample_sample_rate { 0  };
+	double                            base_frequency     { 0. };
+	int                               base_midi_note     { 0  };
 	std::string                       name;
 
 public:
 	sound_sample(const int sample_rate, const std::string & file_name);
+	sound_sample(const int sample_rate, const std::string & file_name, const std::vector<std::vector<double> > & sample_data, const unsigned sample_sample_rate);
 	virtual ~sound_sample() { }
 
 	bool begin();
@@ -190,6 +192,9 @@ public:
 	{
 		return samples.at(0).size();
 	}
+
+	const std::vector<std::vector<double> > & get_raw() const { return samples; }
+	unsigned get_sample_rate() const { return sample_sample_rate; }
 
 	std::pair<double, std::map<int, double> > get_sample(const size_t channel_nr) override;
 
