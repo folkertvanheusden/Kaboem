@@ -7,13 +7,13 @@
 #include <optional>
 #include <sndfile.h>
 #include <vector>
-#include <alsa/asoundlib.h>
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
 #include "frequencies.h"
 #include "gui.h"
 #include "io.h"
+#include "midi.h"
 #include "pipewire.h"
 #include "pipewire-audio.h"
 #include "player.h"
@@ -26,28 +26,6 @@ std::atomic_bool do_exit { false };
 void sigh(int s)
 {
 	do_exit = true;
-}
-
-static std::pair<snd_seq_t *, int> allocate_midi_input_port()
-{
-        snd_seq_t *seq = nullptr;
-        if (snd_seq_open(&seq, "default", SND_SEQ_OPEN_INPUT, 0) < 0) {
-                fprintf(stderr, "Error opening ALSA sequencer\n");
-                return { nullptr, -1 };
-        }
-
-        snd_seq_set_client_name(seq, PROG_NAME);
-
-        int in_port = snd_seq_create_simple_port(seq, "input",
-                        SND_SEQ_PORT_CAP_WRITE|SND_SEQ_PORT_CAP_SUBS_WRITE,
-                        SND_SEQ_PORT_TYPE_MIDI_GENERIC|SND_SEQ_PORT_TYPE_APPLICATION);
-
-        if (in_port < 0) {
-                fprintf(stderr, "Error creating sequencer port\n");
-                return { nullptr, -1 };
-        }
-
-        return { seq, in_port };
 }
 
 struct fileselector_data {

@@ -16,6 +16,7 @@ add_executable(
   frequencies.cpp
   gui.cpp
   io.cpp
+  midi.cpp
   pipewire.cpp
   pipewire-audio.cpp
   player.cpp
