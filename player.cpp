@@ -24,11 +24,14 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		std::atomic_bool *const polyrythmic,
 		std::atomic_int  *const swing_factor)
 {
-	auto                               midi_port      = allocate_midi_output_port();
-	std::array<size_t, pattern_groups> prev_pat_index;
+	auto                                midi_port      = allocate_midi_output_port();
+	std::array<ssize_t, pattern_groups> prev_pat_index1;
+	std::array<ssize_t, pattern_groups> prev_pat_index2;
 
-	for(size_t i=0; i<pattern_groups; i++)
-		prev_pat_index[i] = size_t(-1);
+	for(size_t i=0; i<pattern_groups; i++) {
+		prev_pat_index1[i] = size_t(-1);
+		prev_pat_index2[i] = size_t(-1);
+	}
 
 	std::array<int, pattern_groups> swing { };
 
@@ -50,10 +53,10 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 			}
 
 			for(size_t i=0; i<pattern_groups; i++) {
-				size_t pat_index   = 0;
-				size_t current_dim = (*pat_clickables)[i].dim;
+				ssize_t pat_index   = 0;
+				ssize_t current_dim = (*pat_clickables)[i].dim;
 
-				if (prev_pat_index[i] == current_dim - 1) {
+				{
 					int sw_fac = *swing_factor;
 					if (sw_fac)
 						swing[i] = (rand() % sw_fac) - sw_fac / 2;
@@ -66,10 +69,9 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 				else
 					pat_index = size_t((now - swing[i]) / double(*sleep_ms) * current_dim / double(max_steps)) % current_dim;
 
-				if (pat_index != prev_pat_index[i] || force_trigger->exchange(false)) {
-					if (pat_index < prev_pat_index[i] && pat_index != 0 && prev_pat_index[i] != size_t(-1))
-						continue;
-					prev_pat_index[i] = pat_index;
+				if ((pat_index != prev_pat_index1[i] && pat_index != prev_pat_index2[i]) || force_trigger->exchange(false)) {
+					prev_pat_index2[i] = prev_pat_index1[i];
+					prev_pat_index1[i] = pat_index;
 
 					std::lock_guard<std::shared_mutex> lck(sound_pars->sounds_lock);
 					if ((*pat_clickables)[i].pattern[pat_index].selected) {
