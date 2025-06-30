@@ -654,9 +654,8 @@ int main(int argc, char *argv[])
 		SDL_Quit();
 		return 1;
 	}
-	printf("%dx%d\n", display_mode->w, display_mode->h);
 
-	SDL_SetHint(SDL_HINT_RENDER_DRIVER,      "software");
+//	SDL_SetHint(SDL_HINT_RENDER_DRIVER,      "software");
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1"       );
 	SDL_Window *win = SDL_CreateWindow(PROG_NAME,
                           display_mode->w, display_mode->h,
@@ -667,9 +666,6 @@ int main(int argc, char *argv[])
 
 	TTF_Font *font = load_font("/usr/share/fonts/truetype/freefont/FreeSans.ttf", display_mode->h * 5 / 100, false);
 	assert(font);
-
-//	if (full_screen)
-//		SDL_HideCursor();
 
 	bool redraw = true;
 	int  steps  = 16;
