@@ -1,9 +1,6 @@
 #pragma once
 
-#include <shared_mutex>
-#include <sndfile.h>
 #include <thread>
-#include <vector>
 
 #include <pipewire/pipewire.h>
 #include <spa/param/audio/format-utils.h>

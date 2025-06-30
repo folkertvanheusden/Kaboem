@@ -7,6 +7,8 @@
 #include <math.h>
 #include <optional>
 #include <set>
+#include <shared_mutex>
+#include <sndfile.h>
 #include <string>
 #include <vector>
 
