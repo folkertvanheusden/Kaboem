@@ -8,8 +8,6 @@
 #include <pipewire/pipewire.h>
 #include <spa/param/audio/format-utils.h>
 
-#include "sound.h"
-
 
 class pipewire_data_audio
 {
@@ -25,34 +23,6 @@ public:
 	pw_stream_events   stream_events { 0       };
 };
 
-class sound_parameters
-{
-public:
-	sound_parameters(const int sample_rate, const int n_channels) :
-       		sample_rate(sample_rate),
-		n_channels(n_channels) {
-	}
-
-	virtual ~sound_parameters() {
-	}
-
-	int                  sample_rate     { 0       };
-	int                  n_channels      { 0       };
-
-	pipewire_data_audio  pw;
-
-	std::shared_mutex    sounds_lock;
-	struct queued_sound {
-		sound *s;
-		double t;
-		double pitch;
-	};
-	std::vector<queued_sound> sounds;
-	SNDFILE             *record_handle    { nullptr };
-	filter_butterworth  *filter_lp        { nullptr };
-	filter_butterworth  *filter_hp        { nullptr };
-	double               global_volume    { 1.      };
-	double               sound_saturation { 1.      };
-};
+class sound_parameters;
 
 void configure_pipewire_audio(sound_parameters *const pw);

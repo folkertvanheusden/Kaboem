@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "filter.h"
+#include "pipewire-audio.h"
 
 
 double f_to_delta_t(const double frequency, const int sample_rate);
@@ -207,4 +208,34 @@ public:
 		sound::set_time(t_in);
 		return t >= samples.size();
 	}
+};
+
+class sound_parameters
+{
+public:
+	sound_parameters(const int sample_rate, const int n_channels) :
+       		sample_rate(sample_rate),
+		n_channels(n_channels) {
+	}
+
+	virtual ~sound_parameters() {
+	}
+
+	int                  sample_rate     { 0       };
+	int                  n_channels      { 0       };
+
+	pipewire_data_audio  pw;
+
+	std::shared_mutex    sounds_lock;
+	struct queued_sound {
+		sound *s;
+		double t;
+		double pitch;
+	};
+	std::vector<queued_sound> sounds;
+	SNDFILE             *record_handle    { nullptr };
+	filter_butterworth  *filter_lp        { nullptr };
+	filter_butterworth  *filter_hp        { nullptr };
+	double               global_volume    { 1.      };
+	double               sound_saturation { 1.      };
 };
