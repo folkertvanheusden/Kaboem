@@ -141,7 +141,6 @@ std::string sound_sample::get_name() const
 std::pair<double, std::map<int, double> > sound_sample::get_sample(const size_t channel_nr)
 {
 	double use_t = t;
-
 	if (use_t < 0)
 		use_t += ceil(fabs(use_t) / samples.size()) * samples.size();
 
