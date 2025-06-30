@@ -16,7 +16,6 @@ void on_process_audio(void *userdata)
 	sound_parameters *sp = reinterpret_cast<sound_parameters *>(userdata);
 	pw_buffer        *b  = pw_stream_dequeue_buffer(sp->pw.stream);
 	if (b == nullptr) {
-		printf("pw_stream_dequeue_buffer failed\n");
 		pw_log_warn("out of buffers: %m");
 		return;
 	}
@@ -81,17 +80,16 @@ void on_process_audio(void *userdata)
 		}
 	}
 
+	delete [] temp_buffer;
+
 	buf->datas[0].chunk->offset = 0;
 	buf->datas[0].chunk->stride = stride;
 	buf->datas[0].chunk->size   = period_size * stride;
-
 	if (pw_stream_queue_buffer(sp->pw.stream, b))
 		printf("pw_stream_queue_buffer failed\n");
 
 	if (sp->record_handle) 
 		sf_writef_double(sp->record_handle, dest, period_size);
-
-	delete [] temp_buffer;
 }
 
 sound_sample::sound_sample(const int sample_rate, const std::string & file_name) :
