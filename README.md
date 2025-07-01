@@ -21,7 +21,7 @@ The executable will then named 'kaboem'.
 
 Please note that this software is not even an alpha version. Work in progress!
 
-The main screen shows 16 steps. In the settings-menu this can be changed to 3 upto 32 steps.
+The main screen shows 16 steps. In the settings-menu this can be changed to 3 upto 32 steps. The red square in the pattern-block is the cursor.
 On the right you see the 8 channels that you can select. At the top-right there's the button to switch between settings and edit mode.
 
 ![main screen with a pattern](images/kaboem-main-w-pattern.png)
