@@ -386,10 +386,15 @@ void regenerate_pattern_grid(const int w, const int h, pattern *const p)
 	}
 }
 
-void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, const int y, const std::string & text, const std::optional<std::pair<int, int> > & center_in)
+void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, const int y, const std::string & text, const std::optional<std::pair<int, int> > & center_in, const bool important = false)
 {
-	SDL_Surface *surface = TTF_RenderText_Solid(font, text.c_str(), 0, { 192, 255, 192, 255 });
+	SDL_Surface *surface = nullptr;
+	if (important)
+		surface = TTF_RenderText_Solid(font, text.c_str(), 0, { 255, 192, 192, 255 });
+	else
+		surface = TTF_RenderText_Solid(font, text.c_str(), 0, { 192, 255, 192, 255 });
 	assert(surface);
+
 	SDL_Texture *texture = SDL_CreateTextureFromSurface(screen, surface);
 	assert(texture);
 
@@ -606,6 +611,12 @@ void reset_all_patterns(std::array<pattern, pattern_groups> *const pat_clickable
 	}
 }
 
+void draw_please_wait(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode)
+{
+	draw_text(font, screen, 0, 0, "Please wait", { { display_mode->w, display_mode->h } }, true);
+	SDL_RenderPresent(screen);
+}
+
 int main(int argc, char *argv[])
 {
 	int pw_argc = 1;
@@ -808,6 +819,8 @@ int main(int argc, char *argv[])
 			if (fs_action == fs_load) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
+						draw_please_wait(font, screen, display_mode);
+
 						std::lock_guard <std::shared_mutex> lck    (sound_pars.sounds_lock);
 						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock   );
 						if (read_file(fs_data.file, &pat_clickables, &samples, &file_parameters)) {
@@ -822,7 +835,6 @@ int main(int argc, char *argv[])
 									channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
 
 							}
-							redraw = true;
 							menu_status = "file " + get_filename(fs_data.file) + " read";
 
 							regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
@@ -834,20 +846,28 @@ int main(int argc, char *argv[])
 						else {
 							menu_status = "cannot read file " + get_filename(fs_data.file);
 						}
+
+						redraw = true;
 					}
+
 					fs_action = fs_none;
 				}
 			}
 			else if (fs_action == fs_save) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
+						draw_please_wait(font, screen, display_mode);
+
 						std::string file     = fs_data.file;
 						size_t      file_len = file.size();
 						if (file_len > 7 && file.substr(file_len - 7) != "." PROG_EXT)
 							file += "." PROG_EXT;
+
 						std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 						write_file(file, pat_clickables, samples, file_parameters);
+
 						menu_status = "file " + get_filename(fs_data.file) + " written";
+						redraw = true;
 					}
 					fs_action = fs_none;
 				}
@@ -1039,6 +1059,8 @@ int main(int argc, char *argv[])
 					else if (menus_clicked.has_value()) {
 						size_t idx = menus_clicked.value();
 						if (idx == clear_idx) {
+							draw_please_wait(font, screen, display_mode);
+
 							{
 								std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 								write_file(path + "/before_clear." PROG_EXT, pat_clickables, samples, file_parameters);
@@ -1068,6 +1090,8 @@ int main(int argc, char *argv[])
 									channel_clickables[i].text.clear();
 								}
 							}
+
+							redraw      = true;
 							menu_status = "cleared";
 						}
 						else if (idx == pattern_load_idx) {
@@ -1293,6 +1317,8 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
+
+	draw_please_wait(font, screen, display_mode);
 
 	player_thread.join();
 
