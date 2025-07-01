@@ -617,6 +617,32 @@ void draw_please_wait(TTF_Font *const font, SDL_Renderer *const screen, const SD
 	SDL_RenderPresent(screen);
 }
 
+void do_error_message(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode, const std::string & error)
+{
+	int dim_w = display_mode->w / 6;
+	int dim_h = display_mode->h / 6;
+
+	SDL_FRect r { float(dim_w), float(dim_h), float(display_mode->w - dim_w * 2), float(display_mode->h - dim_h * 2) };
+	SDL_SetRenderDrawColor(screen, 50, 40, 40, 255);
+	SDL_RenderFillRect(screen, &r);
+	SDL_SetRenderDrawColor(screen, 40, 40, 40, 191);
+	SDL_RenderRect(screen, &r);
+
+	SDL_SetRenderDrawColor(screen, 255, 40, 40, 255);
+	draw_text(font, screen, 0, 0, error, { { display_mode->w, display_mode->h } }, true);
+	SDL_RenderPresent(screen);
+
+	for(;;) {
+		SDL_Event event { };
+		if (SDL_PollEvent(&event)) {
+			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_KEY_DOWN)
+				break;
+		}
+
+		SDL_Delay(5);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	int pw_argc = 1;
@@ -844,7 +870,8 @@ int main(int argc, char *argv[])
 							sound_pars.sounds.clear();
 						}
 						else {
-							menu_status = "cannot read file " + get_filename(fs_data.file);
+							menu_status = "cannot read " + get_filename(fs_data.file);
+							do_error_message(font, screen, display_mode, menu_status);
 						}
 
 						redraw = true;
@@ -864,9 +891,11 @@ int main(int argc, char *argv[])
 							file += "." PROG_EXT;
 
 						std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-						write_file(file, pat_clickables, samples, file_parameters);
+						if (write_file(file, pat_clickables, samples, file_parameters))
+							menu_status = "file " + get_filename(fs_data.file) + " written";
+						else
+							do_error_message(font, screen, display_mode, "cannot write " + get_filename(fs_data.file));
 
-						menu_status = "file " + get_filename(fs_data.file) + " written";
 						redraw = true;
 					}
 					fs_action = fs_none;
@@ -897,6 +926,7 @@ int main(int argc, char *argv[])
 						}
 						else {
 							menu_status = "file " + get_filename(fs_data.file) + " NOT FOUND";
+							do_error_message(font, screen, display_mode, get_filename(fs_data.file) + " invalid/not found");
 						}
 
 						for(size_t i=0; i<sound_pars.sounds.size(); i++) {
@@ -922,9 +952,13 @@ int main(int argc, char *argv[])
 					sound_pars.record_handle = sf_open(fs_data.file.c_str(), SFM_WRITE, &si);
 					if (sound_pars.record_handle)
 						menu_buttons_clickables[record_idx].selected = true;
-					else
-						menu_status = "Cannot create " + fs_data.file;
+					else {
+						menu_status = "cannot create " + fs_data.file;
+						do_error_message(font, screen, display_mode, menu_status);
+					}
+
 					fs_action = fs_none;
+					redraw    = true;
 				}
 			}
 
