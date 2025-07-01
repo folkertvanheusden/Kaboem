@@ -811,11 +811,12 @@ int main(int argc, char *argv[])
 						std::lock_guard <std::shared_mutex> lck    (sound_pars.sounds_lock);
 						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock   );
 						if (read_file(fs_data.file, &pat_clickables, &samples, &file_parameters)) {
-							sound_pars.global_volume    = vol / 100.;
-							sound_pars.sound_saturation = 1. - sound_saturation / 1000.;
-							swing_amount_parameter      = swing_amount;
-							sleep_ms                    = 60 * 1000 / bpm;
+							sound_pars.global_volume                          = vol / 100.;
+							sound_pars.sound_saturation                       = 1. - sound_saturation / 1000.;
+							swing_amount_parameter                            = swing_amount;
+							sleep_ms                                          = 60 * 1000 / bpm;
 							menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
+
 							for(size_t i=0; i<pattern_groups; i++) {
 								if (samples[i].name.empty() == false)
 									channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
@@ -823,9 +824,12 @@ int main(int argc, char *argv[])
 							}
 							redraw = true;
 							menu_status = "file " + get_filename(fs_data.file) + " read";
+
 							regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
 
 							reset_all_patterns(&pat_clickables, &pat_clickables_lock, samples, false);
+
+							sound_pars.sounds.clear();
 						}
 						else {
 							menu_status = "cannot read file " + get_filename(fs_data.file);
