@@ -847,7 +847,7 @@ int main(int argc, char *argv[])
 					if (fs_data.file.empty() == false) {
 						draw_please_wait(font, screen, display_mode);
 
-						std::lock_guard <std::shared_mutex> lck    (sound_pars.sounds_lock);
+						std::unique_lock<std::shared_mutex> lck    (sound_pars.sounds_lock);
 						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock   );
 						if (read_file(fs_data.file, &pat_clickables, &samples, &file_parameters)) {
 							sound_pars.global_volume                          = vol / 100.;
@@ -870,6 +870,9 @@ int main(int argc, char *argv[])
 							sound_pars.sounds.clear();
 						}
 						else {
+							lck    .unlock();
+							pat_lck.unlock();
+
 							menu_status = "cannot read " + get_filename(fs_data.file);
 							do_error_message(font, screen, display_mode, menu_status);
 						}
@@ -944,7 +947,7 @@ int main(int argc, char *argv[])
 			}
 			else if (fs_action == fs_record) {
 				if (fs_data.finished) {
-					std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
+					std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 					SF_INFO si { };
 					si.samplerate = sample_rate;
 					si.channels   = 2;
@@ -953,6 +956,7 @@ int main(int argc, char *argv[])
 					if (sound_pars.record_handle)
 						menu_buttons_clickables[record_idx].selected = true;
 					else {
+						lck.unlock();
 						menu_status = "cannot create " + fs_data.file;
 						do_error_message(font, screen, display_mode, menu_status);
 					}
