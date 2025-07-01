@@ -66,7 +66,7 @@ TTF_Font * load_font(const std::string & filename, unsigned int font_height, boo
 		printf("Font error: %s\n", SDL_GetError());
 
         if (!fast_rendering)
-                TTF_SetFontHinting(font, TTF_HINTING_LIGHT);
+                TTF_SetFontHinting(font, TTF_HINTING_NORMAL);
 
         ttf_lock.unlock();
 
