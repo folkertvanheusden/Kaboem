@@ -10,6 +10,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
+#include "font.h"
 #include "frequencies.h"
 #include "gui.h"
 #include "io.h"
@@ -52,27 +53,6 @@ void fs_callback(void *userdata, const char * const *filelist, int filter)
 		fs_data->file.clear();
 	}
 	fs_data->finished = true;
-}
-
-std::mutex ttf_lock;
-
-TTF_Font * load_font(const std::string & filename, unsigned int font_height, bool fast_rendering)
-{
-        char *const real_path = realpath(filename.c_str(), NULL);
-
-        ttf_lock.lock();
-        TTF_Font *font = TTF_OpenFont(real_path, font_height);
-	if (!font)
-		printf("Font error: %s\n", SDL_GetError());
-
-        if (!fast_rendering)
-                TTF_SetFontHinting(font, TTF_HINTING_NORMAL);
-
-        ttf_lock.unlock();
-
-        free(real_path);
-
-        return font;
 }
 
 std::optional<size_t> find_clickable(const std::vector<clickable> & clickables, const int x, const int y)
@@ -674,7 +654,7 @@ int main(int argc, char *argv[])
 	signal(SIGTERM, sigh);
 	atexit(SDL_Quit);
 
-	TTF_Init();
+	init_fonts();
 
 	SDL_Init(SDL_INIT_VIDEO);
 
@@ -701,7 +681,8 @@ int main(int argc, char *argv[])
 	SDL_Renderer *screen = SDL_CreateRenderer(win, nullptr);
 	assert(screen);
 
-	TTF_Font *font = load_font("/usr/share/fonts/truetype/freefont/FreeSans.ttf", display_mode->h * 5 / 100, false);
+	unsigned  font_height = display_mode->h * 5 / 100;
+	TTF_Font *font        = load_font({ "DejaVu Sans", "Ubuntu Sans Regular", "Free Sans" }, font_height, false);
 	assert(font);
 
 	bool redraw = true;
@@ -1378,7 +1359,7 @@ int main(int argc, char *argv[])
 	unload_sample_cache();
 
 	SDL_Quit();
-	TTF_Quit();
+	deinit_fonts();
 
 	pw_deinit();
 

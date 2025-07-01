@@ -5,8 +5,11 @@ It specifically targets a raspberry pi with a touchscreen altough other Linux sy
 To be able to compile and run this program, you need to install:
 
 ```
-sudo apt install fonts-freefont-ttf libpipewire-0.3-dev libsdl3-dev libsdl3-ttf-dev libsndfile1-dev nlohmann-json3-dev libfftw3-dev build-essential cmake
+sudo apt install fonts-freefont-ttf libpipewire-0.3-dev libsdl3-dev libsdl3-ttf-dev libsndfile1-dev nlohmann-json3-dev libfftw3-dev build-essential cmake libfontconfig1-dev fonts-freefont-ttf
+
 ```
+
+fonts-freefont-ttf: /usr/share/fonts/truetype/freefont/FreeSans.ttf
 
 Because of the SDL3 requirement, this program requires at least Debian Trixie (13), Ubuntu Plucky (25.04) or equivalent (or more recent of course).
 

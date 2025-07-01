@@ -13,6 +13,7 @@ set(CMAKE_BUILD_TYPE RelWithDebInfo)
 add_executable(
   kaboem
   filter.cpp
+  font.cpp
   frequencies.cpp
   gui.cpp
   io.cpp
@@ -58,9 +59,14 @@ target_include_directories(kaboem PUBLIC ${PIPEWIRE_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${PIPEWIRE_CFLAGS_OTHER})
 
 pkg_check_modules(NLOHMANN_JSON REQUIRED nlohmann_json)
-target_link_libraries(kaboem ${NLOHMANN_JSON})
-target_include_directories(kaboem PUBLIC ${NLOHMANN_JSON})
-target_compile_options(kaboem PUBLIC ${NLOHMANN_JSON})
+target_link_libraries(kaboem ${NLOHMANN_JSON_LIBRARIES})
+target_include_directories(kaboem PUBLIC ${NLOHMANN_JSON_INCLUDE_DIRS})
+target_compile_options(kaboem PUBLIC ${NLOHMANN_JSON_CFLAGS_OTHER})
+
+pkg_check_modules(FONTCONFIG REQUIRED fontconfig)
+target_link_libraries(kaboem ${FONTCONFIG_LIBRARIES})
+target_include_directories(kaboem PUBLIC ${FONTCONFIG_INCLUDE_DIRS})
+target_compile_options(kaboem PUBLIC ${FONTCONFIG_CFLAGS_OTHER})
 
 pkg_search_module(FFTW REQUIRED fftw3 IMPORTED_TARGET)
 include_directories(PkgConfig::FFTW)
