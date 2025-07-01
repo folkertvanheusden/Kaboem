@@ -1,5 +1,2 @@
-- error dialog
 - auto gain reduction
 - auto adjust tempo by what is entered
-
-- crashes often when not clearing before loading an other file
