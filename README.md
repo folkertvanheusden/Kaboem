@@ -21,6 +21,7 @@ cmake ..
 make
 ```
 The executable will then named 'kaboem'.
+When invoked, it runs in "full screen"-mode. To get it in a window, run it with the "-w" switch.
 
 Please note that this software is not even an alpha version. Work in progress!
 

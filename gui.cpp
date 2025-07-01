@@ -648,11 +648,9 @@ int main(int argc, char *argv[])
 
 	const std::string path      = get_current_dir_name();
 	std::string       work_path = path;
-
-	auto midi_in = allocate_midi_input_port();
+	auto              midi_in   = allocate_midi_input_port();
 
 	signal(SIGTERM, sigh);
-	atexit(SDL_Quit);
 
 	init_fonts();
 
@@ -672,8 +670,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-//	SDL_SetHint(SDL_HINT_RENDER_DRIVER,      "software");
-	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1"       );
+	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
 	SDL_Window *win = SDL_CreateWindow(PROG_NAME,
                           display_mode->w, display_mode->h,
                           (full_screen ? SDL_WINDOW_FULLSCREEN: 0));
