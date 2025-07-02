@@ -76,6 +76,6 @@ target_link_libraries(kaboem fftw3)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION True)
 
 include(GNUInstallDirs)
-install(TARGETS ${PROJECT_NAME}
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(DIRECTORY demos DESTINATION share/kaboem/demos)
+install(FILES README.md LICENSE DESTINATION share/kaboem)
