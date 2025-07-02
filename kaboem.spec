@@ -23,6 +23,7 @@ Kaboem is a simple pipewire and midi enabled audio sequencer.
 
 %files
 /usr/bin/kaboem
+/usr/share/kaboem
 
 %changelog
 * Wed Jul 2 2025 Folkert van Heusden <folkert@vanheusden.com>
