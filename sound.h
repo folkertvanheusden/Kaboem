@@ -240,4 +240,9 @@ public:
 	filter_butterworth  *filter_hp        { nullptr };
 	double               global_volume    { 1.      };
 	double               sound_saturation { 1.      };
+
+	double               too_loud_total   { 0.      };
+	int                  too_loud_count   { 0       };
+	int                  n_loud_checked   { 0       };
+	double               clip_factor      { 0       };
 };

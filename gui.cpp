@@ -170,7 +170,7 @@ std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, 
 	return clickables;
 }
 
-std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx, up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars, up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars, up_down_widget *const sound_saturation_pars, size_t *const polyrythmic_idx, up_down_widget *const swing_widget_pars)
+std::vector<clickable> generate_settings_menu(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx, up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars, up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars, up_down_widget *const sound_saturation_pars, size_t *const polyrythmic_idx, up_down_widget *const swing_widget_pars, size_t *const clipping_idx)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -252,12 +252,30 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 
 	std::vector<clickable> swing_widget = generate_up_down_widget(w, h, x, y, "swing", clickables.size(), swing_widget_pars);
 	std::copy(swing_widget.begin(), swing_widget.end(), std::back_inserter(clickables));
-	y += up_down_height;
+	x += menu_button_width;
+	y += menu_button_height;
 
+	{
+		int half_height = menu_button_height / 2;
+		clickable c1 { };
+		c1.where          = { x, y, menu_button_width, half_height};
+		c1.text           = "clipping";
+		clickables.push_back(c1);
+		y += half_height;
+		clickable c2 { };
+		c2.where          = { x, y, menu_button_width, half_height};
+		c2.text           = "0%";
+		*clipping_idx = clickables.size();
+		clickables.push_back(c2);
+		x += menu_button_width;
+		y += half_height;
+	}
+
+	x = 0;
 	{
 		clickable c { };
 		c.where          = { x, y + menu_button_height, menu_button_width, menu_button_height };
-		c.text           = "polyrythmic";
+		c.text           = "polyryth.";
 		*polyrythmic_idx = clickables.size();
 		clickables.push_back(c);
 		x += menu_button_width;
@@ -671,6 +689,7 @@ int main(int argc, char *argv[])
 	}
 
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
+	SDL_SetHint(SDL_HINT_RENDER_VSYNC,       "1");
 	SDL_Window *win = SDL_CreateWindow(PROG_NAME,
                           display_mode->w, display_mode->h,
                           (full_screen ? SDL_WINDOW_FULLSCREEN: 0));
@@ -718,7 +737,8 @@ int main(int argc, char *argv[])
 	std::optional<int> selected_midi_channel;
 	size_t         polyrythmic_idx  = 0;
 	up_down_widget swing_widget       { };
-	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h, &pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget, &pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget, &sound_saturation_widget, &polyrythmic_idx, &swing_widget);
+	size_t         clipping_idx     = 0;
+	std::vector<clickable> menu_buttons_clickables = generate_settings_menu(display_mode->w, display_mode->h, &pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget, &pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget, &sound_saturation_widget, &polyrythmic_idx, &swing_widget, &clipping_idx);
 	std::string    menu_status;
 	std::atomic_bool polyrythmic    = false;
 	int            swing_amount     = 0;
@@ -774,6 +794,7 @@ int main(int argc, char *argv[])
 	std::atomic_bool paused         = false;
 	std::atomic_bool force_trigger  = false;
 	bool             shift          = false;
+	double           prev_clipping  = 0.;
 
 	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &force_trigger, &polyrythmic, &swing_amount_parameter] {
 			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &swing_amount_parameter);
@@ -952,6 +973,7 @@ int main(int argc, char *argv[])
 		}
 
 		// redraw screen
+		bool update_screen = false;
 		if (redraw && fs_action == fs_none) {
 			SDL_SetRenderDrawColor(screen, 0, 0, 0, 255);
 			SDL_RenderClear(screen);
@@ -1023,9 +1045,32 @@ int main(int argc, char *argv[])
 				break;
 			}
 
-			SDL_RenderPresent(screen);
-			redraw = false;
+			update_screen = true;
+			redraw        = false;
 		}
+
+		if (mode == m_menu) {
+			std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+			if (sound_pars.clip_factor != prev_clipping) {
+				prev_clipping = sound_pars.clip_factor;
+				lck.unlock();
+
+				clickable & c = menu_buttons_clickables[clipping_idx];
+
+				SDL_FRect r { float(c.where.x), float(c.where.y), float(c.where.w), float(c.where.h) };
+				if (sound_pars.clip_factor)
+					SDL_SetRenderDrawColor(screen, 40, 172, 40, 255);
+				else
+					SDL_SetRenderDrawColor(screen, 40, 100, 40, 255);
+				SDL_RenderFillRect(screen, &r);
+
+				draw_text(font, screen, c.where.x, c.where.y, std::to_string(int(sound_pars.clip_factor * 100)) + "%", { { c.where.w, c.where.h } });
+				update_screen = true;
+			}
+		}
+
+		if (update_screen)
+			SDL_RenderPresent(screen);
 
 		SDL_Delay(1);
 

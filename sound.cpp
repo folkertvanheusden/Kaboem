@@ -32,7 +32,7 @@ void on_process_audio(void *userdata)
 
 	double *temp_buffer  = new double[sp->n_channels * period_size]();
 
-	// printf("latency: %.2fms, channel count: %d\n", period_size * 1000.0 / sp->sample_rate, sp->n_channels);
+	// printf("latency: %.2fms, channel count: %d\n", period_size * 1000.0 / sp->sample_rate, sp->n_channelsw);
 
 	std::shared_lock<std::shared_mutex> lck(sp->sounds_lock);
 
@@ -65,12 +65,21 @@ void on_process_audio(void *userdata)
 		}
 	}
 
+	sp->n_loud_checked += period_size;
+
 	for(int t=0; t<period_size; t++) {
 		double *current_sample_base_in  = &temp_buffer[t * sp->n_channels];
 		double *current_sample_base_out = &dest[t * sp->n_channels];
 
+		double too_loud = 0;
 		for(int c=0; c<sp->n_channels; c++) {
-			double temp = std::clamp(current_sample_base_in[c] * sp->global_volume, -1., 1.);
+			double temp = current_sample_base_in[c] * sp->global_volume;
+
+			if (temp < -1.)
+				temp = -1., too_loud = std::max(too_loud, fabs(temp));
+			else if (temp > 1.)
+				temp = 1.,  too_loud = std::max(too_loud, temp);
+
 			if (sp->filter_lp)
 				temp = sp->filter_lp->apply(temp);
 			if (sp->filter_hp)
@@ -78,6 +87,9 @@ void on_process_audio(void *userdata)
 			double sign = temp < 0 ? -1 : 1;
 			current_sample_base_out[c] = pow(fabs(temp), sp->sound_saturation) * sign;
 		}
+
+		sp->too_loud_total += too_loud;
+		sp->too_loud_count++;
 	}
 
 	delete [] temp_buffer;
@@ -90,6 +102,16 @@ void on_process_audio(void *userdata)
 
 	if (sp->record_handle) 
 		sf_writef_double(sp->record_handle, dest, period_size);
+
+	if (sp->n_loud_checked >= sp->sample_rate / 2) {
+		if (sp->too_loud_count > 0)
+			sp->clip_factor = sp->too_loud_total / sp->too_loud_count;
+		else
+			sp->clip_factor = 0;
+		sp->too_loud_total = 0;
+		sp->too_loud_count = 0;
+		sp->n_loud_checked = 0;
+	}
 }
 
 sound_sample::sound_sample(const int sample_rate, const std::string & file_name) :
