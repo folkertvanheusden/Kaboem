@@ -1078,8 +1078,11 @@ int main(int argc, char *argv[])
 							draw_please_wait(font, screen, display_mode);
 
 							{
+								const std::string file_name = path + "/before_clear." PROG_EXT;
+
 								std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-								write_file(path + "/before_clear." PROG_EXT, pat_clickables, samples, file_parameters);
+								if (write_file(file_name, pat_clickables, samples, file_parameters) == false)
+									menu_status = "failed: " + file_name;
 							}
 							{
 								std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
