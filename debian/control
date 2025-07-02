@@ -1,0 +1,16 @@
+Source: kaboem
+Maintainer: Folkert van Heusden <folkert@vanheusden.com>
+Section: sound
+Priority: optional
+Standards-Version: 4.5.0
+Build-Depends: debhelper-compat (= 12), libpipewire-0.3-dev, libsdl3-dev,
+	libsdl3-ttf-dev, libsndfile1-dev, nlohmann-json3-dev, libfftw3-dev,
+	build-essential, cmake, libfontconfig1-dev
+Homepage: https://github.com/folkertvanheusden/kaboem
+
+Package: kaboem
+Architecture: linux-any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libpipewire-0.3-0t64, libsdl3-0,
+	libsdl3-ttf0, libsndfile1, libfftw3-double3, libfontconfig1,
+	fonts-freefont-ttf
+Description: Kaboem is a simple pipewire and midi enabled audio sequencer.
