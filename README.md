@@ -33,6 +33,7 @@ On the right you see the 8 channels that you can select. At the top-right there'
 Pressing "record" will record to a .wav-file.
 Load/save are for writing the current song to a .kaboem-file for later re-edit.
 In the settings-menu, click on a channel will open a channel-edit menu.
+'AGC' is auto-gain-control, this will automatically reduce the volume of the audio to prevent clipping.
 Pressing menu again will bring you back to the pattern-editor.
 
 ![settings screen](images/kaboem-settings.png)
