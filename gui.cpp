@@ -1037,7 +1037,10 @@ int main(int argc, char *argv[])
 				break;
 			}
 
-			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && (event.motion.state & 1) /* left button */) {
+			float ignore = 0.;
+			SDL_MouseButtonFlags mouse_button_flags = SDL_GetMouseState(&ignore, &ignore);
+
+			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && (mouse_button_flags & 1) /* left button */) {
 				if (mode == m_pattern) {
 					auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
 					if (menu_clicked.has_value()) {
@@ -1264,17 +1267,14 @@ int main(int argc, char *argv[])
 						}
 					}
 				}
-				redraw = true;
-			}
-			else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
-				if (event.motion.state & 1) {  // left mouse button
-					std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
-					if (pat_clickable_selected.has_value()) {
-						pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected = !pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected;
-						pat_clickable_selected.reset();
-						redraw = true;
-					}
+
+				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
+				if (pat_clickable_selected.has_value()) {
+					pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected = !pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected;
+					pat_clickable_selected.reset();
 				}
+
+				redraw = true;
 			}
 			else if (event.type == SDL_EVENT_KEY_DOWN) {
 				if (event.key.scancode == SDL_SCANCODE_SPACE) {
