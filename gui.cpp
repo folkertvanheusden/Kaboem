@@ -170,7 +170,12 @@ std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, 
 	return clickables;
 }
 
-std::vector<clickable> generate_settings_menu(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx, size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx, up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars, up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars, up_down_widget *const sound_saturation_pars, size_t *const polyrythmic_idx, up_down_widget *const swing_widget_pars, size_t *const clipping_idx)
+std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx,
+		size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx,
+		up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars,
+		up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars,
+		up_down_widget *const sound_saturation_pars, size_t *const polyrythmic_idx,
+		up_down_widget *const swing_widget_pars, size_t *const agc_idx, size_t *const clipping_idx)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -277,6 +282,15 @@ std::vector<clickable> generate_settings_menu(const int w, const int h, size_t *
 		c.where          = { x, y + menu_button_height, menu_button_width, menu_button_height };
 		c.text           = "polyryth.";
 		*polyrythmic_idx = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
+
+	{
+		clickable c { };
+		c.where          = { x, y + menu_button_height, menu_button_width, menu_button_height };
+		c.text           = "AGC";
+		*agc_idx = clickables.size();
 		clickables.push_back(c);
 		x += menu_button_width;
 	}
@@ -630,7 +644,7 @@ void do_error_message(TTF_Font *const font, SDL_Renderer *const screen, const SD
 	draw_text(font, screen, 0, 0, error, { { display_mode->w, display_mode->h } }, true);
 	SDL_RenderPresent(screen);
 
-	for(;;) {
+	while(!do_exit) {
 		SDL_Event event { };
 		if (SDL_PollEvent(&event)) {
 			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_KEY_DOWN)
@@ -639,6 +653,60 @@ void do_error_message(TTF_Font *const font, SDL_Renderer *const screen, const SD
 
 		SDL_Delay(5);
 	}
+}
+
+bool are_you_sure(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode, const int font_height, const std::string & question)
+{
+	int dim_w              = display_mode->w / 6;
+	int dim_h              = display_mode->h / 6;
+	int scr_half_w         = display_mode->w / 2;
+	int scr_half_h         = display_mode->h / 2;
+
+	int menu_button_width  = display_mode->w * 10 / 100;
+	int menu_button_height = display_mode->h * 10 / 100;
+
+	SDL_FRect r { float(dim_w), float(dim_h), float(display_mode->w - dim_w * 2), float(display_mode->h - dim_h * 2) };
+	SDL_SetRenderDrawColor(screen, 50, 40, 40, 255);
+	SDL_RenderFillRect(screen, &r);
+	SDL_SetRenderDrawColor(screen, 40, 40, 40, 191);
+	SDL_RenderRect(screen, &r);
+
+	int  x1                = scr_half_w - scr_half_w / 3;
+	int  y1                = scr_half_h;
+	int  x2                = scr_half_w + scr_half_w / 3;
+	int  y2                = scr_half_h;
+
+        std::vector<clickable> clickables;
+	clickable c1 { };
+	c1.where = { x1 - menu_button_width / 2, y1, menu_button_width, menu_button_height };
+	c1.text  = "Yes";
+	clickables.push_back(c1);
+	clickable c2 { };
+	c2.where = { x2 - menu_button_width / 2, y2, menu_button_width, menu_button_height };
+	c2.text  = "No";
+	clickables.push_back(c2);
+
+	draw_clickables(font, screen, clickables, { }, { });
+
+	SDL_SetRenderDrawColor(screen, 255, 40, 40, 255);
+	draw_text(font, screen, 0, scr_half_h - font_height * 2, question,        { { display_mode->w, font_height } }, true);
+	draw_text(font, screen, 0, scr_half_h - font_height,     "Are you sure?", { { display_mode->w, font_height } }, true);
+	SDL_RenderPresent(screen);
+
+	while(!do_exit) {
+		SDL_Event event { };
+		if (SDL_PollEvent(&event)) {
+			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_KEY_DOWN) {
+				auto button_clicked = find_clickable(clickables, event.button.x, event.button.y);
+				if (button_clicked.has_value())
+					return button_clicked.value() == 0;
+			}
+		}
+
+		SDL_Delay(1);
+	}
+
+	return false;
 }
 
 int main(int argc, char *argv[])
@@ -736,12 +804,17 @@ int main(int argc, char *argv[])
 	std::optional<double> hp_filter_f;
 	std::optional<int> selected_midi_channel;
 	size_t         polyrythmic_idx  = 0;
-	up_down_widget swing_widget       { };
-	size_t         clipping_idx     = 0;
-	std::vector<clickable> menu_buttons_clickables = generate_settings_menu(display_mode->w, display_mode->h, &pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget, &pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget, &sound_saturation_widget, &polyrythmic_idx, &swing_widget, &clipping_idx);
-	std::string    menu_status;
 	std::atomic_bool polyrythmic    = false;
+	up_down_widget swing_widget       { };
 	int            swing_amount     = 0;
+	size_t         clipping_idx     = 0;
+	size_t         agc_idx          = 0;
+	bool           agc              = false;
+	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h,
+			&pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget,
+			&pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget, &sound_saturation_widget,
+			&polyrythmic_idx, &swing_widget, &agc_idx, &clipping_idx);
+	std::string    menu_status;
 
 	size_t         sample_load_idx        = 0;
 	size_t         sample_unload_idx      = 0;
@@ -770,7 +843,8 @@ int main(int argc, char *argv[])
 		{ "swing-factor", file_parameter::T_INT,    &swing_amount,     nullptr,                nullptr, nullptr,      nullptr, nullptr      },
 		{ "lp-filter",    file_parameter::T_FLOAT,  nullptr,           nullptr,                nullptr, &lp_filter_f, nullptr, nullptr      },
 		{ "hp-filter",    file_parameter::T_FLOAT,  nullptr,           nullptr,                nullptr, &hp_filter_f, nullptr, nullptr      },
-		{ "polyrythmic",  file_parameter::T_ABOOL,  nullptr,           nullptr,                nullptr, nullptr,      nullptr, &polyrythmic }
+		{ "polyrythmic",  file_parameter::T_ABOOL,  nullptr,           nullptr,                nullptr, nullptr,      nullptr, &polyrythmic },
+		{ "agc",          file_parameter::T_BOOL,   nullptr,           nullptr,                nullptr, nullptr,      &agc,    nullptr      }
 	};
 
 	std::atomic_int swing_amount_parameter { swing_amount };
@@ -780,11 +854,14 @@ int main(int argc, char *argv[])
 				channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
 		}
 
-		sound_pars.global_volume    = vol / 100.;
-		sound_pars.sound_saturation = 1. - sound_saturation / 1000.;
+		sound_pars.global_volume                          = vol / 100.;
+		sound_pars.sound_saturation                       = 1. - sound_saturation / 1000.;
+		sound_pars.agc_enabled                            = agc;
+		menu_buttons_clickables[agc_idx].selected         = agc;
 		menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
+		swing_amount_parameter                            = swing_amount;
+
 		regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
-		swing_amount_parameter      = swing_amount;
 
 		reset_all_patterns(&pat_clickables, &pat_clickables_lock, samples, false);
 	}
@@ -851,9 +928,11 @@ int main(int argc, char *argv[])
 						if (read_file(fs_data.file, &pat_clickables, &samples, &file_parameters)) {
 							sound_pars.global_volume                          = vol / 100.;
 							sound_pars.sound_saturation                       = 1. - sound_saturation / 1000.;
+							sound_pars.agc_enabled                            = agc;
+							menu_buttons_clickables[agc_idx].selected         = agc;
+							menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
 							swing_amount_parameter                            = swing_amount;
 							sleep_ms                                          = 60 * 1000 / bpm;
-							menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
 
 							for(size_t i=0; i<pattern_groups; i++) {
 								if (samples[i].name.empty() == false)
@@ -1082,7 +1161,10 @@ int main(int argc, char *argv[])
 				break;
 			}
 
-			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+			float ignore = 0.;
+			SDL_MouseButtonFlags mouse_button_flags = SDL_GetMouseState(&ignore, &ignore);
+
+			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && (mouse_button_flags & 1) /* left button */) {
 				if (mode == m_pattern) {
 					auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
 					if (menu_clicked.has_value()) {
@@ -1120,48 +1202,53 @@ int main(int argc, char *argv[])
 					else if (menus_clicked.has_value()) {
 						size_t idx = menus_clicked.value();
 						if (idx == clear_idx) {
-							draw_please_wait(font, screen, display_mode);
+							bool choice = are_you_sure(font, screen, display_mode, font_height, "Clear everything");
+							if (choice) {
+								draw_please_wait(font, screen, display_mode);
 
-							{
-								const std::string file_name = path + "/before_clear." PROG_EXT;
+								{
+									const std::string file_name = path + "/before_clear." PROG_EXT;
 
-								std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-								if (write_file(file_name, pat_clickables, samples, file_parameters) == false)
-									menu_status = "failed: " + file_name;
-							}
-							{
-								std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
-								sound_pars.sounds.clear();
-							}
-							{
-								std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-								for(size_t i=0; i<pattern_groups; i++) {
-									for(auto & element: pat_clickables[i].pattern) {
-										element.selected = false;
-										element.text.clear();
-									}
-
-									for(auto & element: pat_clickables[i].note_delta)
-										element = 0;
-
-									{
-										std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
-										sample & s = samples[i];
-										delete s.s;
-										s.s = nullptr;
-										s.name.clear();
-									}
-									channel_clickables[i].text.clear();
+									std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+									if (write_file(file_name, pat_clickables, samples, file_parameters) == false)
+										menu_status = "failed: " + file_name;
 								}
+								{
+									std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
+									sound_pars.sounds.clear();
+								}
+								{
+									std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+									for(size_t i=0; i<pattern_groups; i++) {
+										for(auto & element: pat_clickables[i].pattern) {
+											element.selected = false;
+											element.text.clear();
+										}
+
+										for(auto & element: pat_clickables[i].note_delta)
+											element = 0;
+
+										{
+											std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
+											sample & s = samples[i];
+											delete s.s;
+											s.s = nullptr;
+											s.name.clear();
+										}
+										channel_clickables[i].text.clear();
+									}
+								}
+								menu_status = "cleared";
 							}
 
-							redraw      = true;
-							menu_status = "cleared";
+							redraw = true;
 						}
 						else if (idx == pattern_load_idx) {
-							fs_data.finished = false;
-							fs_action = fs_load;
-							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, work_path.c_str(), false);
+							if (are_you_sure(font, screen, display_mode, font_height, "Load")) {
+								fs_data.finished = false;
+								fs_action = fs_load;
+								SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, work_path.c_str(), false);
+							}
 						}
 						else if (idx == save_idx) {
 							fs_data.finished = false;
@@ -1169,7 +1256,8 @@ int main(int argc, char *argv[])
 							SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters, 1, work_path.c_str());
 						}
 						else if (idx == quit_idx) {
-							do_exit = true;
+							if (are_you_sure(font, screen, display_mode, font_height, "Quit"))
+								do_exit = true;
 						}
 						else if (set_up_down_value(idx, swing_widget, 0, 200, &swing_amount, shift)) {
 							swing_amount_parameter = swing_amount;
@@ -1215,9 +1303,14 @@ int main(int argc, char *argv[])
 							polyrythmic = !polyrythmic;
 							menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
 						}
+						else if (idx == agc_idx) {
+							agc = !agc;
+							menu_buttons_clickables[agc_idx].selected = agc;
+						}
 						sleep_ms                 = 60 * 1000 / bpm;
 						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 						sound_pars.global_volume = vol / 100.;
+						sound_pars.agc_enabled   = agc;
 					}
 					else if (sample_clicked.has_value()) {
 						mode = m_sample;
@@ -1309,15 +1402,14 @@ int main(int argc, char *argv[])
 						}
 					}
 				}
-				redraw = true;
-			}
-			else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+
 				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
 				if (pat_clickable_selected.has_value()) {
 					pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected = !pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected;
 					pat_clickable_selected.reset();
-					redraw = true;
 				}
+
+				redraw = true;
 			}
 			else if (event.type == SDL_EVENT_KEY_DOWN) {
 				if (event.key.scancode == SDL_SCANCODE_SPACE) {

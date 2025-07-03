@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "agc.h"
 #include "filter.h"
 #include "pipewire-audio.h"
 
@@ -218,13 +219,19 @@ public:
 	sound_parameters(const int sample_rate, const int n_channels) :
        		sample_rate(sample_rate),
 		n_channels(n_channels) {
+			for(int i=0; i<n_channels; i++)
+				agc_instances.push_back(new agc(-10.0, 4.0, 10.0, 100.0, sample_rate));
 	}
 
 	virtual ~sound_parameters() {
+		for(auto & a: agc_instances)
+			delete a;
 	}
 
 	int                  sample_rate     { 0       };
 	int                  n_channels      { 0       };
+	std::vector<agc *>   agc_instances;
+	bool                 agc_enabled     { false   };
 
 	pipewire_data_audio  pw;
 

@@ -1,3 +1,4 @@
+#include <cfloat>
 #include <cmath>
 
 #include "frequencies.h"
@@ -67,29 +68,58 @@ void on_process_audio(void *userdata)
 
 	sp->n_loud_checked += period_size;
 
-	for(int t=0; t<period_size; t++) {
-		double *current_sample_base_in  = &temp_buffer[t * sp->n_channels];
-		double *current_sample_base_out = &dest[t * sp->n_channels];
+	if (sp->agc_enabled) {
+		double *c_temp = new double[sp->n_channels];
+		for(int t=0; t<period_size; t++) {
+			double *current_sample_base_in  = &temp_buffer[t * sp->n_channels];
+			double *current_sample_base_out = &dest[t * sp->n_channels];
 
-		double too_loud = 0;
-		for(int c=0; c<sp->n_channels; c++) {
-			double temp = current_sample_base_in[c] * sp->global_volume;
+			double gain = DBL_MAX;
+			for(int c=0; c<sp->n_channels; c++) {
+				c_temp[c] = current_sample_base_in[c] * sp->global_volume;
+				gain      = std::min(gain, sp->agc_instances[c]->calculate_gain(c_temp[c]));
+			}
 
-			if (temp < -1.)
-				temp = -1., too_loud = std::max(too_loud, fabs(temp));
-			else if (temp > 1.)
-				temp = 1.,  too_loud = std::max(too_loud, temp);
+			for(int c=0; c<sp->n_channels; c++) {
+				double temp = std::clamp(c_temp[c] * gain, -1., 1.);
 
-			if (sp->filter_lp)
-				temp = sp->filter_lp->apply(temp);
-			if (sp->filter_hp)
-				temp = sp->filter_hp->apply(temp);
-			double sign = temp < 0 ? -1 : 1;
-			current_sample_base_out[c] = pow(fabs(temp), sp->sound_saturation) * sign;
+				if (sp->filter_lp)
+					temp = sp->filter_lp->apply(temp);
+				if (sp->filter_hp)
+					temp = sp->filter_hp->apply(temp);
+
+				double sign = temp < 0 ? -1 : 1;
+				current_sample_base_out[c] = pow(fabs(temp), sp->sound_saturation) * sign;
+			}
 		}
+		delete [] c_temp;
+	}
+	else {
+		for(int t=0; t<period_size; t++) {
+			double *current_sample_base_in  = &temp_buffer[t * sp->n_channels];
+			double *current_sample_base_out = &dest[t * sp->n_channels];
 
-		sp->too_loud_total += too_loud;
-		sp->too_loud_count++;
+			double too_loud = 0;
+			for(int c=0; c<sp->n_channels; c++) {
+				double temp = current_sample_base_in[c] * sp->global_volume;
+
+				if (temp < -1.)
+					temp = -1., too_loud = std::max(too_loud, fabs(temp));
+				else if (temp > 1.)
+					temp = 1.,  too_loud = std::max(too_loud, temp);
+
+				if (sp->filter_lp)
+					temp = sp->filter_lp->apply(temp);
+				if (sp->filter_hp)
+					temp = sp->filter_hp->apply(temp);
+
+				double sign = temp < 0 ? -1 : 1;
+				current_sample_base_out[c] = pow(fabs(temp), sp->sound_saturation) * sign;
+			}
+
+			sp->too_loud_total += too_loud;
+			sp->too_loud_count++;
+		}
 	}
 
 	delete [] temp_buffer;
