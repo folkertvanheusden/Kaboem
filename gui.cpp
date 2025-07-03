@@ -756,8 +756,9 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
-	SDL_SetHint(SDL_HINT_RENDER_VSYNC,       "1");
+	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS,  "1");
+	SDL_SetHint(SDL_HINT_RENDER_VSYNC,        "1");
+	SDL_SetHint(SDL_HINT_VIDEO_DOUBLE_BUFFER, "1");
 	SDL_Window *win = SDL_CreateWindow(PROG_NAME,
                           display_mode->w, display_mode->h,
                           (full_screen ? SDL_WINDOW_FULLSCREEN: 0));
@@ -1052,7 +1053,16 @@ int main(int argc, char *argv[])
 		}
 
 		// redraw screen
-		bool update_screen = false;
+		double current_clip_factor = 0.;
+		if (mode == m_menu) {
+			std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+			if (sound_pars.clip_factor != prev_clipping) {
+				current_clip_factor = prev_clipping = sound_pars.clip_factor;
+				lck.unlock();
+				redraw = true;
+			}
+		}
+
 		if (redraw && fs_action == fs_none) {
 			SDL_SetRenderDrawColor(screen, 0, 0, 0, 255);
 			SDL_RenderClear(screen);
@@ -1085,6 +1095,15 @@ int main(int argc, char *argv[])
 					draw_text(font, screen, hp_filter_widget.x, hp_filter_widget.y, std::to_string(int(hp_filter_f.value())), { { hp_filter_widget.text_w, hp_filter_widget.text_h } });
 				draw_text(font, screen, sound_saturation_widget.x, sound_saturation_widget.y, std::to_string(sound_saturation), { { sound_saturation_widget.text_w, sound_saturation_widget.text_h } });
 				draw_text(font, screen, swing_widget.x, swing_widget.y, std::to_string(swing_amount), { { swing_widget.text_w, swing_widget.text_h } });
+
+				clickable & c = menu_buttons_clickables[clipping_idx];
+				SDL_FRect r { float(c.where.x), float(c.where.y), float(c.where.w), float(c.where.h) };
+				if (sound_pars.clip_factor)
+					SDL_SetRenderDrawColor(screen, 40, 172, 40, 255);
+				else
+					SDL_SetRenderDrawColor(screen, 40, 100, 40, 255);
+				SDL_RenderFillRect(screen, &r);
+				draw_text(font, screen, c.where.x, c.where.y, std::to_string(int(current_clip_factor * 100)) + "%", { { c.where.w, c.where.h } });
 			}
 			else if (mode == m_sample) {
 				std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
@@ -1124,32 +1143,9 @@ int main(int argc, char *argv[])
 				break;
 			}
 
-			update_screen = true;
-			redraw        = false;
-		}
-
-		if (mode == m_menu) {
-			std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-			if (sound_pars.clip_factor != prev_clipping) {
-				prev_clipping = sound_pars.clip_factor;
-				lck.unlock();
-
-				clickable & c = menu_buttons_clickables[clipping_idx];
-
-				SDL_FRect r { float(c.where.x), float(c.where.y), float(c.where.w), float(c.where.h) };
-				if (sound_pars.clip_factor)
-					SDL_SetRenderDrawColor(screen, 40, 172, 40, 255);
-				else
-					SDL_SetRenderDrawColor(screen, 40, 100, 40, 255);
-				SDL_RenderFillRect(screen, &r);
-
-				draw_text(font, screen, c.where.x, c.where.y, std::to_string(int(sound_pars.clip_factor * 100)) + "%", { { c.where.w, c.where.h } });
-				update_screen = true;
-			}
-		}
-
-		if (update_screen)
 			SDL_RenderPresent(screen);
+			redraw = false;
+		}
 
 		SDL_Delay(1);
 
