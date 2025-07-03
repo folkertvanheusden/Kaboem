@@ -257,7 +257,7 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 	{
 		clickable c { };
 		c.where          = { x, y + menu_button_height, menu_button_width, menu_button_height };
-		c.text           = "polyrythmic";
+		c.text           = "polyryth.";
 		*polyrythmic_idx = clickables.size();
 		clickables.push_back(c);
 		x += menu_button_width;
