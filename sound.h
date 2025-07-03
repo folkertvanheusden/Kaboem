@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>
+#include <cstring>
 #include <map>
 #include <math.h>
 #include <optional>
@@ -213,14 +214,19 @@ public:
 	}
 };
 
+constexpr const int  scope_buffer_n   { 500     };
+constexpr const int  max_scope_width  { 400     };
+
 class sound_parameters
 {
 public:
 	sound_parameters(const int sample_rate, const int n_channels) :
        		sample_rate(sample_rate),
 		n_channels(n_channels) {
-			for(int i=0; i<n_channels; i++)
-				agc_instances.push_back(new agc(-10.0, 4.0, 10.0, 100.0, sample_rate));
+		for(int i=0; i<n_channels; i++)
+			agc_instances.push_back(new agc(-10.0, 4.0, 10.0, 100.0, sample_rate));
+
+		memset(scope, 0x00, sizeof scope);
 	}
 
 	virtual ~sound_parameters() {
@@ -247,6 +253,10 @@ public:
 	filter_butterworth  *filter_hp        { nullptr };
 	double               global_volume    { 1.      };
 	double               sound_saturation { 1.      };
+
+	int                  scope_width      { 0       };
+	double               scope[scope_buffer_n];
+	int                  scope_t          { 0       };
 
 	double               too_loud_total   { 0.      };
 	int                  too_loud_count   { 0       };

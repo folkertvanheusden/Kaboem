@@ -23,7 +23,8 @@ void on_process_audio(void *userdata)
 	spa_buffer *buf      = b->buffer;
 
 	int     stride       = sizeof(double) * sp->n_channels;
-	int     period_size  = std::min(buf->datas[0].maxsize / stride, uint32_t(sp->sample_rate / 200));
+	// 75: audio-CD had chunks of 1/75th of a second. this gives a latency of around 13.1 ms
+	int     period_size  = std::min(buf->datas[0].maxsize / stride, uint32_t(sp->sample_rate / 75));
 
 	double *dest         = reinterpret_cast<double *>(buf->datas[0].data);
 	if (!dest) {
@@ -33,7 +34,7 @@ void on_process_audio(void *userdata)
 
 	double *temp_buffer  = new double[sp->n_channels * period_size]();
 
-	// printf("latency: %.2fms, channel count: %d\n", period_size * 1000.0 / sp->sample_rate, sp->n_channelsw);
+	// printf("latency: %.2fms, channel count: %d\n", period_size * 1000.0 / sp->sample_rate, sp->n_channels);
 
 	std::shared_lock<std::shared_mutex> lck(sp->sounds_lock);
 
@@ -142,6 +143,18 @@ void on_process_audio(void *userdata)
 		sp->too_loud_count = 0;
 		sp->n_loud_checked = 0;
 	}
+
+	// scope
+	sp->scope_width = std::min(period_size, max_scope_width);
+	memset(sp->scope, 0x00, sizeof sp->scope);
+	for(int i=0; i<sp->scope_width; i++) {
+		for(int c=0; c<sp->n_channels; c++)
+			sp->scope[i] += dest[i * sp->n_channels + c];
+
+		sp->scope[i] /= sp->n_channels;
+	}
+
+	sp->scope_t++;
 }
 
 sound_sample::sound_sample(const int sample_rate, const std::string & file_name) :

@@ -8,6 +8,7 @@
 #include <sndfile.h>
 #include <vector>
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_render.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
 #include "font.h"
@@ -170,12 +171,12 @@ std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, 
 	return clickables;
 }
 
-std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx,
+std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx,
 		size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx,
 		up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars,
 		up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars,
 		up_down_widget *const sound_saturation_pars, size_t *const polyrythmic_idx,
-		up_down_widget *const swing_widget_pars, size_t *const agc_idx, size_t *const clipping_idx)
+		up_down_widget *const swing_widget_pars, size_t *const agc_idx, size_t *const clipping_idx, size_t *const scope_idx)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -290,9 +291,17 @@ std::vector<clickable> generate_menu_buttons(const int w, const int h, size_t *c
 		clickable c { };
 		c.where          = { x, y + menu_button_height, menu_button_width, menu_button_height };
 		c.text           = "AGC";
-		*agc_idx = clickables.size();
+		*agc_idx         = clickables.size();
 		clickables.push_back(c);
 		x += menu_button_width;
+	}
+
+	{
+		clickable c { };
+		c.where          = { menu_button_width * 4, 4 * menu_button_height, int(menu_button_width * 1.9), menu_button_height * 2 };
+		c.without_bg     = true;
+		*scope_idx = clickables.size();
+		clickables.push_back(c);
 	}
 
 	return clickables;
@@ -427,6 +436,20 @@ void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, co
 	SDL_DestroySurface(surface);
 }
 
+void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const double scope[], const int scope_width)
+{
+	int   draw_width = std::min(scope_width, where.w);
+	float px         = where.x;
+	float py         = where.y + where.h * scope[0] / 2 + where.h / 2;
+	for(int i=1; i<draw_width - 1; i++) {
+		float x = where.x + i * float(where.w) / scope_width;
+		float y = where.y + where.h * scope[i] / 2 + where.h / 2;
+		SDL_RenderLine(screen, px, py, x, y);
+		px = x;
+		py = y;
+	}
+}
+
 void draw_clickables(TTF_Font *const font, SDL_Renderer *const screen, const std::vector<clickable> & clickables, const std::optional<size_t> hl_index, const std::optional<size_t> play_index, const ssize_t draw_limit = -1)
 {
 	size_t draw_n = draw_limit == -1 ? clickables.size() : draw_limit;
@@ -452,8 +475,10 @@ void draw_clickables(TTF_Font *const font, SDL_Renderer *const screen, const std
 		float                  x1 = clickables[i].where.x;
 		float                  y1 = clickables[i].where.y;
 		SDL_FRect              r    { x1, y1, float(clickables[i].where.w), float(clickables[i].where.h) };
-		SDL_SetRenderDrawColor(screen, color[0], color[1], color[2], 255);
-		SDL_RenderFillRect(screen, &r);
+		if (clickables[i].without_bg == false) {
+			SDL_SetRenderDrawColor(screen, color[0], color[1], color[2], 255);
+			SDL_RenderFillRect(screen, &r);
+		}
 		SDL_SetRenderDrawColor(screen, 40, 40, 40, 191);
 		SDL_RenderRect(screen, &r);
 
@@ -775,7 +800,7 @@ int main(int argc, char *argv[])
 	int  bpm    = 135;
 	int  vol    = 100;
 
-	enum { m_pattern, m_menu, m_sample } mode      = m_pattern;
+	enum { m_pattern, m_settings, m_sample } mode  = m_pattern;
 	enum { fs_load, fs_save, fs_none, fs_load_sample, fs_record } fs_action = fs_none;
 	size_t fs_action_sample_index                  = 0;
 	fileselector_data      fs_data { };
@@ -811,10 +836,11 @@ int main(int argc, char *argv[])
 	size_t         clipping_idx     = 0;
 	size_t         agc_idx          = 0;
 	bool           agc              = false;
-	std::vector<clickable> menu_buttons_clickables = generate_menu_buttons(display_mode->w, display_mode->h,
+	size_t         scope_idx        = 0;
+	std::vector<clickable> settings_menu_buttons = generate_settings_menu_buttons(display_mode->w, display_mode->h,
 			&pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget,
 			&pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget, &sound_saturation_widget,
-			&polyrythmic_idx, &swing_widget, &agc_idx, &clipping_idx);
+			&polyrythmic_idx, &swing_widget, &agc_idx, &clipping_idx, &scope_idx);
 	std::string    menu_status;
 
 	size_t         sample_load_idx        = 0;
@@ -855,12 +881,12 @@ int main(int argc, char *argv[])
 				channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
 		}
 
-		sound_pars.global_volume                          = vol / 100.;
-		sound_pars.sound_saturation                       = 1. - sound_saturation / 1000.;
-		sound_pars.agc_enabled                            = agc;
-		menu_buttons_clickables[agc_idx].selected         = agc;
-		menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
-		swing_amount_parameter                            = swing_amount;
+		sound_pars.global_volume                        = vol / 100.;
+		sound_pars.sound_saturation                     = 1. - sound_saturation / 1000.;
+		sound_pars.agc_enabled                          = agc;
+		settings_menu_buttons[agc_idx].selected         = agc;
+		settings_menu_buttons[polyrythmic_idx].selected = polyrythmic;
+		swing_amount_parameter                          = swing_amount;
 
 		regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
 
@@ -873,6 +899,7 @@ int main(int argc, char *argv[])
 	std::atomic_bool force_trigger  = false;
 	bool             shift          = false;
 	double           prev_clipping  = 0.;
+	int              prev_scope_t   = -1;
 
 	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &force_trigger, &polyrythmic, &swing_amount_parameter] {
 			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &swing_amount_parameter);
@@ -927,13 +954,13 @@ int main(int argc, char *argv[])
 						std::unique_lock<std::shared_mutex> lck    (sound_pars.sounds_lock);
 						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock   );
 						if (read_file(fs_data.file, &pat_clickables, &samples, &file_parameters)) {
-							sound_pars.global_volume                          = vol / 100.;
-							sound_pars.sound_saturation                       = 1. - sound_saturation / 1000.;
-							sound_pars.agc_enabled                            = agc;
-							menu_buttons_clickables[agc_idx].selected         = agc;
-							menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
-							swing_amount_parameter                            = swing_amount;
-							sleep_ms                                          = 60 * 1000 / bpm;
+							sound_pars.global_volume                        = vol / 100.;
+							sound_pars.sound_saturation                     = 1. - sound_saturation / 1000.;
+							sound_pars.agc_enabled                          = agc;
+							settings_menu_buttons[agc_idx].selected         = agc;
+							settings_menu_buttons[polyrythmic_idx].selected = polyrythmic;
+							swing_amount_parameter                          = swing_amount;
+							sleep_ms                                        = 60 * 1000 / bpm;
 
 							for(size_t i=0; i<pattern_groups; i++) {
 								if (samples[i].name.empty() == false)
@@ -1033,7 +1060,7 @@ int main(int argc, char *argv[])
 					si.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
 					sound_pars.record_handle = sf_open(fs_data.file.c_str(), SFM_WRITE, &si);
 					if (sound_pars.record_handle)
-						menu_buttons_clickables[record_idx].selected = true;
+						settings_menu_buttons[record_idx].selected = true;
 					else {
 						lck.unlock();
 						menu_status = "cannot create " + fs_data.file;
@@ -1054,12 +1081,16 @@ int main(int argc, char *argv[])
 
 		// redraw screen
 		double current_clip_factor = 0.;
-		if (mode == m_menu) {
+		if (mode == m_settings) {
 			std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 			if (sound_pars.clip_factor != prev_clipping) {
 				current_clip_factor = prev_clipping = sound_pars.clip_factor;
-				lck.unlock();
-				redraw = true;
+				redraw              = true;
+			}
+
+			if (sound_pars.scope_t != prev_scope_t) {
+				prev_scope_t = sound_pars.scope_t;
+				redraw       = true;
 			}
 		}
 
@@ -1078,11 +1109,11 @@ int main(int argc, char *argv[])
 				if (samples[pattern_group].name.empty() == false)
 					draw_text(font, screen, 0, display_mode->h / 2 / 100, samples[pattern_group].name, { });
 			}
-			else if (mode == m_menu) {
+			else if (mode == m_settings) {
 				if (menu_status.empty() == false)
 					draw_text(font, screen, 0, display_mode->h - font_height * 5, menu_status, { { display_mode->w, font_height } });
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
-				draw_clickables(font, screen, menu_buttons_clickables, { }, { });
+				draw_clickables(font, screen, settings_menu_buttons, { }, { });
 				draw_text(font, screen, bpm_widget.x, bpm_widget.y, std::to_string(bpm), { { bpm_widget.text_w, bpm_widget.text_h } });
 				draw_text(font, screen, vol_widget.x, vol_widget.y, std::to_string(vol), { { vol_widget.text_w, vol_widget.text_h } });
 				if (selected_midi_channel.has_value()) {
@@ -1096,7 +1127,7 @@ int main(int argc, char *argv[])
 				draw_text(font, screen, sound_saturation_widget.x, sound_saturation_widget.y, std::to_string(sound_saturation), { { sound_saturation_widget.text_w, sound_saturation_widget.text_h } });
 				draw_text(font, screen, swing_widget.x, swing_widget.y, std::to_string(swing_amount), { { swing_widget.text_w, swing_widget.text_h } });
 
-				clickable & c = menu_buttons_clickables[clipping_idx];
+				clickable & c = settings_menu_buttons[clipping_idx];
 				SDL_FRect r { float(c.where.x), float(c.where.y), float(c.where.w), float(c.where.h) };
 				if (sound_pars.clip_factor)
 					SDL_SetRenderDrawColor(screen, 40, 172, 40, 255);
@@ -1104,6 +1135,17 @@ int main(int argc, char *argv[])
 					SDL_SetRenderDrawColor(screen, 40, 100, 40, 255);
 				SDL_RenderFillRect(screen, &r);
 				draw_text(font, screen, c.where.x, c.where.y, std::to_string(int(current_clip_factor * 100)) + "%", { { c.where.w, c.where.h } });
+
+				double scope[max_scope_width];
+				int    use_scope_width = 0;
+				{
+					std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+					memcpy(scope, sound_pars.scope, max_scope_width * sizeof(double));
+					use_scope_width = sound_pars.scope_width;
+				}
+
+				clickable & scope_c = settings_menu_buttons[scope_idx];
+				draw_scope(screen, scope_c.where, scope, use_scope_width);
 			}
 			else if (mode == m_sample) {
 				std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
@@ -1117,8 +1159,10 @@ int main(int argc, char *argv[])
 					vol_left  = s->get_mapping_target_volume(0) * 100;
 					vol_right = s->get_mapping_target_volume(1) * 100;
 				}
+
 				std::string name = samples[fs_action_sample_index].name;
 				lck.unlock();
+
 				if (name.empty() == false)
 					draw_text(font, screen, 0, display_mode->h - font_height * 5, name, { { display_mode->w, font_height } });
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
@@ -1147,8 +1191,6 @@ int main(int argc, char *argv[])
 			redraw = false;
 		}
 
-		SDL_Delay(1);
-
 		// process mouse clicks etc
 		SDL_Event event { 0 };
 		if (SDL_PollEvent(&event)) {
@@ -1165,9 +1207,9 @@ int main(int argc, char *argv[])
 					auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
 					if (menu_clicked.has_value()) {
 						if (mode == m_pattern)
-							mode = m_menu;
+							mode = m_settings;
 						else if (mode == m_sample)
-							mode = m_menu;
+							mode = m_settings;
 						else
 							mode = m_pattern;
 					}
@@ -1184,14 +1226,14 @@ int main(int argc, char *argv[])
 						}
 					}
 				}
-				else if (mode == m_menu) {
+				else if (mode == m_settings) {
 					menu_status.clear();
-					auto menu_clicked   = find_clickable(menu_button_clickables,  event.button.x, event.button.y);
-					auto sample_clicked = find_clickable(channel_clickables,      event.button.x, event.button.y);
-					auto menus_clicked  = find_clickable(menu_buttons_clickables, event.button.x, event.button.y);
+					auto menu_clicked   = find_clickable(menu_button_clickables, event.button.x, event.button.y);
+					auto sample_clicked = find_clickable(channel_clickables,     event.button.x, event.button.y);
+					auto menus_clicked  = find_clickable(settings_menu_buttons,  event.button.x, event.button.y);
 					if (menu_clicked.has_value()) {
 						if (mode == m_pattern)
-							mode = m_menu;
+							mode = m_settings;
 						else
 							mode = m_pattern;
 					}
@@ -1279,29 +1321,29 @@ int main(int argc, char *argv[])
 							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 							if (sound_pars.record_handle) {
 								sf_close(sound_pars.record_handle);
-								sound_pars.record_handle = nullptr;
-								menu_status = "recording stopped";
-								menu_buttons_clickables[record_idx].selected = false;
+								sound_pars.record_handle                   = nullptr;
+								menu_status                                = "recording stopped";
+								settings_menu_buttons[record_idx].selected = false;
 							}
 							else {
 								lck.unlock();
 
 								fs_data.finished = false;
-								fs_action = fs_record;
+								fs_action        = fs_record;
 								SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters_record, 1, work_path.c_str());
 							}
 						}
 						else if (idx == pause_idx) {
 							paused = !paused;
-							menu_buttons_clickables[pause_idx].selected = paused;
+							settings_menu_buttons[pause_idx].selected = paused;
 						}
 						else if (idx == polyrythmic_idx) {
 							polyrythmic = !polyrythmic;
-							menu_buttons_clickables[polyrythmic_idx].selected = polyrythmic;
+							settings_menu_buttons[polyrythmic_idx].selected = polyrythmic;
 						}
 						else if (idx == agc_idx) {
 							agc = !agc;
-							menu_buttons_clickables[agc_idx].selected = agc;
+							settings_menu_buttons[agc_idx].selected = agc;
 						}
 						sleep_ms                 = 60 * 1000 / bpm;
 						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
@@ -1323,7 +1365,7 @@ int main(int argc, char *argv[])
 					auto sample_clicked = find_clickable(channel_clickables,        event.button.x, event.button.y);
 					auto menus_clicked  = find_clickable(sample_buttons_clickables, event.button.x, event.button.y);
 					if (menu_clicked.has_value()) {
-						mode = m_menu;
+						mode = m_settings;
 						channel_clickables[fs_action_sample_index].selected = false;
 					}
 					else if (sample_clicked.has_value()) {

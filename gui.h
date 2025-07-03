@@ -14,6 +14,7 @@ struct clickable {
 	SDL_Rect    where;
 	bool        selected;
 	std::string text;
+	bool        without_bg;
 };
 
 struct pattern
