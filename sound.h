@@ -231,6 +231,7 @@ public:
 	int                  sample_rate     { 0       };
 	int                  n_channels      { 0       };
 	std::vector<agc *>   agc_instances;
+	bool                 agc_enabled     { false   };
 
 	pipewire_data_audio  pw;
 

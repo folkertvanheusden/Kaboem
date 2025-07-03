@@ -66,28 +66,46 @@ void on_process_audio(void *userdata)
 		}
 	}
 
-	double *c_temp = new double[sp->n_channels];
-	for(int t=0; t<period_size; t++) {
-		double *current_sample_base_in  = &temp_buffer[t * sp->n_channels];
-		double *current_sample_base_out = &dest[t * sp->n_channels];
+	if (sp->agc_enabled) {
+		double *c_temp = new double[sp->n_channels];
+		for(int t=0; t<period_size; t++) {
+			double *current_sample_base_in  = &temp_buffer[t * sp->n_channels];
+			double *current_sample_base_out = &dest[t * sp->n_channels];
 
-		double gain = DBL_MAX;
-		for(int c=0; c<sp->n_channels; c++) {
-			c_temp[c] = current_sample_base_in[c] * sp->global_volume;
-			gain      = std::min(gain, sp->agc_instances[c]->calculate_gain(c_temp[c]));
+			double gain = DBL_MAX;
+			for(int c=0; c<sp->n_channels; c++) {
+				c_temp[c] = current_sample_base_in[c] * sp->global_volume;
+				gain      = std::min(gain, sp->agc_instances[c]->calculate_gain(c_temp[c]));
+			}
+
+			for(int c=0; c<sp->n_channels; c++) {
+				double temp = std::clamp(c_temp[c] * gain, -1., 1.);
+				if (sp->filter_lp)
+					temp = sp->filter_lp->apply(temp);
+				if (sp->filter_hp)
+					temp = sp->filter_hp->apply(temp);
+				double sign = temp < 0 ? -1 : 1;
+				current_sample_base_out[c] = pow(fabs(temp), sp->sound_saturation) * sign;
+			}
 		}
+		delete [] c_temp;
+	}
+	else {
+		for(int t=0; t<period_size; t++) {
+			double *current_sample_base_in  = &temp_buffer[t * sp->n_channels];
+			double *current_sample_base_out = &dest[t * sp->n_channels];
 
-		for(int c=0; c<sp->n_channels; c++) {
-			double temp = std::clamp(c_temp[c] * gain, -1., 1.);
-			if (sp->filter_lp)
-				temp = sp->filter_lp->apply(temp);
-			if (sp->filter_hp)
-				temp = sp->filter_hp->apply(temp);
-			double sign = temp < 0 ? -1 : 1;
-			current_sample_base_out[c] = pow(fabs(temp), sp->sound_saturation) * sign;
+			for(int c=0; c<sp->n_channels; c++) {
+				double temp = std::clamp(current_sample_base_in[c] * sp->global_volume, -1., 1.);
+				if (sp->filter_lp)
+					temp = sp->filter_lp->apply(temp);
+				if (sp->filter_hp)
+					temp = sp->filter_hp->apply(temp);
+				double sign = temp < 0 ? -1 : 1;
+				current_sample_base_out[c] = pow(fabs(temp), sp->sound_saturation) * sign;
+			}
 		}
 	}
-	delete [] c_temp;
 
 	delete [] temp_buffer;
 
