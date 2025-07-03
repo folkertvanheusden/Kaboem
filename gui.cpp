@@ -1037,7 +1037,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 
-			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && (event.motion.state & 1) /* left button */) {
 				if (mode == m_pattern) {
 					auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
 					if (menu_clicked.has_value()) {
@@ -1267,11 +1267,13 @@ int main(int argc, char *argv[])
 				redraw = true;
 			}
 			else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
-				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
-				if (pat_clickable_selected.has_value()) {
-					pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected = !pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected;
-					pat_clickable_selected.reset();
-					redraw = true;
+				if (event.motion.state & 1) {  // left mouse button
+					std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
+					if (pat_clickable_selected.has_value()) {
+						pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected = !pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected;
+						pat_clickable_selected.reset();
+						redraw = true;
+					}
 				}
 			}
 			else if (event.type == SDL_EVENT_KEY_DOWN) {
