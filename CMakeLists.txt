@@ -12,6 +12,7 @@ set(CMAKE_BUILD_TYPE RelWithDebInfo)
 
 add_executable(
   kaboem
+  agc.cpp
   filter.cpp
   font.cpp
   frequencies.cpp
