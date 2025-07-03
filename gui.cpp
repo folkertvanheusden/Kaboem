@@ -1189,9 +1189,11 @@ int main(int argc, char *argv[])
 			redraw = false;
 		}
 
+		SDL_Delay(1);
+
 		// process mouse clicks etc
 		SDL_Event event { 0 };
-		if (SDL_PollEvent(&event)) {
+		while(SDL_PollEvent(&event)) {
 			if (event.type == SDL_EVENT_QUIT) {
 				do_exit = true;
 				break;
