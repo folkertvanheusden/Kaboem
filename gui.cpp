@@ -612,7 +612,7 @@ void do_error_message(TTF_Font *const font, SDL_Renderer *const screen, const SD
 	draw_text(font, screen, 0, 0, error, { { display_mode->w, display_mode->h } }, true);
 	SDL_RenderPresent(screen);
 
-	for(;;) {
+	while(!do_exit) {
 		SDL_Event event { };
 		if (SDL_PollEvent(&event)) {
 			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_KEY_DOWN)
@@ -621,6 +621,60 @@ void do_error_message(TTF_Font *const font, SDL_Renderer *const screen, const SD
 
 		SDL_Delay(5);
 	}
+}
+
+bool are_you_sure(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode, const int font_height, const std::string & question)
+{
+	int dim_w              = display_mode->w / 6;
+	int dim_h              = display_mode->h / 6;
+	int scr_half_w         = display_mode->w / 2;
+	int scr_half_h         = display_mode->h / 2;
+
+	int menu_button_width  = display_mode->w * 10 / 100;
+	int menu_button_height = display_mode->h * 10 / 100;
+
+	SDL_FRect r { float(dim_w), float(dim_h), float(display_mode->w - dim_w * 2), float(display_mode->h - dim_h * 2) };
+	SDL_SetRenderDrawColor(screen, 50, 40, 40, 255);
+	SDL_RenderFillRect(screen, &r);
+	SDL_SetRenderDrawColor(screen, 40, 40, 40, 191);
+	SDL_RenderRect(screen, &r);
+
+	int  x1                = scr_half_w - scr_half_w / 3;
+	int  y1                = scr_half_h;
+	int  x2                = scr_half_w + scr_half_w / 3;
+	int  y2                = scr_half_h;
+
+        std::vector<clickable> clickables;
+	clickable c1 { };
+	c1.where = { x1 - menu_button_width / 2, y1, menu_button_width, menu_button_height };
+	c1.text  = "Yes";
+	clickables.push_back(c1);
+	clickable c2 { };
+	c2.where = { x2 - menu_button_width / 2, y2, menu_button_width, menu_button_height };
+	c2.text  = "No";
+	clickables.push_back(c2);
+
+	draw_clickables(font, screen, clickables, { }, { });
+
+	SDL_SetRenderDrawColor(screen, 255, 40, 40, 255);
+	draw_text(font, screen, 0, scr_half_h - font_height * 2, question,        { { display_mode->w, font_height } }, true);
+	draw_text(font, screen, 0, scr_half_h - font_height,     "Are you sure?", { { display_mode->w, font_height } }, true);
+	SDL_RenderPresent(screen);
+
+	while(!do_exit) {
+		SDL_Event event { };
+		if (SDL_PollEvent(&event)) {
+			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_KEY_DOWN) {
+				auto button_clicked = find_clickable(clickables, event.button.x, event.button.y);
+				if (button_clicked.has_value())
+					return button_clicked.value() == 0;
+			}
+		}
+
+		SDL_Delay(1);
+	}
+
+	return false;
 }
 
 int main(int argc, char *argv[])
@@ -1078,48 +1132,53 @@ int main(int argc, char *argv[])
 					else if (menus_clicked.has_value()) {
 						size_t idx = menus_clicked.value();
 						if (idx == clear_idx) {
-							draw_please_wait(font, screen, display_mode);
+							bool choice = are_you_sure(font, screen, display_mode, font_height, "Clear everything");
+							if (choice) {
+								draw_please_wait(font, screen, display_mode);
 
-							{
-								const std::string file_name = path + "/before_clear." PROG_EXT;
+								{
+									const std::string file_name = path + "/before_clear." PROG_EXT;
 
-								std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-								if (write_file(file_name, pat_clickables, samples, file_parameters) == false)
-									menu_status = "failed: " + file_name;
-							}
-							{
-								std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
-								sound_pars.sounds.clear();
-							}
-							{
-								std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-								for(size_t i=0; i<pattern_groups; i++) {
-									for(auto & element: pat_clickables[i].pattern) {
-										element.selected = false;
-										element.text.clear();
-									}
-
-									for(auto & element: pat_clickables[i].note_delta)
-										element = 0;
-
-									{
-										std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
-										sample & s = samples[i];
-										delete s.s;
-										s.s = nullptr;
-										s.name.clear();
-									}
-									channel_clickables[i].text.clear();
+									std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+									if (write_file(file_name, pat_clickables, samples, file_parameters) == false)
+										menu_status = "failed: " + file_name;
 								}
+								{
+									std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
+									sound_pars.sounds.clear();
+								}
+								{
+									std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+									for(size_t i=0; i<pattern_groups; i++) {
+										for(auto & element: pat_clickables[i].pattern) {
+											element.selected = false;
+											element.text.clear();
+										}
+
+										for(auto & element: pat_clickables[i].note_delta)
+											element = 0;
+
+										{
+											std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
+											sample & s = samples[i];
+											delete s.s;
+											s.s = nullptr;
+											s.name.clear();
+										}
+										channel_clickables[i].text.clear();
+									}
+								}
+								menu_status = "cleared";
 							}
 
-							redraw      = true;
-							menu_status = "cleared";
+							redraw = true;
 						}
 						else if (idx == pattern_load_idx) {
-							fs_data.finished = false;
-							fs_action = fs_load;
-							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, work_path.c_str(), false);
+							if (are_you_sure(font, screen, display_mode, font_height, "Load")) {
+								fs_data.finished = false;
+								fs_action = fs_load;
+								SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, work_path.c_str(), false);
+							}
 						}
 						else if (idx == save_idx) {
 							fs_data.finished = false;
@@ -1127,7 +1186,8 @@ int main(int argc, char *argv[])
 							SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters, 1, work_path.c_str());
 						}
 						else if (idx == quit_idx) {
-							do_exit = true;
+							if (are_you_sure(font, screen, display_mode, font_height, "Quit"))
+								do_exit = true;
 						}
 						else if (set_up_down_value(idx, swing_widget, 0, 200, &swing_amount, shift)) {
 							swing_amount_parameter = swing_amount;
