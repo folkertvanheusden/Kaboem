@@ -436,13 +436,13 @@ void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, co
 	SDL_DestroySurface(surface);
 }
 
-void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const double scope[], const int scope_width)
+void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::vector<double> & scope)
 {
-	int   draw_width = std::min(scope_width, where.w);
+	int   draw_width = std::min(int(scope.size()), where.w);
 	float px         = where.x;
 	float py         = where.y + where.h * scope[0] / 2 + where.h / 2;
-	for(int i=1; i<draw_width - 1; i++) {
-		float x = where.x + i * float(where.w) / scope_width;
+	for(int i=1; i<draw_width; i++) {
+		float x = where.x + i * float(where.w) / scope.size();
 		float y = where.y + where.h * scope[i] / 2 + where.h / 2;
 		SDL_RenderLine(screen, px, py, x, y);
 		px = x;
@@ -1136,16 +1136,14 @@ int main(int argc, char *argv[])
 				SDL_RenderFillRect(screen, &r);
 				draw_text(font, screen, c.where.x, c.where.y, std::to_string(int(current_clip_factor * 100)) + "%", { { c.where.w, c.where.h } });
 
-				double scope[max_scope_width];
-				int    use_scope_width = 0;
+				std::vector<double> scope;
 				{
 					std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-					memcpy(scope, sound_pars.scope, max_scope_width * sizeof(double));
-					use_scope_width = sound_pars.scope_width;
+					scope = sound_pars.scope;
 				}
 
 				clickable & scope_c = settings_menu_buttons[scope_idx];
-				draw_scope(screen, scope_c.where, scope, use_scope_width);
+				draw_scope(screen, scope_c.where, scope);
 			}
 			else if (mode == m_sample) {
 				std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);

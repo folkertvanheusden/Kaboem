@@ -145,9 +145,10 @@ void on_process_audio(void *userdata)
 	}
 
 	// scope
-	sp->scope_width = std::min(period_size, max_scope_width);
-	memset(sp->scope, 0x00, sizeof sp->scope);
-	for(int i=0; i<sp->scope_width; i++) {
+	sp->scope.clear();
+	sp->scope.resize(period_size);
+
+	for(int i=0; i<period_size; i++) {
 		for(int c=0; c<sp->n_channels; c++)
 			sp->scope[i] += dest[i * sp->n_channels + c];
 
