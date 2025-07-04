@@ -456,6 +456,8 @@ void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, co
 
 void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::vector<double> & scope)
 {
+	SDL_SetRenderDrawColor(screen, 40, 255, 40, 255);
+
 	int   draw_width = std::min(int(scope.size()), where.w);
 	float px         = where.x;
 	float py         = where.y + where.h * scope[0] / 2 + where.h / 2;
