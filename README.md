@@ -1,4 +1,4 @@
-This software was written by Folkert van Heusden. License: MIT.
+Kaboem is a pipewire and midi enabled audio-sequencer.
 
 It specifically targets a raspberry pi with a touchscreen altough other Linux systems will work as well.
 
@@ -42,3 +42,5 @@ In the channel-edit menu, load/unload are for loading a sample in the channel.
 Pressing the menu-button again brings you back the main-settings screen.
 
 ![settings of a channel](images/kaboem-channel-settings.png)
+
+This software was written by Folkert van Heusden. License: MIT.
