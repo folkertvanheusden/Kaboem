@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Kaboem
+Comment=A simple audio sequencer
+Icon=/usr/share/icons/hicolor/256x256/kaboem.png
+Exec=/usr/bin/kaboem
+Terminal=false
+Categories=AudioVideo
