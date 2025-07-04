@@ -24,6 +24,7 @@ add_executable(
   player.cpp
   sample.cpp
   sound.cpp
+  time.cpp
 )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)

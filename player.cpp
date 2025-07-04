@@ -7,14 +7,8 @@
 #include "gui.h"
 #include "midi.h"
 #include "pipewire-audio.h"
+#include "time.h"
 
-
-uint64_t get_ms()
-{
-	timespec ts { };
-	clock_gettime(CLOCK_REALTIME, &ts);
-	return uint64_t(ts.tv_sec) * uint64_t(1000) + uint64_t(ts.tv_nsec / 1000000);
-}
 
 void player(const std::array<pattern, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock,
 		const std::array<sample, pattern_groups> *const samples,
