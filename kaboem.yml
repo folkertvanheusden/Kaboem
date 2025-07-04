@@ -1,0 +1,26 @@
+app: kaboem
+
+ingredients:
+  packages:
+    - libpipewire-0.3-dev
+    - libsdl3-dev
+    - libsdl3-ttf-dev
+    - libsndfile1-dev
+    - nlohmann-json3-dev
+    - libfftw3-dev
+    - build-essential
+    - cmake
+    - libfontconfig1-dev
+    - fonts-freefont-ttf
+  dist: trixie
+  sources:
+    - deb http://deb.debian.org/debian trixie main contrib non-free
+  debs:
+    - /home/folkert/kaboem_0.0006-0_amd64.deb
+
+script:
+  - pwd > /tmp/bla.dat
+  - ls -l >> /tmp/bla.dat
+  - find . -name icon.png -o -name kaboem.desktop >> /tmp/bla.dat
+  - cp usr/share/icons/hicolor/256x256/kaboem.png .
+  - cp usr/share/applications/kaboem.desktop .

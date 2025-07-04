@@ -79,5 +79,7 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION True)
 
 include(GNUInstallDirs)
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(DIRECTORY demos DESTINATION share/kaboem/demos)
+install(DIRECTORY demos DESTINATION share/kaboem)
 install(FILES README.md LICENSE DESTINATION share/kaboem)
+install(FILES kaboem.desktop DESTINATION share/applications/)
+install(FILES images/icon.png DESTINATION share/icons/hicolor/256x256/ RENAME kaboem.png)
