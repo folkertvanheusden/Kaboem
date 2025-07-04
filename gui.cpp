@@ -1145,7 +1145,7 @@ int main(int argc, char *argv[])
 				draw_text(font, screen, swing_widget.x, swing_widget.y, std::to_string(swing_amount), { { swing_widget.text_w, swing_widget.text_h } });
 
 				clickable & cc = settings_menu_buttons[clipping_idx];
-				cc.text = std::to_string(int(current_clip_factor * 100)) + "%";
+				cc.text = std::to_string(int(ceil(current_clip_factor * 100))) + "%";
 				draw_text(font, screen, cc.where.x, cc.where.y, cc.text, { { cc.where.w, cc.where.h } });
 
 				clickable & cb = settings_menu_buttons[busyness_idx];
