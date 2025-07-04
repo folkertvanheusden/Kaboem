@@ -256,4 +256,6 @@ public:
 	int                  too_loud_count   { 0       };
 	int                  n_loud_checked   { 0       };
 	double               clip_factor      { 0       };
+
+	int                  busyness         { 0       };
 };

@@ -21,6 +21,7 @@
 #include "player.h"
 #include "sample.h"
 #include "sound.h"
+#include "time.h"
 
 
 std::atomic_bool do_exit { false };
@@ -176,7 +177,8 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 		up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars,
 		up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars,
 		up_down_widget *const sound_saturation_pars, size_t *const polyrythmic_idx,
-		up_down_widget *const swing_widget_pars, size_t *const agc_idx, size_t *const clipping_idx, size_t *const scope_idx)
+		up_down_widget *const swing_widget_pars, size_t *const agc_idx, size_t *const clipping_idx, size_t *const scope_idx,
+		size_t *const busyness_idx)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -261,20 +263,36 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 	x += menu_button_width;
 	y += menu_button_height;
 
+	int half_height = menu_button_height / 2;
 	{
-		int half_height = menu_button_height / 2;
+		int temp_y = y;
 		clickable c1 { };
-		c1.where          = { x, y, menu_button_width, half_height};
+		c1.where          = { x, temp_y, menu_button_width, half_height};
 		c1.text           = "clipping";
 		clickables.push_back(c1);
-		y += half_height;
+		temp_y += half_height;
 		clickable c2 { };
-		c2.where          = { x, y, menu_button_width, half_height};
+		c2.where          = { x, temp_y, menu_button_width, half_height};
 		c2.text           = "0%";
 		*clipping_idx = clickables.size();
 		clickables.push_back(c2);
 		x += menu_button_width;
-		y += half_height;
+	}
+
+	{
+		int temp_y = y;
+		clickable c1 { };
+		c1.where          = { x, temp_y, menu_button_width, half_height};
+		c1.text           = "busyness";
+		clickables.push_back(c1);
+		temp_y += half_height;
+		clickable c2 { };
+		c2.where          = { x, temp_y, menu_button_width, half_height};
+		c2.text           = "0%";
+		*busyness_idx = clickables.size();
+		clickables.push_back(c2);
+		x += menu_button_width;
+		y += menu_button_height;
 	}
 
 	x = 0;
@@ -834,13 +852,14 @@ int main(int argc, char *argv[])
 	up_down_widget swing_widget       { };
 	int            swing_amount     = 0;
 	size_t         clipping_idx     = 0;
+	size_t         busyness_idx     = 0;
 	size_t         agc_idx          = 0;
 	bool           agc              = false;
 	size_t         scope_idx        = 0;
 	std::vector<clickable> settings_menu_buttons = generate_settings_menu_buttons(display_mode->w, display_mode->h,
 			&pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget,
 			&pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget, &sound_saturation_widget,
-			&polyrythmic_idx, &swing_widget, &agc_idx, &clipping_idx, &scope_idx);
+			&polyrythmic_idx, &swing_widget, &agc_idx, &clipping_idx, &scope_idx, &busyness_idx);
 	std::string    menu_status;
 
 	size_t         sample_load_idx        = 0;
@@ -898,7 +917,6 @@ int main(int argc, char *argv[])
 	std::atomic_bool paused         = false;
 	std::atomic_bool force_trigger  = false;
 	bool             shift          = false;
-	double           prev_clipping  = 0.;
 	int              prev_scope_t   = -1;
 
 	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &force_trigger, &polyrythmic, &swing_amount_parameter] {
@@ -1081,17 +1099,15 @@ int main(int argc, char *argv[])
 
 		// redraw screen
 		double current_clip_factor = 0.;
+		int    busyness            = 0;
 		if (mode == m_settings) {
 			std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-			if (sound_pars.clip_factor != prev_clipping) {
-				current_clip_factor = prev_clipping = sound_pars.clip_factor;
-				redraw              = true;
-			}
-
 			if (sound_pars.scope_t != prev_scope_t) {
 				prev_scope_t = sound_pars.scope_t;
 				redraw       = true;
 			}
+			current_clip_factor = sound_pars.clip_factor;
+			busyness            = sound_pars.busyness;
 		}
 
 		if (redraw && fs_action == fs_none) {
@@ -1127,14 +1143,13 @@ int main(int argc, char *argv[])
 				draw_text(font, screen, sound_saturation_widget.x, sound_saturation_widget.y, std::to_string(sound_saturation), { { sound_saturation_widget.text_w, sound_saturation_widget.text_h } });
 				draw_text(font, screen, swing_widget.x, swing_widget.y, std::to_string(swing_amount), { { swing_widget.text_w, swing_widget.text_h } });
 
-				clickable & c = settings_menu_buttons[clipping_idx];
-				SDL_FRect r { float(c.where.x), float(c.where.y), float(c.where.w), float(c.where.h) };
-				if (sound_pars.clip_factor)
-					SDL_SetRenderDrawColor(screen, 40, 172, 40, 255);
-				else
-					SDL_SetRenderDrawColor(screen, 40, 100, 40, 255);
-				SDL_RenderFillRect(screen, &r);
-				draw_text(font, screen, c.where.x, c.where.y, std::to_string(int(current_clip_factor * 100)) + "%", { { c.where.w, c.where.h } });
+				clickable & cc = settings_menu_buttons[clipping_idx];
+				cc.text = std::to_string(int(current_clip_factor * 100)) + "%";
+				draw_text(font, screen, cc.where.x, cc.where.y, cc.text, { { cc.where.w, cc.where.h } });
+
+				clickable & cb = settings_menu_buttons[busyness_idx];
+				cb.text = std::to_string(busyness) + "%";
+				draw_text(font, screen, cb.where.x, cb.where.y, cb.text, { { cb.where.w, cb.where.h } });
 
 				std::vector<double> scope;
 				{

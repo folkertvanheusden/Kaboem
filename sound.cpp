@@ -5,6 +5,7 @@
 #include "pipewire-audio.h"
 #include "sample.h"
 #include "sound.h"
+#include "time.h"
 
 
 double f_to_delta_t(const double frequency, const int sample_rate)
@@ -14,6 +15,7 @@ double f_to_delta_t(const double frequency, const int sample_rate)
 
 void on_process_audio(void *userdata)
 {
+	uint64_t          t  = get_us();
 	sound_parameters *sp = reinterpret_cast<sound_parameters *>(userdata);
 	pw_buffer        *b  = pw_stream_dequeue_buffer(sp->pw.stream);
 	if (b == nullptr) {
@@ -25,6 +27,7 @@ void on_process_audio(void *userdata)
 	int     stride       = sizeof(double) * sp->n_channels;
 	// 75: audio-CD had chunks of 1/75th of a second. this gives a latency of around 13.1 ms
 	int     period_size  = std::min(buf->datas[0].maxsize / stride, uint32_t(sp->sample_rate / 75));
+	double  latency      = period_size * 1000000.0 / sp->sample_rate;
 
 	double *dest         = reinterpret_cast<double *>(buf->datas[0].data);
 	if (!dest) {
@@ -33,8 +36,6 @@ void on_process_audio(void *userdata)
 	}
 
 	double *temp_buffer  = new double[sp->n_channels * period_size]();
-
-	// printf("latency: %.2fms, channel count: %d\n", period_size * 1000.0 / sp->sample_rate, sp->n_channels);
 
 	std::shared_lock<std::shared_mutex> lck(sp->sounds_lock);
 
@@ -156,6 +157,8 @@ void on_process_audio(void *userdata)
 	}
 
 	sp->scope_t++;
+
+	sp->busyness = 100 * (get_us() - t) / latency;
 }
 
 sound_sample::sound_sample(const int sample_rate, const std::string & file_name) :
