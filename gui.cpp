@@ -667,27 +667,30 @@ void reset_all_patterns(std::array<pattern, pattern_groups> *const pat_clickable
 	}
 }
 
-void draw_please_wait(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode)
-{
-	draw_text(font, screen, 0, 0, "Please wait", { { display_mode->w, display_mode->h } }, true);
-	SDL_RenderPresent(screen);
-}
-
-void do_error_message(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode, const std::string & error)
+void draw_message(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode, const std::string & message, const uint8_t r, const uint8_t g, const uint8_t b)
 {
 	int dim_w = display_mode->w / 6;
 	int dim_h = display_mode->h / 6;
 
-	SDL_FRect r { float(dim_w), float(dim_h), float(display_mode->w - dim_w * 2), float(display_mode->h - dim_h * 2) };
+	SDL_FRect rec { float(dim_w), float(dim_h), float(display_mode->w - dim_w * 2), float(display_mode->h - dim_h * 2) };
 	SDL_SetRenderDrawColor(screen, 50, 40, 40, 255);
-	SDL_RenderFillRect(screen, &r);
+	SDL_RenderFillRect(screen, &rec);
 	SDL_SetRenderDrawColor(screen, 40, 40, 40, 191);
-	SDL_RenderRect(screen, &r);
+	SDL_RenderRect(screen, &rec);
 
-	SDL_SetRenderDrawColor(screen, 255, 40, 40, 255);
-	draw_text(font, screen, 0, 0, error, { { display_mode->w, display_mode->h } }, true);
+	SDL_SetRenderDrawColor(screen, r, g, b, 255);
+	draw_text(font, screen, 0, 0, message, { { display_mode->w, display_mode->h } }, true);
 	SDL_RenderPresent(screen);
 
+}
+
+void draw_please_wait(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode)
+{
+	draw_message(font, screen, display_mode, "Please wait", 40, 200, 40);
+}
+
+void wait_for_any_event()
+{
 	while(!do_exit) {
 		SDL_Event event { };
 		if (SDL_PollEvent(&event)) {
@@ -697,6 +700,13 @@ void do_error_message(TTF_Font *const font, SDL_Renderer *const screen, const SD
 
 		SDL_Delay(5);
 	}
+}
+
+void do_error_message(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode, const std::string & error)
+{
+	draw_message(font, screen, display_mode, error, 255, 40, 40);
+
+	wait_for_any_event();
 }
 
 bool are_you_sure(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode, const int font_height, const std::string & question)
