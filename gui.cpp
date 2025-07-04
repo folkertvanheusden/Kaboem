@@ -458,10 +458,9 @@ void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::v
 {
 	SDL_SetRenderDrawColor(screen, 40, 255, 40, 255);
 
-	int   draw_width = std::min(int(scope.size()), where.w);
 	float px         = where.x;
 	float py         = where.y + where.h * scope[0] / 2 + where.h / 2;
-	for(int i=1; i<draw_width; i++) {
+	for(size_t i=1; i<scope.size(); i++) {
 		float x = where.x + i * float(where.w) / scope.size();
 		float y = where.y + where.h * scope[i] / 2 + where.h / 2;
 		SDL_RenderLine(screen, px, py, x, y);
