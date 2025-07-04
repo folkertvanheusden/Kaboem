@@ -135,16 +135,6 @@ void on_process_audio(void *userdata)
 	if (sp->record_handle) 
 		sf_writef_double(sp->record_handle, dest, period_size);
 
-	if (sp->n_loud_checked >= sp->sample_rate / 2) {
-		if (sp->too_loud_count > 0)
-			sp->clip_factor = sp->too_loud_total / sp->too_loud_count;
-		else
-			sp->clip_factor = 0;
-		sp->too_loud_total = 0;
-		sp->too_loud_count = 0;
-		sp->n_loud_checked = 0;
-	}
-
 	// scope
 	sp->scope.clear();
 	sp->scope.resize(period_size);
@@ -158,7 +148,22 @@ void on_process_audio(void *userdata)
 
 	sp->scope_t++;
 
-	sp->busyness = 100 * (get_us() - t) / latency;
+	// statistics
+	sp->n_busyness++;
+	sp->t_busyness += 100 * (get_us() - t) / latency;
+
+	if (sp->n_loud_checked >= sp->sample_rate / 2) {
+		if (sp->too_loud_count > 0)
+			sp->clip_factor = sp->too_loud_total / sp->too_loud_count;
+		else
+			sp->clip_factor = 0;
+		sp->too_loud_total = 0;
+		sp->too_loud_count = 0;
+		sp->n_loud_checked = 0;
+		sp->busyness       = sp->t_busyness / sp->n_busyness;
+		sp->n_busyness     = 0;
+		sp->t_busyness     = 0;
+	}
 }
 
 sound_sample::sound_sample(const int sample_rate, const std::string & file_name) :

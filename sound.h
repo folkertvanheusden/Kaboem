@@ -257,5 +257,7 @@ public:
 	int                  n_loud_checked   { 0       };
 	double               clip_factor      { 0       };
 
+	int                  n_busyness       { 0       };
+	int                  t_busyness       { 0       };
 	int                  busyness         { 0       };
 };
