@@ -172,6 +172,21 @@ std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, 
 	return clickables;
 }
 
+std::vector<clickable> generate_cell_settings_menu_buttons(const int w, const int h, up_down_widget *const pitch_pars)
+{
+	int menu_button_width  = w * 15 / 100;
+	int menu_button_height = h * 15 / 100;
+
+	std::vector<clickable> clickables;
+
+	int x = 0;
+	int y = 0;
+	std::vector<clickable> pitch_widget = generate_up_down_widget(w, h, 0, y, "pitch", clickables.size(), pitch_pars);
+	std::copy(pitch_widget.begin(), pitch_widget.end(), std::back_inserter(clickables));
+
+	return clickables;
+}
+
 std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx,
 		size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx,
 		up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars,
@@ -469,23 +484,27 @@ void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::v
 	}
 }
 
-void draw_clickables(TTF_Font *const font, SDL_Renderer *const screen, const std::vector<clickable> & clickables, const std::optional<size_t> hl_index, const std::optional<size_t> play_index, const ssize_t draw_limit = -1)
+// hl_index: high light index
+void draw_clickables(TTF_Font *const font, SDL_Renderer *const screen, const std::vector<clickable> & clickables, const std::optional<std::pair<size_t, uint64_t> > & hl_index, const std::optional<size_t> play_index, const ssize_t draw_limit = -1)
 {
-	size_t draw_n = draw_limit == -1 ? clickables.size() : draw_limit;
+	size_t   draw_n        = draw_limit == -1 ? clickables.size() : draw_limit;
+	uint64_t now           = get_ms();
+	bool     is_long_press = hl_index.has_value() ? now - hl_index.value().second > long_press_dt : false;
 
 	for(size_t i=0; i<draw_n; i++) {
-		bool hl = hl_index  .has_value() == true && hl_index  .value() == i;
-		bool pl = play_index.has_value() == true && play_index.value() == i;
+		bool hl    = hl_index  .has_value() == true && hl_index  .value().first == i;
+		bool pl    = play_index.has_value() == true && play_index.value()       == i;
+		int  extra = is_long_press && hl ? 55 : 0;
 		std::vector<int> color;
 		if (clickables[i].selected) {
-			int sub_color = hl ? 255 : 40;
+			int sub_color = (hl ? 200 : 40) + extra;
 			if (pl)
-				color = { 255, 40, sub_color };
+				color = { 200, 40, sub_color };
 			else
-				color = { 40, 255, sub_color };
+				color = { 40, 200, sub_color };
 		}
 		else {
-			int sub_color = hl ? 100 : 40;
+			int sub_color = (hl ? 100 : 40) + extra;
 			if (pl)
 				color = { 100, 40, sub_color };
 			else
@@ -829,14 +848,15 @@ int main(int argc, char *argv[])
 	int  bpm    = 135;
 	int  vol    = 100;
 
-	enum { m_pattern, m_settings, m_sample } mode  = m_pattern;
+	enum { m_pattern, m_settings, m_sample, m_cell } mode = m_pattern;
 	enum { fs_load, fs_save, fs_none, fs_load_sample, fs_record } fs_action = fs_none;
-	size_t fs_action_sample_index                  = 0;
+	size_t fs_action_sample_index        = 0;
 	fileselector_data      fs_data { };
 	std::shared_mutex      pat_clickables_lock;
 	std::array<pattern, pattern_groups> pat_clickables { };
 	std::optional<size_t>  pat_clickable_selected;
-	size_t                 pattern_group           = 0;
+	uint64_t               pat_clickable_pressed_since = 0;
+	size_t                 pattern_group = 0;
 
 	std::vector<clickable> channel_clickables      = generate_channel_column(display_mode->w, display_mode->h, pattern_groups);
 
@@ -872,6 +892,10 @@ int main(int argc, char *argv[])
 			&pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget, &sound_saturation_widget,
 			&polyrythmic_idx, &swing_widget, &agc_idx, &clipping_idx, &scope_idx, &busyness_idx);
 	std::string    menu_status;
+
+	up_down_widget pitch_widget       { };
+	std::vector<clickable> cell_menu_buttons = generate_cell_settings_menu_buttons(display_mode->w, display_mode->h,
+			&pitch_widget);
 
 	size_t         sample_load_idx        = 0;
 	size_t         sample_unload_idx      = 0;
@@ -929,6 +953,7 @@ int main(int argc, char *argv[])
 	std::atomic_bool force_trigger  = false;
 	bool             shift          = false;
 	int              prev_scope_t   = -1;
+	size_t           selected_cell  = 0;
 
 	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &force_trigger, &polyrythmic, &swing_amount_parameter] {
 			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &swing_amount_parameter);
@@ -1130,9 +1155,14 @@ int main(int argc, char *argv[])
 			draw_clickables(font, screen, menu_button_clickables, { }, { });
 
 			if (mode == m_pattern) {
+				std::optional<std::pair<size_t, uint64_t> > click_state;
+				if (pat_clickable_selected.has_value())
+					click_state = { pat_clickable_selected.value(), pat_clickable_pressed_since };
+
 				std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-				draw_clickables(font, screen, pat_clickables[pattern_group].pattern, pat_clickable_selected, pat_index, pat_clickables[pattern_group].dim);
+				draw_clickables(font, screen, pat_clickables[pattern_group].pattern, click_state, pat_index, pat_clickables[pattern_group].dim);
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
+
 				if (samples[pattern_group].name.empty() == false)
 					draw_text(font, screen, 0, display_mode->h / 2 / 100, samples[pattern_group].name, { });
 			}
@@ -1206,6 +1236,14 @@ int main(int argc, char *argv[])
 				draw_text(font, screen, pitch_pars.x, pitch_pars.y, std::to_string(s ? s->get_pitch_bend() : 0),
 					{ { pitch_pars.text_w, pitch_pars.text_h } });
 			}
+			else if (mode == m_cell) {
+				std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+				auto & pattern = pat_clickables[pattern_group];
+
+				draw_clickables(font, screen, cell_menu_buttons, { }, { });
+				draw_text(font, screen, pitch_widget.x, pitch_widget.y, pattern.pattern[selected_cell].text,
+					{ { pitch_widget.text_w, pitch_widget.text_h } });
+			}
 			else {
 				fprintf(stderr, "Internal error: %d\n", mode);
 				break;
@@ -1248,7 +1286,8 @@ int main(int argc, char *argv[])
 						}
 						else {
 							std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-							pat_clickable_selected = find_clickable(pat_clickables[pattern_group].pattern, event.button.x, event.button.y);
+							pat_clickable_selected      = find_clickable(pat_clickables[pattern_group].pattern, event.button.x, event.button.y);
+							pat_clickable_pressed_since = get_ms();
 						}
 					}
 				}
@@ -1466,14 +1505,47 @@ int main(int argc, char *argv[])
 						}
 					}
 				}
+				else if (mode == m_cell) {
+					auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
+					auto idx          = find_clickable(cell_menu_buttons, event.button.x, event.button.y);
+					if (menu_clicked.has_value())
+						mode = m_pattern;
+					else if (idx.has_value()) {
+						std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
+						auto & pattern = pat_clickables[pattern_group];
 
-				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
-				if (pat_clickable_selected.has_value()) {
-					pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected = !pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected;
-					pat_clickable_selected.reset();
+						if (set_up_down_value(idx.value(), pitch_widget, 0, 127, &pattern.note_delta[selected_cell], shift)) {
+							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+							sound_sample *const s = samples[pattern_group].s;
+							if (s)
+								pattern.pattern[selected_cell].text = midi_note_to_name(s->get_base_midi_note() + pattern.note_delta[selected_cell]);
+						}
+						else {
+						}
+					}
 				}
 
 				redraw = true;
+			}
+			else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+				uint64_t now = get_ms();
+
+				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
+				if (pat_clickable_selected.has_value()) {
+					if (now - pat_clickable_pressed_since > long_press_dt) {  // long press?
+						// cell menu
+						mode          = m_cell;
+						selected_cell = pat_clickable_selected.value();
+					}
+					else {
+						pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected =
+							!pat_clickables[pattern_group].pattern[pat_clickable_selected.value()].selected;
+					}
+
+					pat_clickable_selected.reset();
+
+					redraw = true;
+				}
 			}
 			else if (event.type == SDL_EVENT_KEY_DOWN) {
 				if (event.key.scancode == SDL_SCANCODE_SPACE) {
