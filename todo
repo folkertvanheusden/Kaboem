@@ -1,3 +1,4 @@
 - auto adjust tempo by what is entered
 - swirl channel through left/right
 - external sync (via midi?)
+- shorten filenames (with '...') when they don't fit on screen
