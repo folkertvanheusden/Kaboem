@@ -1144,7 +1144,7 @@ int main(int argc, char *argv[])
 					SF_INFO si { };
 					si.samplerate = sample_rate;
 					si.channels   = 2;
-					si.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
+					si.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_24;
 					sound_pars.record_handle = sf_open(fs_data.file.c_str(), SFM_WRITE, &si);
 					if (sound_pars.record_handle)
 						settings_menu_buttons[record_idx].selected = true;
