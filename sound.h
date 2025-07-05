@@ -204,8 +204,8 @@ public:
 	std::pair<double, std::map<int, double> > get_sample(const size_t channel_nr) override;
 
 	std::string get_name() const override;
-	double      get_base_frequency() const { return base_frequency; }
-	int         get_base_midi_note() const { return base_midi_note; }
+	double      get_base_frequency() const override { return base_frequency; }
+	int         get_base_midi_note() const override { return base_midi_note; }
 
 	bool set_time(const uint64_t t_in) override
 	{
