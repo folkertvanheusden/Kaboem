@@ -1509,9 +1509,14 @@ int main(int argc, char *argv[])
 						else if (idx == mute_idx) {
 							std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 							sound_sample *const s = samples[fs_action_sample_index].s;
-							bool new_state = !s->get_mute();
-							s->set_mute(new_state);
-							sample_buttons_clickables[mute_idx].selected = new_state;
+							if (s) {
+								bool new_state = !s->get_mute();
+								s->set_mute(new_state);
+								sample_buttons_clickables[mute_idx].selected = new_state;
+							}
+							else {
+								sample_buttons_clickables[mute_idx].selected = false;
+							}
 						}
 						else {
 							std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
