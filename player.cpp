@@ -16,7 +16,8 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		std::atomic_bool *const pause,    std::atomic_bool *const do_exit,
 		std::atomic_bool *const force_trigger,
 		std::atomic_bool *const polyrythmic,
-		std::atomic_int  *const swing_factor)
+		std::atomic_int  *const swing_factor,
+		std::atomic_uint64_t *const t_start)
 {
 	auto                                midi_port      = allocate_midi_output_port();
 	std::array<ssize_t, pattern_groups> prev_pat_index1;
@@ -36,7 +37,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		}
 
 		{
-			auto now = get_ms();
+			auto now = get_ms() - *t_start;
 			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
 			size_t max_steps = 0;
 			if (!*polyrythmic) {

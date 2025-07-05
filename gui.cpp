@@ -400,7 +400,7 @@ std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t 
 pattern generate_pattern_grid(const int w, const int h, const int steps)
 {
 	int pattern_w   = w * 85 / 100;
-	int pattern_h   = h * 95 / 100;
+	int pattern_h   = h * 80 / 100;
 	int offset_h    = h * 5 / 100;
 
 	int steps_sq    = ceil(sqrt(steps));
@@ -430,10 +430,39 @@ pattern generate_pattern_grid(const int w, const int h, const int steps)
 	return p;
 }
 
+std::vector<clickable> generate_pattern_menu(const int w, const int h, size_t *const pause_idx, size_t *const restart_idx)
+{
+	int menu_button_width  = w * 15 / 100;
+	int menu_button_height = h * 15 / 100;
+	int x                  = 0;
+	int y                  = h * 85 / 100;
+
+	std::vector<clickable> clickables;
+
+	{
+		clickable c { };
+		c.where      = { x, y, menu_button_width, menu_button_height };
+		c.text       = "pause";
+		*pause_idx   = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
+	{
+		clickable c { };
+		c.where      = { x, y, menu_button_width, menu_button_height };
+		c.text       = "rewind";
+		*restart_idx = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
+
+	return clickables;
+}
+
 void regenerate_pattern_grid(const int w, const int h, pattern *const p)
 {
 	int pattern_w   = w * 85 / 100;
-	int pattern_h   = h * 95 / 100;
+	int pattern_h   = h * 80 / 100;
 	int offset_h    = h * 5 / 100;
 
 	int steps_sq    = ceil(sqrt(p->dim));
@@ -939,6 +968,9 @@ int main(int argc, char *argv[])
 	up_down_widget pitch_pars               { };
 	std::vector<clickable> sample_buttons_clickables = generate_sample_buttons(display_mode->w, display_mode->h, &sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right, &midi_note_widget_pars, &n_steps_pars, &pitch_pars, &sample_unload_idx, &mute_idx);
 
+	size_t         p_pause_idx            = 0;
+	size_t         restart_idx            = 0;
+	std::vector<clickable> pattern_menu = generate_pattern_menu(display_mode->w, display_mode->h, &p_pause_idx, &restart_idx);
 	for(size_t i=0; i<pattern_groups; i++)
 		pat_clickables[i] = generate_pattern_grid(display_mode->w, display_mode->h, steps);
 
@@ -979,24 +1011,25 @@ int main(int argc, char *argv[])
 		reset_all_patterns(&pat_clickables, &pat_clickables_lock, samples, false);
 	}
 
-	std::atomic_int  sleep_ms       = 60 * 1000 / bpm;
-	size_t           prev_pat_index = size_t(-1);
-	std::atomic_bool paused         = false;
-	std::atomic_bool force_trigger  = false;
-	bool             shift          = false;
-	bool             ctrl           = false;
-	int              prev_scope_t   = -1;
-	size_t           selected_cell  = 0;
+	std::atomic_int      sleep_ms       = 60 * 1000 / bpm;
+	size_t               prev_pat_index = size_t(-1);
+	std::atomic_bool     paused         = false;
+	std::atomic_bool     force_trigger  = false;
+	bool                 shift          = false;
+	bool                 ctrl           = false;
+	int                  prev_scope_t   = -1;
+	size_t               selected_cell  = 0;
+	std::atomic_uint64_t start_t        = 0;
 
-	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &force_trigger, &polyrythmic, &swing_amount_parameter] {
-			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &swing_amount_parameter);
+	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &force_trigger, &polyrythmic, &swing_amount_parameter, &start_t] {
+			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &swing_amount_parameter, &start_t);
 			});
 
 	while(!do_exit) {
 		// determine pattern index
 		size_t pat_index = 0;
 		{
-			auto   now         = get_ms();
+			auto   now         = get_ms() - start_t;
 			std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 			size_t current_dim = pat_clickables[pattern_group].dim;
 
@@ -1192,6 +1225,8 @@ int main(int argc, char *argv[])
 				if (pat_clickable_selected.has_value())
 					click_state = { pat_clickable_selected.value(), pat_clickable_pressed_since };
 
+				draw_clickables(font, screen, pattern_menu, { }, { });
+
 				std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 				draw_clickables(font, screen, pat_clickables[pattern_group].pattern, click_state, pat_index, pat_clickables[pattern_group].dim);
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
@@ -1315,11 +1350,24 @@ int main(int argc, char *argv[])
 							mode = m_pattern;
 					}
 					else {
-						auto new_group = find_clickable(channel_clickables, event.button.x, event.button.y);
+						auto p_menu_clicked = find_clickable(pattern_menu, event.button.x, event.button.y);
+						auto new_group      = find_clickable(channel_clickables, event.button.x, event.button.y);
 						if (new_group.has_value()) {
 							channel_clickables[pattern_group].selected = false;
 							pattern_group = new_group.value();
 							channel_clickables[pattern_group].selected = true;
+						}
+						else if (p_menu_clicked.has_value()) {
+							size_t idx = p_menu_clicked.value();
+							if (idx == p_pause_idx) {
+								paused = !paused;
+							}
+							else if (idx == restart_idx) {
+								start_t = get_ms();
+								paused  = false;
+							}
+							pattern_menu         [p_pause_idx].selected = paused;
+							settings_menu_buttons[pause_idx]  .selected = paused;
 						}
 						else {
 							std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
