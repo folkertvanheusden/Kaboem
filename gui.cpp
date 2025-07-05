@@ -412,7 +412,7 @@ pattern generate_pattern_grid(const int w, const int h, const int steps)
 	p.note_delta.resize(max_pattern_dim);
 	p.dim = steps;
 
-	for(int i=0; i<max_pattern_dim; i++) {
+	for(size_t i=0; i<max_pattern_dim; i++) {
 		p.volume_left .push_back(1.);
 		p.volume_right.push_back(1.);
 	}
@@ -1542,9 +1542,9 @@ int main(int argc, char *argv[])
 							}
 							else if (is_stereo && configure_volume(&sound_pars, sample_vol_widget_right, idx, s, 1, shift)) {
 							}
-							else if (!is_stereo) {
+
+							if (!is_stereo)
 								s->set_mapping_target_volume(1, s->get_mapping_target_volume(0));
-							}
 						}
 					}
 				}
@@ -1690,8 +1690,6 @@ int main(int argc, char *argv[])
 		std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 		write_file(path + "/default." PROG_EXT, pat_clickables, samples, file_parameters);
 	}
-
-	unload_sample_cache();
 
 	SDL_Quit();
 	deinit_fonts();

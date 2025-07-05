@@ -60,7 +60,10 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 
 		if (sample_file.s) {
 			sample["vol-left"]    = sample_file.s->get_mapping_target_volume(0);
-			sample["vol-right"]   = sample_file.s->get_mapping_target_volume(1);
+			if (sample_file.s->get_n_channels() >= 2)
+				sample["vol-right"] = sample_file.s->get_mapping_target_volume(1);
+			else
+				sample["vol-right"] = sample_file.s->get_mapping_target_volume(0);
 			sample["pitch"]       = sample_file.s->get_pitch_bend();
 			sample["mute"]        = sample_file.s->get_mute();
 

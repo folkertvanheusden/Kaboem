@@ -9,9 +9,6 @@
 #include "frequencies.h"
 
 
-static std::mutex sample_cache_lock;
-static std::map<std::string, std::tuple<std::vector<std::vector<double> > *, unsigned int, double> > sample_cache;
-
 double find_loudest_frequency(const std::vector<std::vector<double> > & samples, const unsigned sample_sample_rate)
 {
 	size_t  n_ch      = samples.at(0).size();
@@ -30,12 +27,6 @@ double find_loudest_frequency(const std::vector<std::vector<double> > & samples,
 
 std::optional<std::tuple<std::vector<std::vector<double> > *, unsigned int, double> > load_sample(const std::string & filename)
 {
-	std::unique_lock<std::mutex> lck(sample_cache_lock);
-
-	auto it = sample_cache.find(filename);
-	if (it != sample_cache.end())
-		return it->second;
-
         SF_INFO si = { 0 };
         SNDFILE *sh = sf_open(filename.c_str(), SFM_READ, &si);
 	if (!sh)
@@ -67,15 +58,5 @@ std::optional<std::tuple<std::vector<std::vector<double> > *, unsigned int, doub
 	double loudest_frequency = find_loudest_frequency(*samples, si.samplerate);
 	printf("loudest_frequency of \"%s\": %.1f\n", filename.c_str(), loudest_frequency);
 
-	sample_cache.insert({ filename, { samples, si.samplerate, loudest_frequency } });
-
 	return { { samples, si.samplerate, loudest_frequency } };
-}
-
-void unload_sample_cache()
-{
-	std::unique_lock<std::mutex> lck(sample_cache_lock);
-	for(auto & entry : sample_cache)
-		delete std::get<0>(entry.second);
-	sample_cache.clear();
 }
