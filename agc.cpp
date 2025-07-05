@@ -8,7 +8,6 @@ agc::agc(const double threshold_db, const double ratio, const double attack_ms, 
 	ratio(ratio),
 	attack_coefficient (1.0f - std::exp(-1.0f / (0.001f * attack_ms  * sample_rate))),
 	release_coefficient(1.0f - std::exp(-1.0f / (0.001f * release_ms * sample_rate))),
-	sample_rate(sample_rate),
 	envelope(0.0f)
 {
 }
@@ -16,7 +15,7 @@ agc::agc(const double threshold_db, const double ratio, const double attack_ms, 
 double agc::calculate_gain(const double input)
 {
 	double abs_input = fabs(input);
-	double db_input = 20.0f * log10(abs_input + 1e-8f);  // avoid log(0)
+	double db_input  = 20.0f * log10(abs_input + 1e-8f);  // avoid log(0)
 
 	// Envelope follower (peak detection with attack/release smoothing)
 	double coeff = db_input > envelope ? attack_coefficient : release_coefficient;

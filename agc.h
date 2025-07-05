@@ -4,7 +4,6 @@ private:
 	const double ratio                { 0. };
 	const double attack_coefficient   { 0. };
 	const double release_coefficient  { 0. };
-	const int    sample_rate          { 0 };
 	      double envelope             { 0. };
 
 public:
