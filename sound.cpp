@@ -55,7 +55,7 @@ void on_process_audio(void *userdata)
 
 					for(size_t ch=0; ch<n_source_channels; ch++) {
 						auto   rc    = item.s->get_sample(ch);
-						double value = rc.first * item.volume;
+						double value = rc.first * (ch ? item.volume_right : item.volume_left);
 
 						for(auto mapping : rc.second)
 							current_sample_base[mapping.first] += value * mapping.second;

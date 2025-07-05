@@ -21,7 +21,8 @@ struct pattern
 {
 	std::vector<clickable> pattern;
 	std::vector<int>       note_delta;
-	std::vector<double>    volume;
+	std::vector<double>    volume_left;
+	std::vector<double>    volume_right;
 	size_t                 dim;
 };
 

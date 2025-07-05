@@ -29,17 +29,25 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 {
 	json patterns = json::array();
 	for(auto & group: data) {
-		json group_pattern    = json::array();
+		json group_pattern      = json::array();
 		for(auto & element: group.pattern)
 			group_pattern.push_back(element.selected);
-		json group_note_delta = json::array();
+		json group_note_delta   = json::array();
 		for(auto & element: group.note_delta)
 			group_note_delta.push_back(element);
+		json group_volume_left  = json::array();
+		for(auto & element: group.volume_left)
+			group_volume_left.push_back(element);
+		json group_volume_right = json::array();
+		for(auto & element: group.volume_right)
+			group_volume_right.push_back(element);
 
 		json pattern_data;
-		pattern_data["dim"]        = group.dim;
-		pattern_data["pattern"]    = group_pattern;
-		pattern_data["note-delta"] = group_note_delta;
+		pattern_data["dim"]          = group.dim;
+		pattern_data["pattern"]      = group_pattern;
+		pattern_data["note-delta"]   = group_note_delta;
+		pattern_data["volume-left"]  = group_volume_left;
+		pattern_data["volume-right"] = group_volume_right;
 
 		patterns.push_back(pattern_data);
 	}
@@ -160,6 +168,21 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 			size_t index_pattern    = 0;
 			for(auto & element: j["patterns"][group]["pattern"])
 				group_data.pattern   [index_pattern++   ].selected = element;
+
+			if (j["patterns"][group].contains("volume-left")) {
+				size_t index_volume_left = 0;
+				for(auto & element: j["patterns"][group]["volume-left"])
+					group_data.volume_left[index_volume_left++]   = element;
+				size_t index_volume_right = 0;
+				for(auto & element: j["patterns"][group]["volume-right"])
+					group_data.volume_right[index_volume_right++] = element;
+			}
+			else {
+				for(size_t i=0; i<index_note_delta; i++) {
+					group_data.volume_left[i]                  = 1.;
+					group_data.volume_right[i]                 = 1.;
+				}
+			}
 
 			if (index_pattern < (*data)[group].dim || index_note_delta != index_pattern) {
 				printf("note-delta count (%zu) or pattern count (%zu) not %zu\n", index_note_delta, index_pattern, (*data)[group].dim);

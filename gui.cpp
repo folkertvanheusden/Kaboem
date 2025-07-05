@@ -172,18 +172,20 @@ std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, 
 	return clickables;
 }
 
-std::vector<clickable> generate_cell_settings_menu_buttons(const int w, const int h, up_down_widget *const pitch_pars, up_down_widget *const volume_pars)
+std::vector<clickable> generate_cell_settings_menu_buttons(const int w, const int h, up_down_widget *const pitch_pars, up_down_widget *const volume_left_pars, up_down_widget *const volume_right_pars)
 {
 	int menu_button_width  = w * 15 / 100;
-	int menu_button_height = h * 15 / 100;
 
 	std::vector<clickable> clickables;
 
-	std::vector<clickable> pitch_widget = generate_up_down_widget(w, h, 0, 0, "pitch", clickables.size(), pitch_pars);
+	std::vector<clickable> pitch_widget = generate_up_down_widget(w, h, menu_button_width * 0, 0, "pitch", clickables.size(), pitch_pars);
 	std::copy(pitch_widget.begin(), pitch_widget.end(), std::back_inserter(clickables));
 
-	std::vector<clickable> volume_widget = generate_up_down_widget(w, h, menu_button_width, 0, "volume", clickables.size(), volume_pars);
-	std::copy(volume_widget.begin(), volume_widget.end(), std::back_inserter(clickables));
+	std::vector<clickable> volume_left_widget = generate_up_down_widget(w, h, menu_button_width * 1, 0, "vol l", clickables.size(), volume_left_pars);
+	std::copy(volume_left_widget.begin(), volume_left_widget.end(), std::back_inserter(clickables));
+
+	std::vector<clickable> volume_right_widget = generate_up_down_widget(w, h, menu_button_width * 2, 0, "vol r", clickables.size(), volume_right_pars);
+	std::copy(volume_right_widget.begin(), volume_right_widget.end(), std::back_inserter(clickables));
 
 	return clickables;
 }
@@ -410,8 +412,10 @@ pattern generate_pattern_grid(const int w, const int h, const int steps)
 	p.note_delta.resize(max_pattern_dim);
 	p.dim = steps;
 
-	for(int i=0; i<max_pattern_dim; i++)
-		p.volume.push_back(1.);
+	for(int i=0; i<max_pattern_dim; i++) {
+		p.volume_left .push_back(1.);
+		p.volume_right.push_back(1.);
+	}
 
 	for(int i=0; i<steps; i++) {
 		int x = (i % steps_sq) * step_width;
@@ -617,11 +621,11 @@ bool set_up_down_value(const size_t idx, const up_down_widget & widget, double *
 	if (idx == widget.up)
 		(*value) = std::min(1., *value + 0.01 * mul);
 	else if (idx == widget.up_10)
-		(*value) = std::min(1., *value + 0.1 * mul);
+		(*value) = std::min(1., *value + 0.1  * mul);
 	else if (idx == widget.down)
-		(*value) = std::max(0., (*value) - 0.01 * mul);
+		(*value) = std::max(0., *value - 0.01 * mul);
 	else if (idx == widget.down_10)
-		(*value) = std::max(0., (*value) - 0.1 * mul);
+		(*value) = std::max(0., *value - 0.1  * mul);
 	else {
 		return false;
 	}
@@ -694,8 +698,9 @@ void reset_pattern(std::array<pattern, pattern_groups> *const pat_clickables, co
 
 	for(size_t i=0; i<pattern.pattern.size(); i++) {
 		if (zero) {
-			pattern.note_delta[i] = 0.;
-			pattern.volume    [i] = 1.;
+			pattern.note_delta  [i] = 0.;
+			pattern.volume_left [i] = 1.;
+			pattern.volume_right[i] = 1.;
 		}
 
 		std::string name = midi_note_to_name(s->get_base_midi_note() + pattern.note_delta[i]);
@@ -919,9 +924,10 @@ int main(int argc, char *argv[])
 	std::string    menu_status;
 
 	up_down_widget pitch_widget       { };
-	up_down_widget cell_volume_widget { };
+	up_down_widget cell_volume_left_widget  { };
+	up_down_widget cell_volume_right_widget { };
 	std::vector<clickable> cell_menu_buttons = generate_cell_settings_menu_buttons(display_mode->w, display_mode->h,
-			&pitch_widget, &cell_volume_widget);
+			&pitch_widget, &cell_volume_left_widget, &cell_volume_right_widget);
 
 	size_t         sample_load_idx        = 0;
 	size_t         sample_unload_idx      = 0;
@@ -1269,8 +1275,10 @@ int main(int argc, char *argv[])
 				draw_clickables(font, screen, cell_menu_buttons, { }, { });
 				draw_text(font, screen, pitch_widget.x, pitch_widget.y, pattern.pattern[selected_cell].text,
 					{ { pitch_widget.text_w, pitch_widget.text_h } });
-				draw_text(font, screen, cell_volume_widget.x, cell_volume_widget.y, std::to_string(pattern.volume[selected_cell]),
-					{ { cell_volume_widget.text_w, cell_volume_widget.text_h } });
+				draw_text(font, screen, cell_volume_left_widget.x, cell_volume_left_widget.y, std::to_string(pattern.volume_left[selected_cell]),
+					{ { cell_volume_left_widget.text_w, cell_volume_left_widget.text_h } });
+				draw_text(font, screen, cell_volume_right_widget.x, cell_volume_right_widget.y, std::to_string(pattern.volume_right[selected_cell]),
+					{ { cell_volume_right_widget.text_w, cell_volume_right_widget.text_h } });
 			}
 			else {
 				fprintf(stderr, "Internal error: %d\n", mode);
@@ -1359,7 +1367,9 @@ int main(int argc, char *argv[])
 										for(auto & element: pat_clickables[i].note_delta)
 											element = 0.;
 
-										for(auto & element: pat_clickables[i].volume)
+										for(auto & element: pat_clickables[i].volume_left)
+											element = 1.;
+										for(auto & element: pat_clickables[i].volume_right)
 											element = 1.;
 
 										{
@@ -1551,7 +1561,10 @@ int main(int argc, char *argv[])
 							if (s)
 								pattern.pattern[selected_cell].text = midi_note_to_name(s->get_base_midi_note() + pattern.note_delta[selected_cell]);
 						}
-						else if (set_up_down_value(idx.value(), cell_volume_widget, &pattern.volume[selected_cell], shift)) {
+						else if (set_up_down_value(idx.value(), cell_volume_left_widget,  &pattern.volume_left [selected_cell], shift)) {
+							// ok
+						}
+						else if (set_up_down_value(idx.value(), cell_volume_right_widget, &pattern.volume_right[selected_cell], shift)) {
 							// ok
 						}
 						else {

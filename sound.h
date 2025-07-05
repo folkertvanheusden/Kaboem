@@ -241,7 +241,8 @@ public:
 		sound *s;
 		double t;
 		double pitch;
-		double volume;
+		double volume_left;
+		double volume_right;
 	};
 	std::vector<queued_sound> sounds;
 	SNDFILE             *record_handle    { nullptr };
