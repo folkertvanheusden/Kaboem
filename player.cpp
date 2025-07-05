@@ -80,7 +80,9 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 							int    adjusted_note_f = midi_note_to_frequency(adjusted_note);
 
 							double pitch           = base_note_f ? adjusted_note_f / base_note_f : 1.;
-							qs.pitch = pitch;
+							qs.pitch  = pitch;
+
+							qs.volume = (*pat_clickables)[i].volume[pat_index];
 
 							sound_pars->sounds.push_back(qs);
 						}
