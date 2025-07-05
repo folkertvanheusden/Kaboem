@@ -1508,12 +1508,11 @@ int main(int argc, char *argv[])
 					}
 					else if (sample_clicked.has_value()) {
 						mode = m_sample;
-						if (sample_clicked.has_value()) {
-							channel_clickables[fs_action_sample_index].selected = false;
-							fs_action_sample_index = sample_clicked.value();
-							channel_clickables[fs_action_sample_index].selected = true;
-							fs_data.finished = false;
-						}
+						channel_clickables[fs_action_sample_index].selected = false;
+						fs_action_sample_index = sample_clicked.value();
+
+						channel_clickables[fs_action_sample_index].selected = true;
+						fs_data.finished = false;
 					}
 				}
 				else if (mode == m_sample) {
@@ -1529,6 +1528,11 @@ int main(int argc, char *argv[])
 						fs_action_sample_index = sample_clicked.value();
 						channel_clickables[fs_action_sample_index].selected = true;
 						fs_data.finished = false;
+
+						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
+						sound_sample *const s = samples[fs_action_sample_index].s;
+						if (s)
+							sample_buttons_clickables[mute_idx].selected = s->get_mute();
 					}
 					else if (menus_clicked.has_value()) {
 						size_t idx = menus_clicked.value();
