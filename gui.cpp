@@ -984,6 +984,7 @@ int main(int argc, char *argv[])
 	std::atomic_bool paused         = false;
 	std::atomic_bool force_trigger  = false;
 	bool             shift          = false;
+	bool             ctrl           = false;
 	int              prev_scope_t   = -1;
 	size_t           selected_cell  = 0;
 
@@ -1322,8 +1323,9 @@ int main(int argc, char *argv[])
 						}
 						else {
 							std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-							pat_clickable_selected      = find_clickable(pat_clickables[pattern_group].pattern, event.button.x, event.button.y);
-							pat_clickable_pressed_since = get_ms();
+							pat_clickable_selected = find_clickable(pat_clickables[pattern_group].pattern, event.button.x, event.button.y);
+							if (pat_clickable_selected.has_value())
+								pat_clickable_pressed_since = get_ms();
 						}
 					}
 				}
@@ -1574,6 +1576,15 @@ int main(int argc, char *argv[])
 
 				redraw = true;
 			}
+			else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && (mouse_button_flags & 4) /* right button */) {
+				std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
+
+				pat_clickable_selected = find_clickable(pat_clickables[pattern_group].pattern, event.button.x, event.button.y);
+				if (pat_clickable_selected.has_value()) {
+					mode          = m_cell;
+					selected_cell = pat_clickable_selected.value();
+				}
+			}
 			else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
 				uint64_t now = get_ms();
 
@@ -1604,6 +1615,9 @@ int main(int argc, char *argv[])
 				else if (event.key.scancode == SDL_SCANCODE_LSHIFT || event.key.scancode == SDL_SCANCODE_RSHIFT) {
 					shift = true;
 				}
+				else if (event.key.scancode == SDL_SCANCODE_LCTRL || event.key.scancode == SDL_SCANCODE_RCTRL) {
+					ctrl = true;
+				}
 				else if (event.key.scancode == SDL_SCANCODE_UP || event.key.scancode == SDL_SCANCODE_DOWN) {
 					std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
 					auto & pattern   = pat_clickables[pattern_group];
@@ -1627,9 +1641,10 @@ int main(int argc, char *argv[])
 				}
 			}
 			else if (event.type == SDL_EVENT_KEY_UP) {
-				if (event.key.scancode == SDL_SCANCODE_LSHIFT || event.key.scancode == SDL_SCANCODE_RSHIFT) {
+				if (event.key.scancode == SDL_SCANCODE_LSHIFT || event.key.scancode == SDL_SCANCODE_RSHIFT)
 					shift = false;
-				}
+				else if (event.key.scancode == SDL_SCANCODE_LCTRL || event.key.scancode == SDL_SCANCODE_RCTRL)
+					ctrl = false;
 			}
 			else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
 				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
