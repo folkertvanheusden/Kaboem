@@ -23,8 +23,6 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 	std::array<ssize_t, pattern_groups> prev_pat_index1;
 	std::array<ssize_t, pattern_groups> prev_pat_index2;
 
-	std::array<std::array<uint64_t, max_pattern_dim>, pattern_groups> timestamps { };
-
 	for(size_t i=0; i<pattern_groups; i++) {
 		prev_pat_index1[i] = size_t(-1);
 		prev_pat_index2[i] = size_t(-1);
@@ -32,7 +30,6 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 
 	std::array<int, pattern_groups> swing { };
 
-	uint64_t pbla = get_us();
 	while(!*do_exit) {
 		uint64_t start = get_us();
 
@@ -41,7 +38,6 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 			continue;
 		}
 
-		bool any = false;
 		{
 			auto now = get_us() - *t_start;
 
@@ -65,42 +61,14 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 				else
 					swing[i] = 0;
 
-				double pi_d = -1;
-				if (*polyrythmic) {
+				if (*polyrythmic)
 					pat_index = (now - swing[i]) / *sleep_us % current_dim;
-					pi_d = fmod(double(now - swing[i]) / *sleep_us, current_dim);
-				}
-				else {
+				else
 					pat_index = size_t((now - swing[i]) / double(*sleep_us) * current_dim / double(max_steps)) % current_dim;
-					pi_d = fmod((now - swing[i]) / double(*sleep_us) * current_dim / double(max_steps), current_dim);
-				}
 
 				if ((pat_index != prev_pat_index1[i] && pat_index != prev_pat_index2[i]) || force_trigger->exchange(false)) {
-					ssize_t prev_index = prev_pat_index1[i] == current_dim - 1 ? -1 : prev_pat_index1[i];
-					if (labs(pat_index - prev_index) > 1)
-						printf("missed beat? %ld\n", pat_index - prev_index);
-					else if (pat_index == prev_index)
-						printf("double\n");
 					prev_pat_index2[i] = prev_pat_index1[i];
 					prev_pat_index1[i] = pat_index;
-
-					if (!any)
-						printf("pi_d: %f\n", pi_d);
-					any = true;
-					if (timestamps[i][pat_index]) {
-						int64_t td = now - timestamps[i][pat_index];
-						static double   sum = 0;
-						static uint64_t n   = 0;
-						int expected_interval = *sleep_us * current_dim;
-						n++;
-						double off_perc = fabs(1 - td / double(expected_interval));
-						sum += off_perc;
-						if (off_perc > 0.01)  // max 1%
-							printf("FAIL %zu %ld\n", i, td);
-//						else
-//							printf("%.2f\n", off_perc * 100);
-					}
-					timestamps[i][pat_index] = now;
 
 					if ((*pat_clickables)[i].pattern[pat_index].selected) {
 						if ((*samples)[i].s) {
@@ -127,13 +95,8 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 				}
 			}
 		}
-		if (any) {
-			printf("scheduled at %lu\n", start - pbla);
-			pbla = start;
-		}
 
 		int64_t to_sleep = 1000 - (get_us() - start);
-//		printf("sleep: %ld\n", to_sleep);
 		if (to_sleep > 0)
 			usleep(to_sleep);
 	}
