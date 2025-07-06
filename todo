@@ -3,3 +3,6 @@
 - external sync (via midi?)
 - shorten filenames (with '...') when they don't fit on screen
 - pause, rewind buttons on pattern-view
+
+- "normaal is swing/shuffle (zelfde dacht ik) dat elke 2e en 4e noot wordt gedelayed, met een positieve dan wel negatieve offset" -> humanize in de huidige vorm
+- high-pass doet 't zelfde als low pass

@@ -31,6 +31,8 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 	std::array<int, pattern_groups> swing { };
 
 	while(!*do_exit) {
+		uint64_t start = get_us();
+
 		if (*pause) {
 			usleep(10000);
 			continue;
@@ -38,6 +40,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 
 		{
 			auto now = get_ms() - *t_start;
+
 			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
 			size_t max_steps = 0;
 			if (!*polyrythmic) {
@@ -95,7 +98,9 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 			}
 		}
 
-		usleep(1000000 / *sleep_ms);
+		int64_t to_sleep = *sleep_ms * 1000 + get_us() - start;
+		if (to_sleep > 0)
+			usleep(to_sleep);
 	}
 
 	if (midi_port.first)
