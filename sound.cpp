@@ -15,7 +15,7 @@ double f_to_delta_t(const double frequency, const int sample_rate)
 
 void on_process_audio(void *userdata)
 {
-	uint64_t          t  = get_us();
+	uint64_t          t_start  = get_us();
 	sound_parameters *sp = reinterpret_cast<sound_parameters *>(userdata);
 	pw_buffer        *b  = pw_stream_dequeue_buffer(sp->pw.stream);
 	if (b == nullptr) {
@@ -25,8 +25,7 @@ void on_process_audio(void *userdata)
 	spa_buffer *buf      = b->buffer;
 
 	int     stride       = sizeof(double) * sp->n_channels;
-	// 75: audio-CD had chunks of 1/75th of a second. this gives a latency of around 13.1 ms
-	int     period_size  = std::min(buf->datas[0].maxsize / stride, uint32_t(sp->sample_rate / 75));
+	int     period_size  = std::min(buf->datas[0].maxsize / stride, uint32_t(128));
 	double  latency      = period_size * 1000000.0 / sp->sample_rate;
 
 	double *dest         = reinterpret_cast<double *>(buf->datas[0].data);
@@ -150,7 +149,7 @@ void on_process_audio(void *userdata)
 
 	// statistics
 	sp->n_busyness++;
-	sp->t_busyness += 100 * (get_us() - t) / latency;
+	sp->t_busyness += 100 * (get_us() - t_start) / latency;
 
 	if (sp->n_loud_checked >= sp->sample_rate / 2) {
 		if (sp->too_loud_count > 0)

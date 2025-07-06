@@ -5,6 +5,7 @@
 - show version number somewher
 - clock_nanosleep instead of usleep
 - timing toepassen op 1 cell, dat-ie iets eerder of later begint
+- delay per kanaal en galm
 
 - "normaal is swing/shuffle (zelfde dacht ik) dat elke 2e en 4e noot wordt gedelayed, met een positieve dan wel negatieve offset" -> humanize in de huidige vorm
 - high-pass doet 't zelfde als low pass
