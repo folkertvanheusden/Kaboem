@@ -43,6 +43,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		{
 			auto now = get_ms() - *t_start;
 
+			std::lock_guard <std::shared_mutex> lck    (sound_pars->sounds_lock);
 			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
 			size_t max_steps = 0;
 			if (!*polyrythmic) {
@@ -91,7 +92,6 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 					}
 					timestamps[i][pat_index] = now;
 
-					std::lock_guard<std::shared_mutex> lck(sound_pars->sounds_lock);
 					if ((*pat_clickables)[i].pattern[pat_index].selected) {
 						if ((*samples)[i].s) {
 							sound_parameters::queued_sound qs { };
