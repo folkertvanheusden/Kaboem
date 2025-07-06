@@ -13,7 +13,6 @@ double f_to_delta_t(const double frequency, const int sample_rate)
 	return 2 * M_PI * frequency / sample_rate;
 }
 
-uint64_t ppts = 0;
 void on_process_audio(void *userdata)
 {
 	uint64_t          t_start  = get_us();
@@ -39,7 +38,6 @@ void on_process_audio(void *userdata)
 	double *temp_buffer  = new double[sp->n_channels * period_size]();
 	uint64_t          t_after_mutex  = get_us();
 
-	bool p = false;
 	std::shared_lock<std::shared_mutex> lck(sp->sounds_lock);
 
 	for(int t=0; t<period_size; t++) {
@@ -48,12 +46,6 @@ void on_process_audio(void *userdata)
 		for(size_t s_idx=0; s_idx<sp->sounds.size();) {
 			auto & item = sp->sounds[s_idx];
 			if (item.s) {
-				if (item.t == false && p == false) {
-					static uint64_t pts = 0;
-					uint64_t now = get_us();
-					printf("ss start %lu, %lu, %lu\n", now - pts, t_start - ppts, t_after_mutex - t_start), p = true;
-					pts = now;
-				}
 				if (item.s->set_time(item.t * item.pitch)) {
 					sp->sounds.erase(sp->sounds.begin() + s_idx);
 					continue;
@@ -173,7 +165,6 @@ void on_process_audio(void *userdata)
 		sp->n_busyness     = 0;
 		sp->t_busyness     = 0;
 	}
-	ppts = t_start;
 }
 
 sound_sample::sound_sample(const int sample_rate, const std::string & file_name) :
