@@ -98,7 +98,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 			}
 		}
 
-		int64_t to_sleep = *sleep_ms * 1000 + get_us() - start;
+		int64_t to_sleep = (*sleep_ms * 1000 + get_us() - start) / 10;
 		if (to_sleep > 0)
 			usleep(to_sleep);
 	}
