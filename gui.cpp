@@ -1232,7 +1232,7 @@ int main(int argc, char *argv[])
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 
 				if (samples[pattern_group].name.empty() == false)
-					draw_text(font, screen, 0, display_mode->h / 2 / 100, samples[pattern_group].name, { });
+					draw_text(font, screen, 0, display_mode->h / 2 / 100, get_filename(samples[pattern_group].name), { });
 			}
 			else if (mode == m_settings) {
 				if (menu_status.empty() == false)
@@ -1286,7 +1286,7 @@ int main(int argc, char *argv[])
 				lck.unlock();
 
 				if (name.empty() == false)
-					draw_text(font, screen, 0, display_mode->h - font_height * 5, name, { { display_mode->w, font_height } });
+					draw_text(font, screen, 0, display_mode->h - font_height * 5, get_filename(name), { { display_mode->w, font_height } });
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 				draw_clickables(font, screen, sample_buttons_clickables, { }, { });
 				draw_text(font, screen, sample_vol_widget_left.x,  sample_vol_widget_left.y,  std::to_string(vol_left),
