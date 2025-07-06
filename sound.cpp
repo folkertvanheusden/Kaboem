@@ -25,7 +25,6 @@ void on_process_audio(void *userdata)
 	spa_buffer *buf      = b->buffer;
 
 	int     stride       = sizeof(double) * sp->n_channels;
-	// 75: audio-CD had chunks of 1/75th of a second. this gives a latency of around 13.1 ms
 	int     period_size  = std::min(buf->datas[0].maxsize / stride, uint32_t(128));
 	double  latency      = period_size * 1000000.0 / sp->sample_rate;
 
@@ -36,7 +35,6 @@ void on_process_audio(void *userdata)
 	}
 
 	double *temp_buffer  = new double[sp->n_channels * period_size]();
-	uint64_t          t_after_mutex  = get_us();
 
 	std::shared_lock<std::shared_mutex> lck(sp->sounds_lock);
 
