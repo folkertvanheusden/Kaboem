@@ -23,6 +23,8 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 	std::array<ssize_t, pattern_groups> prev_pat_index1;
 	std::array<ssize_t, pattern_groups> prev_pat_index2;
 
+	std::array<std::array<uint64_t, max_pattern_dim>, pattern_groups> timestamps { };
+
 	for(size_t i=0; i<pattern_groups; i++) {
 		prev_pat_index1[i] = size_t(-1);
 		prev_pat_index2[i] = size_t(-1);
@@ -54,13 +56,11 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 				ssize_t pat_index   = 0;
 				ssize_t current_dim = (*pat_clickables)[i].dim;
 
-				{
-					int sw_fac = *swing_factor;
-					if (sw_fac)
-						swing[i] = (rand() % sw_fac) - sw_fac / 2;
-					else
-						swing[i] = 0;
-				}
+				int sw_fac = *swing_factor;
+				if (sw_fac)
+					swing[i] = (rand() % sw_fac) - sw_fac / 2;
+				else
+					swing[i] = 0;
 
 				if (*polyrythmic)
 					pat_index = (now - swing[i]) / *sleep_ms % current_dim;
@@ -68,8 +68,24 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 					pat_index = size_t((now - swing[i]) / double(*sleep_ms) * current_dim / double(max_steps)) % current_dim;
 
 				if ((pat_index != prev_pat_index1[i] && pat_index != prev_pat_index2[i]) || force_trigger->exchange(false)) {
+					ssize_t prev_index = prev_pat_index1[i] == current_dim - 1 ? -1 : prev_pat_index1[i];
+					if (labs(pat_index - prev_index) > 1)
+						printf("missed beat? %ld\n", pat_index - prev_index);
+					else if (pat_index == prev_index)
+						printf("double\n");
 					prev_pat_index2[i] = prev_pat_index1[i];
 					prev_pat_index1[i] = pat_index;
+
+					if (timestamps[i][pat_index]) {
+						int64_t td = now - timestamps[i][pat_index];
+						static int64_t sum = 0, n = 0;
+						int expected_interval = *sleep_ms * current_dim;
+						n++;
+						sum += expected_interval - td;
+						if (fabs(1 - td / double(expected_interval)) > 0.05)  // max 5%
+							printf("FAIL %zu %ld\n", i, td);
+					}
+					timestamps[i][pat_index] = now;
 
 					std::lock_guard<std::shared_mutex> lck(sound_pars->sounds_lock);
 					if ((*pat_clickables)[i].pattern[pat_index].selected) {
