@@ -78,12 +78,16 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 
 					if (timestamps[i][pat_index]) {
 						int64_t td = now - timestamps[i][pat_index];
-						static int64_t sum = 0, n = 0;
+						static double   sum = 0;
+						static uint64_t n   = 0;
 						int expected_interval = *sleep_ms * current_dim;
 						n++;
-						sum += expected_interval - td;
-						if (fabs(1 - td / double(expected_interval)) > 0.05)  // max 5%
+						double off_perc = fabs(1 - td / double(expected_interval));
+						sum += off_perc;
+						if (off_perc > 0.01)  // max 5%
 							printf("FAIL %zu %ld\n", i, td);
+//						else
+//							printf("%.2f\n", off_perc * 100);
 					}
 					timestamps[i][pat_index] = now;
 
@@ -114,7 +118,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 			}
 		}
 
-		int64_t to_sleep = (*sleep_ms * 1000 + get_us() - start) / 10;
+		int64_t to_sleep = (*sleep_ms * 1000 - (get_us() - start)) / 10;
 		if (to_sleep > 0)
 			usleep(to_sleep);
 	}
