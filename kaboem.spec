@@ -1,5 +1,5 @@
 Name:       kaboem
-Version:    0.0007
+Version:    0.0008
 Release:    0
 Summary:    An audio sequencer
 License:    MIT
@@ -26,5 +26,5 @@ Kaboem is a simple pipewire and midi enabled audio sequencer.
 /usr/share/kaboem
 
 %changelog
-* Fri Jul 4 2025 Folkert van Heusden <folkert@vanheusden.com>
+* Sun Jul 6 2025 Folkert van Heusden <folkert@vanheusden.com>
 -
