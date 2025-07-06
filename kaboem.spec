@@ -1,5 +1,5 @@
 Name:       kaboem
-Version:    0.0006
+Version:    0.0007
 Release:    0
 Summary:    An audio sequencer
 License:    MIT
