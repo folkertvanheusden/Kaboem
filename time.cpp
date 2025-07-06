@@ -1,17 +1,17 @@
+#include <chrono>
 #include <cstdint>
-#include <ctime>
 
 
 uint64_t get_ms()
 {
-	timespec ts { };
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return uint64_t(ts.tv_sec) * uint64_t(1000) + uint64_t(ts.tv_nsec / 1000000);
+	auto now = std::chrono::steady_clock::now();
+	auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+	return static_cast<uint64_t>(millis);
 }
 
 uint64_t get_us()
 {
-	timespec ts { };
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return uint64_t(ts.tv_sec) * uint64_t(1000000) + uint64_t(ts.tv_nsec / 1000);
+	auto now = std::chrono::steady_clock::now();
+	auto micros = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
+	return static_cast<uint64_t>(micros);
 }
