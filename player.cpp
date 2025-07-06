@@ -12,7 +12,7 @@
 
 void player(const std::array<pattern, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock,
 		const std::array<sample, pattern_groups> *const samples,
-		std::atomic_int  *const sleep_ms, sound_parameters *const sound_pars,
+		std::atomic_int  *const sleep_us, sound_parameters *const sound_pars,
 		std::atomic_bool *const pause,    std::atomic_bool *const do_exit,
 		std::atomic_bool *const force_trigger,
 		std::atomic_bool *const polyrythmic,
@@ -39,8 +39,9 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		}
 
 		{
-			auto now = get_ms() - *t_start;
+			auto now = get_us() - *t_start;
 
+			std::lock_guard <std::shared_mutex> lck    (sound_pars->sounds_lock);
 			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
 			size_t max_steps = 0;
 			if (!*polyrythmic) {
@@ -54,24 +55,21 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 				ssize_t pat_index   = 0;
 				ssize_t current_dim = (*pat_clickables)[i].dim;
 
-				{
-					int sw_fac = *swing_factor;
-					if (sw_fac)
-						swing[i] = (rand() % sw_fac) - sw_fac / 2;
-					else
-						swing[i] = 0;
-				}
+				int sw_fac = *swing_factor;
+				if (sw_fac)
+					swing[i] = (rand() % sw_fac) - sw_fac / 2;
+				else
+					swing[i] = 0;
 
 				if (*polyrythmic)
-					pat_index = (now - swing[i]) / *sleep_ms % current_dim;
+					pat_index = (now - swing[i]) / *sleep_us % current_dim;
 				else
-					pat_index = size_t((now - swing[i]) / double(*sleep_ms) * current_dim / double(max_steps)) % current_dim;
+					pat_index = size_t((now - swing[i]) / double(*sleep_us) * current_dim / double(max_steps)) % current_dim;
 
 				if ((pat_index != prev_pat_index1[i] && pat_index != prev_pat_index2[i]) || force_trigger->exchange(false)) {
 					prev_pat_index2[i] = prev_pat_index1[i];
 					prev_pat_index1[i] = pat_index;
 
-					std::lock_guard<std::shared_mutex> lck(sound_pars->sounds_lock);
 					if ((*pat_clickables)[i].pattern[pat_index].selected) {
 						if ((*samples)[i].s) {
 							sound_parameters::queued_sound qs { };
@@ -98,7 +96,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 			}
 		}
 
-		int64_t to_sleep = *sleep_ms * 1000 + get_us() - start;
+		int64_t to_sleep = 1000 - (get_us() - start);
 		if (to_sleep > 0)
 			usleep(to_sleep);
 	}

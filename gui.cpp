@@ -1011,7 +1011,7 @@ int main(int argc, char *argv[])
 		reset_all_patterns(&pat_clickables, &pat_clickables_lock, samples, false);
 	}
 
-	std::atomic_int      sleep_ms       = 60 * 1000 / bpm;
+	std::atomic_int      sleep_us       = 60 * 1000000 / bpm;
 	size_t               prev_pat_index = size_t(-1);
 	std::atomic_bool     paused         = false;
 	std::atomic_bool     force_trigger  = false;
@@ -1021,27 +1021,27 @@ int main(int argc, char *argv[])
 	size_t               selected_cell  = 0;
 	std::atomic_uint64_t start_t        = 0;
 
-	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &force_trigger, &polyrythmic, &swing_amount_parameter, &start_t] {
-			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_ms, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &swing_amount_parameter, &start_t);
+	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &force_trigger, &polyrythmic, &swing_amount_parameter, &start_t] {
+			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &swing_amount_parameter, &start_t);
 			});
 
 	while(!do_exit) {
 		// determine pattern index
 		size_t pat_index = 0;
 		{
-			auto   now         = get_ms() - start_t;
+			auto   now         = get_us() - start_t;
 			std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 			size_t current_dim = pat_clickables[pattern_group].dim;
 
                         if (polyrythmic)
-				pat_index = now / sleep_ms % current_dim;
+				pat_index = now / sleep_us % current_dim;
 			else {
 				size_t max_steps = 0;
                                 for(size_t i=0; i<pattern_groups; i++) {
                                         if (samples[i].s != nullptr)
                                                 max_steps = std::max(max_steps, pat_clickables[i].dim);
                                 }
-				pat_index = size_t(now / double(sleep_ms) * current_dim / double(max_steps)) % current_dim;
+				pat_index = size_t(now / double(sleep_us) * current_dim / double(max_steps)) % current_dim;
                         }
 		}
 		if (pat_index != prev_pat_index && !paused) {
@@ -1080,7 +1080,7 @@ int main(int argc, char *argv[])
 							settings_menu_buttons[agc_idx].selected         = agc;
 							settings_menu_buttons[polyrythmic_idx].selected = polyrythmic;
 							swing_amount_parameter                          = swing_amount;
-							sleep_ms                                        = 60 * 1000 / bpm;
+							sleep_us                                        = 60 * 1000000 / bpm;
 
 							for(size_t i=0; i<pattern_groups; i++) {
 								if (samples[i].name.empty() == false)
@@ -1232,7 +1232,7 @@ int main(int argc, char *argv[])
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 
 				if (samples[pattern_group].name.empty() == false)
-					draw_text(font, screen, 0, display_mode->h / 2 / 100, samples[pattern_group].name, { });
+					draw_text(font, screen, 0, display_mode->h / 2 / 100, get_filename(samples[pattern_group].name), { });
 			}
 			else if (mode == m_settings) {
 				if (menu_status.empty() == false)
@@ -1286,7 +1286,7 @@ int main(int argc, char *argv[])
 				lck.unlock();
 
 				if (name.empty() == false)
-					draw_text(font, screen, 0, display_mode->h - font_height * 5, name, { { display_mode->w, font_height } });
+					draw_text(font, screen, 0, display_mode->h - font_height * 5, get_filename(name), { { display_mode->w, font_height } });
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 				draw_clickables(font, screen, sample_buttons_clickables, { }, { });
 				draw_text(font, screen, sample_vol_widget_left.x,  sample_vol_widget_left.y,  std::to_string(vol_left),
@@ -1363,7 +1363,7 @@ int main(int argc, char *argv[])
 								paused = !paused;
 							}
 							else if (idx == restart_idx) {
-								start_t = get_ms();
+								start_t = get_us();
 								paused  = false;
 							}
 							pattern_menu         [p_pause_idx].selected = paused;
@@ -1501,7 +1501,7 @@ int main(int argc, char *argv[])
 							agc = !agc;
 							settings_menu_buttons[agc_idx].selected = agc;
 						}
-						sleep_ms                 = 60 * 1000 / bpm;
+						sleep_us                 = 60 * 1000000 / bpm;
 						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 						sound_pars.global_volume = vol / 100.;
 						sound_pars.agc_enabled   = agc;
