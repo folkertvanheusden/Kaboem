@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 
-#include "error.h"
 #include "frequencies.h"
 
 
