@@ -25,7 +25,7 @@ void on_process_audio(void *userdata)
 	spa_buffer *buf      = b->buffer;
 
 	int     stride       = sizeof(double) * sp->n_channels;
-	int     period_size  = std::min(buf->datas[0].maxsize / stride, uint32_t(128));
+	int     period_size  = std::min(buf->datas[0].maxsize / stride, uint32_t(b->requested ? : 128));
 	double  latency      = period_size * 1000000.0 / sp->sample_rate;
 
 	double *dest         = reinterpret_cast<double *>(buf->datas[0].data);
