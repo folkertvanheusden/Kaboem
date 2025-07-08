@@ -2,7 +2,6 @@ app: kaboem
 
 ingredients:
   packages:
-    - libpipewire-0.3-dev
     - libsdl3-dev
     - libsdl3-ttf-dev
     - libsndfile1-dev

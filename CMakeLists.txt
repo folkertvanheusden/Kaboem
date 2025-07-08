@@ -13,14 +13,13 @@ set(CMAKE_BUILD_TYPE RelWithDebInfo)
 add_executable(
   kaboem
   agc.cpp
+  audio.cpp
   filter.cpp
   font.cpp
   frequencies.cpp
   gui.cpp
   io.cpp
   midi.cpp
-  pipewire.cpp
-  pipewire-audio.cpp
   player.cpp
   sample.cpp
   sound.cpp
@@ -53,12 +52,6 @@ pkg_check_modules(MIDI REQUIRED alsa)
 target_link_libraries(kaboem ${MIDI_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${MIDI_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${MIDI_CFLAGS_OTHER})
-
-find_package(PipeWire)
-pkg_check_modules(PIPEWIRE libpipewire-0.3)
-target_link_libraries(kaboem ${PIPEWIRE_LIBRARIES})
-target_include_directories(kaboem PUBLIC ${PIPEWIRE_INCLUDE_DIRS})
-target_compile_options(kaboem PUBLIC ${PIPEWIRE_CFLAGS_OTHER})
 
 pkg_check_modules(NLOHMANN_JSON REQUIRED nlohmann_json)
 target_link_libraries(kaboem ${NLOHMANN_JSON_LIBRARIES})

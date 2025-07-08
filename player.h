@@ -1,8 +1,8 @@
 #include <atomic>
 #include <cstdint>
 
+#include "audio.h"
 #include "gui.h"
-#include "pipewire-audio.h"
 
 
 void player(const std::array<pattern, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock,

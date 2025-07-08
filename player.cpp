@@ -3,10 +3,10 @@
 #include <cstdint>
 #include <cstdio>
 
+#include "audio.h"
 #include "frequencies.h"
 #include "gui.h"
 #include "midi.h"
-#include "pipewire-audio.h"
 #include "time.h"
 
 
@@ -87,6 +87,14 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 							qs.volume_left  = (*pat_clickables)[i].volume_left [pat_index];
 							qs.volume_right = (*pat_clickables)[i].volume_right[pat_index];
 
+							extern int counter;
+							static uint64_t p_push = 0;
+							extern uint64_t sub_ts;
+							uint64_t now = get_us();
+							printf("%lu push %d after %lu\n", now, counter, now - p_push);
+							sub_ts = now;
+							p_push = now;
+							counter = 0;
 							sound_pars->sounds.push_back(qs);
 						}
 

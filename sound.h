@@ -15,7 +15,7 @@
 
 #include "agc.h"
 #include "filter.h"
-#include "pipewire-audio.h"
+#include "audio.h"
 
 
 double f_to_delta_t(const double frequency, const int sample_rate);
@@ -42,8 +42,6 @@ protected:
 	double frequency   { 100.  };
 
 	double pitchbend   { 1.    };
-
-	double t           { 0.    };
 	double delta_t     { 0.    };
 
 	double volume_at_end_start { 0. };
@@ -150,16 +148,10 @@ public:
 		return input_output_matrix[from][to];
 	}
 
-	virtual size_t get_n_channels() = 0;
+	virtual size_t get_n_channels() const = 0;
 
 	// sample, output-channels
-	virtual std::pair<double, std::map<int, double> > get_sample(const size_t channel_nr) = 0;
-
-	virtual bool set_time(const uint64_t t_in)
-	{
-		t = t_in * (delta_t * pitchbend);
-		return false;
-	}
+	virtual std::optional<std::pair<double, std::map<int, double> > > get_sample(const double t, const size_t channel_nr) const = 0;
 
 	virtual std::string get_name()           const = 0;
 	virtual double      get_base_frequency() const = 0;
@@ -193,7 +185,7 @@ public:
 
 	bool begin();
 
-	size_t get_n_channels() override
+	size_t get_n_channels() const override
 	{
 		return samples.at(0).size();
 	}
@@ -201,17 +193,11 @@ public:
 	const std::vector<std::vector<double> > & get_raw() const { return samples; }
 	unsigned get_sample_rate() const { return sample_sample_rate; }
 
-	std::pair<double, std::map<int, double> > get_sample(const size_t channel_nr) override;
+	std::optional<std::pair<double, std::map<int, double> > > get_sample(const double t, const size_t channel_nr) const override;
 
 	std::string get_name() const override;
 	double      get_base_frequency() const override { return base_frequency; }
 	int         get_base_midi_note() const override { return base_midi_note; }
-
-	bool set_time(const uint64_t t_in) override
-	{
-		sound::set_time(t_in);
-		return t >= samples.size();
-	}
 };
 
 class sound_parameters
@@ -234,12 +220,12 @@ public:
 	std::vector<agc *>   agc_instances;
 	bool                 agc_enabled     { false   };
 
-	pipewire_data_audio  pw;
+	sdl3_data_audio      pw;
 
 	std::shared_mutex    sounds_lock;
 	struct queued_sound {
-		sound *s;
-		double t;
+		const sound *s;
+		int t;
 		double pitch;
 		double volume_left;
 		double volume_right;
@@ -251,7 +237,7 @@ public:
 	double               global_volume    { 1.      };
 	double               sound_saturation { 1.      };
 
-	std::vector<double>  scope;
+	std::vector<float>   scope;
 	int                  scope_t          { 0       };
 
 	double               too_loud_total   { 0.      };

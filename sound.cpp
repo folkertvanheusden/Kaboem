@@ -1,8 +1,8 @@
 #include <cfloat>
 #include <cmath>
 
+#include "audio.h"
 #include "frequencies.h"
-#include "pipewire-audio.h"
 #include "sample.h"
 #include "sound.h"
 #include "time.h"
@@ -11,158 +11,6 @@
 double f_to_delta_t(const double frequency, const int sample_rate)
 {
 	return 2 * M_PI * frequency / sample_rate;
-}
-
-void on_process_audio(void *userdata)
-{
-	uint64_t          t_start  = get_us();
-	sound_parameters *sp = reinterpret_cast<sound_parameters *>(userdata);
-	pw_buffer        *b  = pw_stream_dequeue_buffer(sp->pw.stream);
-	if (b == nullptr) {
-		pw_log_warn("out of buffers: %m");
-		return;
-	}
-	spa_buffer *buf      = b->buffer;
-
-	int     stride       = sizeof(double) * sp->n_channels;
-	int     period_size  = std::min(buf->datas[0].maxsize / stride, uint32_t(b->requested ? : 128));
-	double  latency      = period_size * 1000000.0 / sp->sample_rate;
-
-	double *dest         = reinterpret_cast<double *>(buf->datas[0].data);
-	if (!dest) {
-		printf("no buffer\n");
-		return;
-	}
-
-	double *temp_buffer  = new double[sp->n_channels * period_size]();
-
-	std::shared_lock<std::shared_mutex> lck(sp->sounds_lock);
-
-	for(int t=0; t<period_size; t++) {
-		double *current_sample_base = &temp_buffer[t * sp->n_channels];
-
-		for(size_t s_idx=0; s_idx<sp->sounds.size();) {
-			auto & item = sp->sounds[s_idx];
-			if (item.s) {
-				if (item.s->set_time(item.t * item.pitch)) {
-					sp->sounds.erase(sp->sounds.begin() + s_idx);
-					continue;
-				}
-
-				if (item.s->get_mute() == false) {
-					size_t n_source_channels = item.s->get_n_channels();
-
-					for(size_t ch=0; ch<n_source_channels; ch++) {
-						auto   rc    = item.s->get_sample(ch);
-						double value = rc.first * (ch ? item.volume_right : item.volume_left);
-
-						for(auto mapping : rc.second)
-							current_sample_base[mapping.first] += value * mapping.second;
-					}
-				}
-			}
-
-			item.t++;
-			s_idx++;
-		}
-	}
-
-	sp->n_loud_checked += period_size;
-
-	if (sp->agc_enabled) {
-		double *c_temp = new double[sp->n_channels];
-		for(int t=0; t<period_size; t++) {
-			double *current_sample_base_in  = &temp_buffer[t * sp->n_channels];
-			double *current_sample_base_out = &dest[t * sp->n_channels];
-
-			double gain = DBL_MAX;
-			for(int c=0; c<sp->n_channels; c++) {
-				c_temp[c] = current_sample_base_in[c] * sp->global_volume;
-				gain      = std::min(gain, sp->agc_instances[c]->calculate_gain(c_temp[c]));
-			}
-
-			for(int c=0; c<sp->n_channels; c++) {
-				double temp = std::clamp(c_temp[c] * gain, -1., 1.);
-
-				if (sp->filter_lp)
-					temp = sp->filter_lp->apply(temp);
-				if (sp->filter_hp)
-					temp = sp->filter_hp->apply(temp);
-
-				double sign = temp < 0 ? -1 : 1;
-				current_sample_base_out[c] = pow(fabs(temp), sp->sound_saturation) * sign;
-			}
-		}
-		delete [] c_temp;
-	}
-	else {
-		for(int t=0; t<period_size; t++) {
-			double *current_sample_base_in  = &temp_buffer[t * sp->n_channels];
-			double *current_sample_base_out = &dest[t * sp->n_channels];
-
-			double too_loud = 0;
-			for(int c=0; c<sp->n_channels; c++) {
-				double temp = current_sample_base_in[c] * sp->global_volume;
-
-				if (temp < -1.)
-					temp = -1., too_loud = std::max(too_loud, fabs(temp));
-				else if (temp > 1.)
-					temp = 1.,  too_loud = std::max(too_loud, temp);
-
-				if (sp->filter_lp)
-					temp = sp->filter_lp->apply(temp);
-				if (sp->filter_hp)
-					temp = sp->filter_hp->apply(temp);
-
-				double sign = temp < 0 ? -1 : 1;
-				current_sample_base_out[c] = pow(fabs(temp), sp->sound_saturation) * sign;
-			}
-
-			sp->too_loud_total += too_loud;
-			sp->too_loud_count++;
-		}
-	}
-
-	delete [] temp_buffer;
-
-	buf->datas[0].chunk->offset = 0;
-	buf->datas[0].chunk->stride = stride;
-	buf->datas[0].chunk->size   = period_size * stride;
-	if (pw_stream_queue_buffer(sp->pw.stream, b))
-		printf("pw_stream_queue_buffer failed\n");
-
-	if (sp->record_handle) 
-		sf_writef_double(sp->record_handle, dest, period_size);
-
-	// scope
-	sp->scope.clear();
-	sp->scope.resize(period_size);
-
-	for(int i=0; i<period_size; i++) {
-		for(int c=0; c<sp->n_channels; c++)
-			sp->scope[i] += dest[i * sp->n_channels + c];
-
-		sp->scope[i] /= sp->n_channels;
-	}
-
-	sp->scope_t++;
-
-	// statistics
-	sp->n_busyness++;
-	sp->t_busyness += 100 * (get_us() - t_start) / latency;
-
-	if (sp->n_loud_checked >= sp->sample_rate / 2) {
-		if (sp->too_loud_count > 0)
-			sp->clip_factor = sp->too_loud_total / sp->too_loud_count;
-		else
-			sp->clip_factor = 0;
-		sp->too_loud_total = 0;
-		sp->too_loud_count = 0;
-		sp->n_loud_checked = 0;
-		sp->busyness       = sp->t_busyness / sp->n_busyness;
-		sp->n_busyness     = 0;
-		sp->t_busyness     = 0;
-	}
 }
 
 sound_sample::sound_sample(const int sample_rate, const std::string & file_name) :
@@ -201,7 +49,7 @@ bool sound_sample::begin()
 
 	input_output_matrix.resize(samples.at(0).size());
 
-	printf("Sample %s has %zu channel(s), is sampled at %u Hz and sounds like a %s (%.2f Hz)\n", file_name.c_str(), input_output_matrix.size(), sample_sample_rate, name.c_str(), base_frequency);
+	printf("Sample %s has %zu channel(s), is sampled at %u Hz and sounds like a %s (%.2f Hz), duration: %.2fs\n", file_name.c_str(), input_output_matrix.size(), sample_sample_rate, name.c_str(), base_frequency, samples.size() / double(sample_sample_rate));
 
 	return true;
 }
@@ -211,13 +59,13 @@ std::string sound_sample::get_name() const
 	return name;
 }
 
-std::pair<double, std::map<int, double> > sound_sample::get_sample(const size_t channel_nr)
+std::optional<std::pair<double, std::map<int, double> > > sound_sample::get_sample(const double t, const size_t channel_nr) const
 {
-	double use_t = t;
-	if (use_t < 0)
-		use_t += ceil(fabs(use_t) / samples.size()) * samples.size();
+	double use_t = t * delta_t * pitchbend;
+	if (use_t < 0 || use_t >= samples.size())
+		return { };
 
-	size_t offset = fmod(use_t, samples.size());
+	size_t offset = use_t;
 
-	return { samples.at(offset).at(channel_nr), input_output_matrix[channel_nr] };
+	return { { samples.at(offset).at(channel_nr), input_output_matrix[channel_nr] } };
 }

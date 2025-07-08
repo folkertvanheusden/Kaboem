@@ -11,13 +11,12 @@
 #include <SDL3/SDL_render.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
+#include "audio.h"
 #include "font.h"
 #include "frequencies.h"
 #include "gui.h"
 #include "io.h"
 #include "midi.h"
-#include "pipewire.h"
-#include "pipewire-audio.h"
 #include "player.h"
 #include "sample.h"
 #include "sound.h"
@@ -506,7 +505,7 @@ void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, co
 	SDL_DestroySurface(surface);
 }
 
-void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::vector<double> & scope)
+void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::vector<float> & scope)
 {
 	SDL_SetRenderDrawColor(screen, 40, 255, 40, 255);
 
@@ -843,9 +842,6 @@ bool are_you_sure(TTF_Font *const font, SDL_Renderer *const screen, const SDL_Di
 
 int main(int argc, char *argv[])
 {
-	int pw_argc = 1;
-	init_pipewire(&pw_argc, &argv);
-
 	bool full_screen = true;
 
 	int c = -1;
@@ -858,8 +854,11 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+
 	sound_parameters sound_pars(sample_rate, 2);
-	configure_pipewire_audio(&sound_pars);
+	if (configure_sdl3_audio(&sound_pars) == false)
+		return 1;
 	sound_pars.global_volume = 1.;
 
 	srand(time(nullptr));
@@ -871,8 +870,6 @@ int main(int argc, char *argv[])
 	signal(SIGTERM, sigh);
 
 	init_fonts();
-
-	SDL_Init(SDL_INIT_VIDEO);
 
 	SDL_DisplayID display_id = SDL_GetPrimaryDisplay();
 	if (display_id == 0) {
@@ -1260,7 +1257,7 @@ int main(int argc, char *argv[])
 				cb.text = std::to_string(busyness) + "%";
 				draw_text(font, screen, cb.where.x, cb.where.y, cb.text, { { cb.where.w, cb.where.h } });
 
-				std::vector<double> scope;
+				std::vector<float> scope;
 				{
 					std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 					scope = sound_pars.scope;
@@ -1732,10 +1729,7 @@ int main(int argc, char *argv[])
 	draw_please_wait(font, screen, display_mode);
 
 	player_thread.join();
-
-	pw_main_loop_quit(sound_pars.pw.loop);
-	sound_pars.pw.th->join();
-	delete sound_pars.pw.th;
+	stop_sdl3_audio(&sound_pars);
 
 	{  // stop any recording
 		std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
@@ -1750,8 +1744,6 @@ int main(int argc, char *argv[])
 
 	SDL_Quit();
 	deinit_fonts();
-
-	pw_deinit();
 
 	return 0;
 }
