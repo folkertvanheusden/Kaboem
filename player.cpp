@@ -98,8 +98,8 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 							sound_pars->sounds.push_back(qs);
 						}
 
-						if ((*samples)[i].midi_note.has_value() && midi_port.first)
-							send_note(midi_port.first, midi_port.second, (*samples)[i].midi_note.value(), 127);
+						if ((*samples)[i].midi_note.has_value() && midi_port)
+							send_midi_note(midi_port, (*samples)[i].midi_note.value(), 127);
 					}
 				}
 			}
@@ -110,6 +110,5 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 			usleep(to_sleep);
 	}
 
-	if (midi_port.first)
-		snd_seq_close(midi_port.first);
+	close_midi_out_port(midi_port);
 }

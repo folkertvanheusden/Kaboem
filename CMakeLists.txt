@@ -63,6 +63,11 @@ target_link_libraries(kaboem ${FONTCONFIG_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${FONTCONFIG_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${FONTCONFIG_CFLAGS_OTHER})
 
+pkg_check_modules(RTMIDI REQUIRED rtmidi)
+target_link_libraries(kaboem ${RTMIDI_LIBRARIES})
+target_include_directories(kaboem PUBLIC ${RTMIDI_INCLUDE_DIRS})
+target_compile_options(kaboem PUBLIC ${RTMIDI_CFLAGS_OTHER})
+
 pkg_search_module(FFTW REQUIRED fftw3 IMPORTED_TARGET)
 include_directories(PkgConfig::FFTW)
 link_libraries(PkgConfig::FFTW)

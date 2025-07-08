@@ -5,8 +5,8 @@ Summary:    An audio sequencer
 License:    MIT
 Source0:    %{name}-%{version}.tgz
 URL:        https://github.com/folkertvanheusden/kaboem
-BuildRequires: g++ cmake SDL3-devel SDL3_ttf-devel libsndfile-devel alsa-lib-devel json-devel fftw-devel
-Requires:   SDL3 SDL3_ttf libsndfile alsa-lib fftw
+BuildRequires: g++ cmake SDL3-devel SDL3_ttf-devel libsndfile-devel rtmidi-devel json-devel fftw-devel
+Requires:   SDL3 SDL3_ttf libsndfile rtmidi fftw
 
 %description
 Kaboem is a simple (MIDI enabled) audio sequencer.

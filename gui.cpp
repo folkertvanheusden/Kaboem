@@ -854,6 +854,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (init_midi() == false)
+		return 1;
+
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 
 	sound_parameters sound_pars(sample_rate, 2);
@@ -1052,16 +1055,12 @@ int main(int argc, char *argv[])
 		}
 
 		// check for midi events
-		if (midi_in.first && snd_seq_event_input_pending(midi_in.first, 1) != 0) {
-			snd_seq_event_t *ev { nullptr };
-			snd_seq_event_input(midi_in.first, &ev);
-			if (ev->type == SND_SEQ_EVENT_NOTEON) {
-				uint8_t ch = ev->data.note.channel;
-				if (selected_midi_channel.has_value() && ch == selected_midi_channel) {
-					std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
-					pat_clickables[pattern_group].pattern[pat_index].selected = true;
-					redraw = true;
-				}
+		if (midi_in && selected_midi_channel.has_value()) {
+			auto msg = receive_midi_note(midi_in);
+			if (msg.size() == 3 && msg.at(0) == 0x90 + selected_midi_channel.value()) {
+				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
+				pat_clickables[pattern_group].pattern[pat_index].selected = true;
+				redraw = true;
 			}
 		}
 
@@ -1749,6 +1748,9 @@ int main(int argc, char *argv[])
 
 	SDL_Quit();
 	deinit_fonts();
+
+	close_midi_in_port(midi_in);
+	deinit_midi();
 
 	return 0;
 }
