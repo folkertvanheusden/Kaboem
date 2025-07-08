@@ -48,11 +48,6 @@ target_link_libraries(kaboem ${SNDFILE_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${SNDFILE_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${SNDFILE_CFLAGS_OTHER})
 
-pkg_check_modules(MIDI REQUIRED alsa)
-target_link_libraries(kaboem ${MIDI_LIBRARIES})
-target_include_directories(kaboem PUBLIC ${MIDI_INCLUDE_DIRS})
-target_compile_options(kaboem PUBLIC ${MIDI_CFLAGS_OTHER})
-
 pkg_check_modules(NLOHMANN_JSON REQUIRED nlohmann_json)
 target_link_libraries(kaboem ${NLOHMANN_JSON_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${NLOHMANN_JSON_INCLUDE_DIRS})
