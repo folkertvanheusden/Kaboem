@@ -19,7 +19,7 @@ sound_sample::sound_sample(const int sample_rate, const std::string & file_name)
 {
 }
 
-sound_sample::sound_sample(const int sample_rate, const std::string & file_name, const std::vector<std::vector<double> > & sample_data, const unsigned sample_sample_rate) :
+sound_sample::sound_sample(const int sample_rate, const std::string & file_name, const std::vector<std::vector<float> > & sample_data, const unsigned sample_sample_rate) :
 	sound(sample_rate, sample_rate / 2),
 	file_name(file_name),
 	samples(sample_data),
@@ -59,7 +59,7 @@ std::string sound_sample::get_name() const
 	return name;
 }
 
-std::optional<std::pair<double, std::map<int, double> > > sound_sample::get_sample(const double t, const size_t channel_nr) const
+std::optional<std::pair<float, std::map<int, float> > > sound_sample::get_sample(const double t, const size_t channel_nr) const
 {
 	double use_t = t * delta_t * pitchbend;
 	if (use_t < 0 || use_t >= samples.size())

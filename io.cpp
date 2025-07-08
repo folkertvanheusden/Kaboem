@@ -67,7 +67,7 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 			sample["pitch"]       = sample_file.s->get_pitch_bend();
 			sample["mute"]        = sample_file.s->get_mute();
 
-			const std::vector<std::vector<double> > & sample_data = sample_file.s->get_raw();
+			const std::vector<std::vector<float> > & sample_data = sample_file.s->get_raw();
 			sample["data"]        = sample_data;
 			sample["sample-rate"] = sample_file.s->get_sample_rate();
 		}
@@ -207,7 +207,7 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 
 			if (s.name.empty() == false) {
 				printf("Loading \"%s\"...\n", s.name.c_str());
-				const std::vector<std::vector<double> > sample_data = j["samples"][group]["data"];
+				const std::vector<std::vector<float> > sample_data = j["samples"][group]["data"];
 				s.s = new sound_sample(sample_rate, s.name, sample_data, j["samples"][group]["sample-rate"]);
 				if (s.s->begin() == false) {
 					delete s.s;

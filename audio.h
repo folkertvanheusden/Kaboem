@@ -9,6 +9,7 @@ class sdl3_data_audio
 public:
 	SDL_AudioSpec    spec   {         };
 	SDL_AudioStream *stream { nullptr };
+	int              frames { 1024    };
 };
 
 class sound_parameters;

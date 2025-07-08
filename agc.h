@@ -1,12 +1,12 @@
 class agc {
 private:
-	const double threshold_db         { 0. };
-	const double ratio                { 0. };
-	const double attack_coefficient   { 0. };
-	const double release_coefficient  { 0. };
-	      double envelope             { 0. };
+	const float threshold_db         { 0. };
+	const float ratio                { 0. };
+	const float attack_coefficient   { 0. };
+	const float release_coefficient  { 0. };
+	      float envelope             { 0. };
 
 public:
-	agc(const double threshold_db, const double ratio, const double attack_ms, const double release_ms, const int sample_rate);
-	double calculate_gain(const double input);
+	agc(const float threshold_db, const float ratio, const float attack_ms, const float release_ms, const int sample_rate);
+	float calculate_gain(const float input);
 };

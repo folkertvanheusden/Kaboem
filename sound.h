@@ -49,7 +49,7 @@ protected:
 	bool   muted       { false };
 
 	// input channel, { output channel, volume }
-	std::vector<std::map<int, double> > input_output_matrix;
+	std::vector<std::map<int, float> > input_output_matrix;
 
 	std::vector<sound_control> controls;
 
@@ -72,13 +72,13 @@ public:
 		printf("%f\n", controls.at(nr).current_setting);
 	}
 
-	void add_mapping(const int from, const int to, const double volume)
+	void add_mapping(const int from, const int to, const float volume)
 	{
 		// note that 'from' is ignored here as this object has only 1 generator
 		input_output_matrix[from].insert({ to, volume });
 	}
 
-	double get_mapping_target_volume(const int to)
+	float get_mapping_target_volume(const int to)
 	{
 		for(auto & mapping: input_output_matrix) {
 			auto it = mapping.find(to);
@@ -128,10 +128,10 @@ public:
 		}
 	}
 
-	double get_avg_volume()
+	float get_avg_volume()
 	{
 		double v = 0;
-		int n = 0;
+		int    n = 0;
 
 		for(size_t from=0; from<input_output_matrix.size(); from++) {
 			for(auto & to: input_output_matrix.at(from)) {
@@ -143,7 +143,7 @@ public:
 		return v / n;
 	}
 
-	double get_volume(const int from, const int to)
+	float get_volume(const int from, const int to)
 	{
 		return input_output_matrix[from][to];
 	}
@@ -151,7 +151,7 @@ public:
 	virtual size_t get_n_channels() const = 0;
 
 	// sample, output-channels
-	virtual std::optional<std::pair<double, std::map<int, double> > > get_sample(const double t, const size_t channel_nr) const = 0;
+	virtual std::optional<std::pair<float, std::map<int, float> > > get_sample(const double t, const size_t channel_nr) const = 0;
 
 	virtual std::string get_name()           const = 0;
 	virtual double      get_base_frequency() const = 0;
@@ -171,16 +171,16 @@ public:
 class sound_sample : public sound
 {
 private:
-	std::string                       file_name;
-	std::vector<std::vector<double> > samples;
-	unsigned                          sample_sample_rate { 0  };
-	double                            base_frequency     { 0. };
-	int                               base_midi_note     { 0  };
-	std::string                       name;
+	std::string                      file_name;
+	std::vector<std::vector<float> > samples;
+	unsigned                         sample_sample_rate { 0  };
+	double                           base_frequency     { 0. };
+	int                              base_midi_note     { 0  };
+	std::string                      name;
 
 public:
 	sound_sample(const int sample_rate, const std::string & file_name);
-	sound_sample(const int sample_rate, const std::string & file_name, const std::vector<std::vector<double> > & sample_data, const unsigned sample_sample_rate);
+	sound_sample(const int sample_rate, const std::string & file_name, const std::vector<std::vector<float> > & sample_data, const unsigned sample_sample_rate);
 	virtual ~sound_sample() { }
 
 	bool begin();
@@ -190,10 +190,10 @@ public:
 		return samples.at(0).size();
 	}
 
-	const std::vector<std::vector<double> > & get_raw() const { return samples; }
+	const std::vector<std::vector<float> > & get_raw() const { return samples; }
 	unsigned get_sample_rate() const { return sample_sample_rate; }
 
-	std::optional<std::pair<double, std::map<int, double> > > get_sample(const double t, const size_t channel_nr) const override;
+	std::optional<std::pair<float, std::map<int, float> > > get_sample(const double t, const size_t channel_nr) const override;
 
 	std::string get_name() const override;
 	double      get_base_frequency() const override { return base_frequency; }

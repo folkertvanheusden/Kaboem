@@ -14,18 +14,20 @@ uint64_t sub_ts = 0;
 
 void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_amount, int total_amount)
 {
+	if (additional_amount == 0)
+		return;
 	uint64_t          t_start  = get_us();
 
 	sound_parameters *sp = reinterpret_cast<sound_parameters *>(userdata);
 
 	static uint64_t pt_start = 0;
 	if (pt_start)
-		printf("%lu on_process_audio @ %lu\n", t_start - sub_ts, t_start - pt_start);
+		printf("%lu on_process_audio @ %lu - %d / %d\n", t_start - sub_ts, t_start - pt_start, additional_amount, total_amount);
 	pt_start = t_start;
 	counter++;
 
 	int    stride       = sizeof(float) * sp->n_channels;
-	int    period_size  = std::min(additional_amount / stride, 128);
+	int    period_size  = std::min(additional_amount, sp->pw.frames);
 	double latency      = period_size * 1000000.0 / sp->sample_rate;
 
 	float *temp_buffer   = new float[sp->n_channels * period_size]();
@@ -91,7 +93,7 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 					temp = sp->filter_hp->apply(temp);
 
 				float sign = temp < 0 ? -1 : 1;
-				current_sample_base_out[c] = pow(fabs(temp), sp->sound_saturation) * sign;
+				current_sample_base_out[c] = powf(fabsf(temp), sp->sound_saturation) * sign;
 			}
 		}
 		delete [] c_temp;
@@ -106,7 +108,7 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 				float temp = current_sample_base_in[c] * sp->global_volume;
 
 				if (temp < -1.)
-					temp = -1., too_loud = std::max(too_loud, fabs(temp));
+					temp = -1., too_loud = std::max(too_loud, fabsf(temp));
 				else if (temp > 1.)
 					temp = 1.,  too_loud = std::max(too_loud, temp);
 
@@ -116,7 +118,7 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 					temp = sp->filter_hp->apply(temp);
 
 				float sign = temp < 0 ? -1 : 1;
-				current_sample_base_out[c] = pow(fabs(temp), sp->sound_saturation) * sign;
+				current_sample_base_out[c] = powf(fabsf(temp), sp->sound_saturation) * sign;
 			}
 
 			sp->too_loud_total += too_loud;
@@ -126,7 +128,8 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 
 	delete [] temp_buffer;
 
-	SDL_PutAudioStreamData(astream, dest, period_size * stride);
+	if (SDL_PutAudioStreamData(astream, dest, period_size * stride) == false)
+		SDL_Log("Couldn't play audio stream: %s", SDL_GetError());
 
 	if (sp->record_handle) 
 		sf_writef_float(sp->record_handle, dest, period_size);
@@ -175,8 +178,14 @@ bool configure_sdl3_audio(sound_parameters *const target)
 		return false;
 	}
 
+	SDL_AudioDeviceID device_id     = SDL_GetAudioStreamDevice(target->pw.stream);
+	SDL_AudioSpec     ignored        { };
+	if (SDL_GetAudioDeviceFormat(device_id, &ignored, &target->pw.frames))
+		printf("sample_frames: %d\n", target->pw.frames);
+
 	// start stream
-	SDL_ResumeAudioStreamDevice(target->pw.stream);
+	if (SDL_ResumeAudioStreamDevice(target->pw.stream) == false)
+		SDL_Log("Couldn't start audio stream: %s", SDL_GetError());
 
 	return true;
 }
