@@ -2,6 +2,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
+#include <unistd.h>
 
 #include "audio.h"
 #include "frequencies.h"
