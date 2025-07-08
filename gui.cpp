@@ -885,10 +885,14 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "1024");
-	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS,         "1"   );
-	SDL_SetHint(SDL_HINT_RENDER_VSYNC,               "1"   );
-	SDL_SetHint(SDL_HINT_VIDEO_DOUBLE_BUFFER,        "1"   );
+	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "1024"      );
+	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS,         "1"         );
+	SDL_SetHint(SDL_HINT_RENDER_VSYNC,               "1"         );
+	SDL_SetHint(SDL_HINT_VIDEO_DOUBLE_BUFFER,        "1"         );
+	SDL_SetHint(SDL_HINT_APP_ID,                     PROG_NAME   );
+	SDL_SetHint(SDL_HINT_APP_NAME,                   PROG_NAME   );
+	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_STREAM_NAME,   PROG_NAME   );
+	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_APP_ICON_NAME, "audio-card");
 	SDL_Window *win = SDL_CreateWindow(PROG_NAME,
                           display_mode->w, display_mode->h,
                           (full_screen ? SDL_WINDOW_FULLSCREEN: 0));
