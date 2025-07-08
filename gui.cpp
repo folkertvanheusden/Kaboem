@@ -6,6 +6,7 @@
 #include <ctime>
 #include <optional>
 #include <sndfile.h>
+#include <unistd.h>
 #include <vector>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_render.h>
@@ -866,7 +867,8 @@ int main(int argc, char *argv[])
 
 	srand(time(nullptr));
 
-	const std::string path      = get_current_dir_name();
+	char              p_buf[4096] { };
+	const std::string path      = getcwd(p_buf, sizeof p_buf);
 	std::string       work_path = path;
 	auto              midi_in   = allocate_midi_input_port();
 
