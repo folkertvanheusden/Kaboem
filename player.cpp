@@ -4,10 +4,10 @@
 #include <cstdio>
 #include <unistd.h>
 
-#include "audio.h"
 #include "frequencies.h"
 #include "gui.h"
 #include "midi.h"
+#include "sdl3-audio.h"
 #include "time.h"
 
 

@@ -13,7 +13,6 @@ set(CMAKE_BUILD_TYPE RelWithDebInfo)
 add_executable(
   kaboem
   agc.cpp
-  audio.cpp
   filter.cpp
   font.cpp
   frequencies.cpp
@@ -22,6 +21,7 @@ add_executable(
   midi.cpp
   player.cpp
   sample.cpp
+  sdl3-audio.cpp
   sound.cpp
   time.cpp
 )

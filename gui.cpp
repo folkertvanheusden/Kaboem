@@ -13,7 +13,6 @@
 #include <SDL3/SDL_render.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
-#include "audio.h"
 #include "font.h"
 #include "frequencies.h"
 #include "gui.h"
@@ -21,6 +20,7 @@
 #include "midi.h"
 #include "player.h"
 #include "sample.h"
+#include "sdl3-audio.h"
 #include "sound.h"
 #include "time.h"
 

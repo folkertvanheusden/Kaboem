@@ -1,9 +1,9 @@
 #include <cfloat>
 #include <cmath>
 
-#include "audio.h"
 #include "frequencies.h"
 #include "sample.h"
+#include "sdl3-audio.h"
 #include "sound.h"
 #include "time.h"
 

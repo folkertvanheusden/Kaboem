@@ -3,8 +3,8 @@
 #include <mutex>
 #include <SDL3/SDL.h>
 
-#include "audio.h"
 #include "gui.h"
+#include "sdl3-audio.h"
 #include "sound.h"
 #include "time.h"
 

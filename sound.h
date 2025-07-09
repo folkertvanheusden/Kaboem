@@ -16,7 +16,7 @@
 
 #include "agc.h"
 #include "filter.h"
-#include "audio.h"
+#include "sdl3-audio.h"
 
 
 double f_to_delta_t(const double frequency, const int sample_rate);

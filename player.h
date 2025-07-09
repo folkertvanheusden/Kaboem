@@ -1,7 +1,6 @@
 #include <atomic>
 #include <cstdint>
 
-#include "audio.h"
 #include "gui.h"
 
 
