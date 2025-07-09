@@ -99,8 +99,16 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 							sound_pars->sounds.push_back(qs);
 						}
 
-						if ((*samples)[i].midi_note.has_value() && midi_port)
-							send_midi_note(midi_port, (*samples)[i].midi_note.value(), 127);
+						if ((*samples)[i].midi_note.has_value()) {
+							if (sound_pars->smf_track) {
+								uint8_t msg[3] = { 0x99, (*samples)[i].midi_note.value(), 127 };
+								smf_event_t *event = smf_event_new_from_pointer(msg, sizeof msg);
+								smf_track_add_event_seconds(sound_pars->smf_track, event, (get_us() - sound_pars->smf_start) / 1000000.);
+							}
+
+							if (midi_port)
+								send_midi_note(midi_port, (*samples)[i].midi_note.value(), 127);
+						}
 					}
 				}
 			}

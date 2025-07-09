@@ -5,6 +5,7 @@
 #include <csignal>
 #include <ctime>
 #include <optional>
+#include <smf.h>
 #include <sndfile.h>
 #include <unistd.h>
 #include <vector>
@@ -46,6 +47,41 @@ void fs_callback(void *userdata, const char * const *filelist, int filter)
 	else
 		fs_data->file.clear();
 	fs_data->finished = true;
+}
+
+bool start_wav_recording(sound_parameters *const sound_pars, const std::string & file)
+{
+	SF_INFO si { };
+	si.samplerate = sample_rate;
+	si.channels   = 2;
+	si.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_24;
+	auto handle   = sf_open(file.c_str(), SFM_WRITE, &si);
+
+	std::unique_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
+	sound_pars->record_handle = handle;
+
+	return sound_pars->record_handle != nullptr;
+}
+
+bool start_mid_recording(sound_parameters *const sound_pars, const std::string & file)
+{
+	std::unique_lock<std::shared_mutex> lck(sound_pars->smf_lock);
+	sound_pars->smf           = smf_new();
+	sound_pars->smf_track     = smf_track_new();
+	sound_pars->smf_start     = get_us();
+	sound_pars->smf_file_name = file;
+	smf_add_track(sound_pars->smf, sound_pars->smf_track);
+	return true;
+}
+
+bool close_mid_file(sound_parameters *const sound_pars)
+{
+	std::unique_lock<std::shared_mutex> lck(sound_pars->smf_lock);
+	auto rc = smf_save(sound_pars->smf, sound_pars->smf_file_name.c_str());
+	smf_delete(sound_pars->smf);
+	sound_pars->smf       = nullptr;
+	sound_pars->smf_track = nullptr;
+	return rc == 0;
 }
 
 std::optional<size_t> find_clickable(const std::vector<clickable> & clickables, const int x, const int y)
@@ -976,7 +1012,7 @@ int main(int argc, char *argv[])
 
 	SDL_DialogFileFilter sf_filters[]        { { "Kaboem files", PROG_EXT  } };
 	SDL_DialogFileFilter sf_filters_sample[] { { "Samples",      "wav;mp3" } };
-	SDL_DialogFileFilter sf_filters_record[] { { "Record",       "wav"     } };
+	SDL_DialogFileFilter sf_filters_record[] { { "Record",       "wav;mid" } };
 
 	const std::vector<file_parameter> file_parameters {
 		{ "bpm",          file_parameter::T_INT,    &bpm,              nullptr,                nullptr, nullptr,      nullptr, nullptr      },
@@ -1167,16 +1203,18 @@ int main(int argc, char *argv[])
 			}
 			else if (fs_action == fs_record) {
 				if (fs_data.finished) {
-					std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-					SF_INFO si { };
-					si.samplerate = sample_rate;
-					si.channels   = 2;
-					si.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_24;
-					sound_pars.record_handle = sf_open(fs_data.file.c_str(), SFM_WRITE, &si);
-					if (sound_pars.record_handle)
+					size_t name_len = fs_data.file.size();
+					std::string ext = name_len >= 4 ? fs_data.file.substr(name_len - 4) : fs_data.file;
+
+					bool succeeded = false;
+					if (ext == ".wav")
+						succeeded = start_wav_recording(&sound_pars, fs_data.file);
+					else if (ext == ".mid")
+						succeeded = start_mid_recording(&sound_pars, fs_data.file);
+
+					if (succeeded)
 						settings_menu_buttons[record_idx].selected = true;
 					else {
-						lck.unlock();
 						menu_status = "cannot create " + fs_data.file;
 						do_error_message(font, screen, display_mode, menu_status);
 					}
@@ -1469,10 +1507,15 @@ int main(int argc, char *argv[])
 						}
 						else if (idx == record_idx) {
 							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-							if (sound_pars.record_handle) {
-								sf_close(sound_pars.record_handle);
-								sound_pars.record_handle                   = nullptr;
+							if (sound_pars.record_handle || sound_pars.smf) {
 								menu_status                                = "recording stopped";
+								if (sound_pars.record_handle)
+									sf_close(sound_pars.record_handle);
+								if (sound_pars.smf) {
+									if (close_mid_file(&sound_pars) == false)
+										menu_status = "MIDI file writing failed";
+								}
+								sound_pars.record_handle                   = nullptr;
 								settings_menu_buttons[record_idx].selected = false;
 							}
 							else {
@@ -1732,6 +1775,8 @@ int main(int argc, char *argv[])
 		std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 		if (sound_pars.record_handle)
 			sf_close(sound_pars.record_handle);
+		if (sound_pars.smf)
+			close_mid_file(&sound_pars);
 	}
 
 	{

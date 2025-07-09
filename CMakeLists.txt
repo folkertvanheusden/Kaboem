@@ -48,6 +48,11 @@ target_link_libraries(kaboem ${SNDFILE_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${SNDFILE_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${SNDFILE_CFLAGS_OTHER})
 
+pkg_check_modules(SMF REQUIRED smf)
+target_link_libraries(kaboem ${SMF_LIBRARIES})
+target_include_directories(kaboem PUBLIC ${SMF_INCLUDE_DIRS})
+target_compile_options(kaboem PUBLIC ${SMF_CFLAGS_OTHER})
+
 pkg_check_modules(NLOHMANN_JSON REQUIRED nlohmann_json)
 target_link_libraries(kaboem ${NLOHMANN_JSON_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${NLOHMANN_JSON_INCLUDE_DIRS})

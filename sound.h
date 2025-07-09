@@ -9,6 +9,7 @@
 #include <optional>
 #include <set>
 #include <shared_mutex>
+#include <smf.h>
 #include <sndfile.h>
 #include <string>
 #include <vector>
@@ -236,6 +237,12 @@ public:
 	filter_butterworth  *filter_hp        { nullptr };
 	double               global_volume    { 1.      };
 	double               sound_saturation { 1.      };
+
+	std::shared_mutex    smf_lock;
+	smf_t               *smf              { nullptr };
+	smf_track_t         *smf_track        { nullptr };
+	uint64_t             smf_start        { 0       };
+	std::string          smf_file_name;
 
 	std::vector<float>   scope;
 	int                  scope_t          { 0       };
