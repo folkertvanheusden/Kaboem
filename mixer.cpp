@@ -152,7 +152,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 
 		uint64_t end     = get_us();
 		uint64_t took    = end - start;
-		int64_t  sleep_n = (sr_sleep - took) * 90 / 100;
+		int64_t  sleep_n = sr_sleep - took;
 		// printf("%zu %zu %zd\n", sr_sleep, took, sleep_n);
 		if (sleep_n > 0)
 			usleep(sleep_n);
