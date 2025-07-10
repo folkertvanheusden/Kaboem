@@ -4,6 +4,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include <sndfile.h>
+#include <unistd.h>
 #include <SDL3/SDL.h>
 
 #include "sound.h"
