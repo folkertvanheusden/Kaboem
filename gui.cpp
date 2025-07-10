@@ -4,6 +4,7 @@
 #include <cmath>
 #include <csignal>
 #include <ctime>
+#include <mutex>
 #include <optional>
 #include <smf.h>
 #include <sndfile.h>
@@ -892,9 +893,6 @@ int main(int argc, char *argv[])
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 
 	sound_parameters sound_pars(sample_rate, 2);
-	if (configure_sdl3_audio(&sound_pars) == false)
-		return 1;
-	sound_pars.global_volume = 1.;
 
 	srand(time(nullptr));
 
@@ -1066,6 +1064,10 @@ int main(int argc, char *argv[])
 	std::thread mixer_thread([&sound_pars] {
 			mixer(&do_exit, &sound_pars);
 		});
+
+	if (configure_sdl3_audio(&sound_pars) == false)
+		return 1;
+	sound_pars.global_volume = 1.;
 
 	while(!do_exit) {
 		// determine pattern index

@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <condition_variable>
 #include <cstring>
 #include <map>
 #include <math.h>
@@ -224,16 +223,19 @@ public:
 
 	sdl3_data_audio      pw;
 
-	std::shared_mutex    stream_lock;
+	std::shared_mutex               stream_lock;
 	std::queue<std::vector<float> > stream;
 
 	std::shared_mutex    sounds_lock;  ///
 	struct queued_sound {
 		const sound *s;
-		int t;
-		double pitch;
-		double volume_left;
-		double volume_right;
+		int          t;
+		double       pitch;
+		double       volume_left;
+		double       volume_right;
+		uint64_t     play_at;
+		bool         playing;
+		int          nr;
 	};
 	std::vector<queued_sound> sounds;
 	SNDFILE             *record_handle    { nullptr };

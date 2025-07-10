@@ -4,6 +4,7 @@
 #include <SDL3/SDL.h>
 
 #include "sound.h"
+#include "time.h"
 
 
 void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
@@ -12,28 +13,45 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 
 	printf("Mixer thread started, period size: %d\n", period_size);
 
+	uint64_t t_offset = 0;
+	uint64_t sr_sleep = 1000000 * period_size / sound_pars->sample_rate;
+
 	while(*do_exit == false) {
-		{
-			std::unique_lock<std::shared_mutex> lck(sound_pars->stream_lock);
-			if (sound_pars->stream.size() >= 2) {
-				lck.unlock();
-//				printf("overflow\n");
-				SDL_Delay(1);
-				continue;
-			}
-		}
+		uint64_t start = get_us();
+		std::shared_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
 
 		float    *temp_buffer   = new float[sound_pars->n_channels * period_size]();
 		float    *dest          = new float[sound_pars->n_channels * period_size]();
 
 		for(int t=0; t<period_size; t++) {
-			float *current_sample_base = &temp_buffer[t * sound_pars->n_channels];
+			uint64_t  now                 = get_us();
+			float    *current_sample_base = &temp_buffer[t * sound_pars->n_channels];
 
 			for(size_t s_idx=0; s_idx<sound_pars->sounds.size();) {
 				auto & item = sound_pars->sounds[s_idx];
 				if (item.s == nullptr) {
 					s_idx++;
 					continue;
+				}
+
+				if (t_offset == 0) {
+					t_offset      = now - item.play_at;
+				}
+				else {
+					uint64_t when = item.play_at + t_offset;
+					if (when > now) {
+//						printf("skip %zu, %zu\n", s_idx, when - now);
+						s_idx++;
+						continue;
+					}
+//					printf("play %zu, %zu\n", s_idx, now - when);
+
+					if (item.playing == false) {
+						auto td = now - when;
+						if (td > 170000 || td < 165000)
+							printf("%lu GET: %zu from %d\n", get_us(), td, item.nr);
+					}
+					item.playing = true;
 				}
 
 				bool   fin               = false;
@@ -120,17 +138,24 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 
 		delete [] temp_buffer;
 
-		{
-			std::shared_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
-			if (sound_pars->record_handle)
-				sf_writef_float(sound_pars->record_handle, dest, period_size);
-		}
+		if (sound_pars->record_handle)
+			sf_writef_float(sound_pars->record_handle, dest, period_size);
 
 		std::vector<float> samples(dest, dest + sound_pars->n_channels * period_size * sizeof(float));
-		std::unique_lock<std::shared_mutex> lck(sound_pars->stream_lock);
+		lck.unlock();
+
+		// queue for sdl3-audio
+		std::shared_lock<std::shared_mutex> s_lck(sound_pars->stream_lock);
 		sound_pars->stream.push(samples);
 
 		delete [] dest;
+
+		uint64_t end     = get_us();
+		uint64_t took    = end - start;
+		int64_t  sleep_n = (sr_sleep - took) * 90 / 100;
+		// printf("%zu %zu %zd\n", sr_sleep, took, sleep_n);
+		if (sleep_n > 0)
+			usleep(sleep_n);
 	}
 
 	printf("Mixer thread terminating\n");

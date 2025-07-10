@@ -15,19 +15,16 @@ extern std::atomic_bool do_exit;
 void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_amount, int total_amount)
 {
 	uint64_t t_start = get_us();
+
 	if (additional_amount == 0)
 		return;
 
 	sound_parameters *sp = reinterpret_cast<sound_parameters *>(userdata);
-
-	int    period_size  = std::min(additional_amount, sp->pw.frames);
-	double latency      = period_size * 1000000.0 / sp->sample_rate;
+	int    period_size   = std::min(additional_amount, sp->pw.frames);
+	double latency       = period_size * 1000000.0 / sp->sample_rate;
 
 	std::vector<float> data;
 
-	// TODO:
-	// - condition variable
-	// - check for do_exit
 	while(!do_exit) {
 		bool empty = true;
 

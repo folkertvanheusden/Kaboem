@@ -41,9 +41,10 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 
 		{
 			std::lock_guard <std::shared_mutex> lck    (sound_pars->sounds_lock);
-			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
+			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock   );
 
-			auto now = get_us() - *t_start;
+			auto abs_now = get_us();
+			auto now     = abs_now - *t_start;
 
 			size_t max_steps = 0;
 			if (!*polyrythmic) {
@@ -88,7 +89,19 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 							qs.volume_left  = (*pat_clickables)[i].volume_left [pat_index];
 							qs.volume_right = (*pat_clickables)[i].volume_right[pat_index];
 
+							qs.play_at      = abs_now + 1100;
+							static int nr = 0;
+							qs.nr = nr++;
+							static uint64_t p_now = 0;
+							if (p_now) {
+								auto td = now - p_now;
+								if (labs(169518 - td) > 16951)
+									printf("PUT: %zu\n", td);
+							}
+							p_now = now;
+
 							sound_pars->sounds.push_back(qs);
+							printf("%lu put %d\n", get_us(), qs.nr);
 						}
 
 						if ((*samples)[i].midi_note.has_value()) {
@@ -109,6 +122,8 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		int64_t to_sleep = 1000 - (get_us() - start);
 		if (to_sleep > 0)
 			usleep(to_sleep);
+		else
+			printf("slow system\n");
 	}
 
 	close_midi_out_port(midi_port);
