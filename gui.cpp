@@ -827,6 +827,10 @@ void do_error_message(TTF_Font *const font, SDL_Renderer *const screen, const SD
 	draw_message(font, screen, display_mode, error, 255, 40, 40);
 
 	wait_for_any_event();
+
+	SDL_SetRenderDrawColor(screen, 40, 60, 40, 255);
+	SDL_RenderClear(screen);
+	SDL_RenderPresent(screen);
 }
 
 bool are_you_sure(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode, const int font_height, const std::string & question)
@@ -872,8 +876,12 @@ bool are_you_sure(TTF_Font *const font, SDL_Renderer *const screen, const SDL_Di
 		if (SDL_PollEvent(&event)) {
 			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_KEY_DOWN) {
 				auto button_clicked = find_clickable(clickables, event.button.x, event.button.y);
-				if (button_clicked.has_value())
+				if (button_clicked.has_value()) {
+					SDL_SetRenderDrawColor(screen, 40, 60, 40, 255);
+					SDL_RenderClear(screen);
+					SDL_RenderPresent(screen);
 					return button_clicked.value() == 0;
+				}
 			}
 		}
 
