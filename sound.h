@@ -1,3 +1,4 @@
+#include "config.h"
 #pragma once
 
 #include <algorithm>
@@ -9,7 +10,9 @@
 #include <queue>
 #include <set>
 #include <shared_mutex>
+#if HAVE_SMF == 1
 #include <smf.h>
+#endif
 #include <sndfile.h>
 #include <string>
 #include <vector>
@@ -254,9 +257,11 @@ public:
 	int                  busyness         { 0       };
 	///
 
+#if HAVE_SMF == 1
 	std::shared_mutex    smf_lock;
 	smf_t               *smf              { nullptr };
 	smf_track_t         *smf_track        { nullptr };
 	uint64_t             smf_start        { 0       };
 	std::string          smf_file_name;
+#endif
 };

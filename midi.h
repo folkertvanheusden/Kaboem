@@ -1,4 +1,10 @@
+#include "config.h"
+#if HAVE_RTMIDI == 1
 #include <rtmidi/RtMidi.h>
+#else
+#define RtMidiOut void
+#define RtMidiIn  void
+#endif
 
 
 bool init_midi  ();
