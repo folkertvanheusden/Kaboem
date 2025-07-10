@@ -2,11 +2,12 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
+#include <unistd.h>
 
 #include "frequencies.h"
 #include "gui.h"
 #include "midi.h"
-#include "pipewire-audio.h"
+#include "sdl3-audio.h"
 #include "time.h"
 
 
@@ -39,10 +40,12 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		}
 
 		{
-			auto now = get_us() - *t_start;
-
 			std::lock_guard <std::shared_mutex> lck    (sound_pars->sounds_lock);
-			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
+			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock   );
+
+			auto abs_now = get_us();
+			auto now     = abs_now - *t_start;
+
 			size_t max_steps = 0;
 			if (!*polyrythmic) {
 				for(size_t i=0; i<pattern_groups; i++) {
@@ -86,11 +89,31 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 							qs.volume_left  = (*pat_clickables)[i].volume_left [pat_index];
 							qs.volume_right = (*pat_clickables)[i].volume_right[pat_index];
 
+							qs.play_at      = abs_now + 1100;
+							static int nr = 0;
+							qs.nr = nr++;
+							static uint64_t p_now = 0;
+							if (p_now) {
+								auto td = now - p_now;
+								if (labs(169518 - td) > 16951)
+									printf("PUT: %zu\n", td);
+							}
+							p_now = now;
+
 							sound_pars->sounds.push_back(qs);
+							printf("%lu put %d\n", get_us(), qs.nr);
 						}
 
-						if ((*samples)[i].midi_note.has_value() && midi_port.first)
-							send_note(midi_port.first, midi_port.second, (*samples)[i].midi_note.value(), 127);
+						if ((*samples)[i].midi_note.has_value()) {
+							if (sound_pars->smf_track) {
+								uint8_t msg[3] = { 0x99, uint8_t((*samples)[i].midi_note.value()), 127 };
+								smf_event_t *event = smf_event_new_from_pointer(msg, sizeof msg);
+								smf_track_add_event_seconds(sound_pars->smf_track, event, (get_us() - sound_pars->smf_start) / 1000000.);
+							}
+
+							if (midi_port)
+								send_midi_note(midi_port, (*samples)[i].midi_note.value(), 127);
+						}
 					}
 				}
 			}
@@ -99,8 +122,9 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		int64_t to_sleep = 1000 - (get_us() - start);
 		if (to_sleep > 0)
 			usleep(to_sleep);
+		else
+			printf("slow system\n");
 	}
 
-	if (midi_port.first)
-		snd_seq_close(midi_port.first);
+	close_midi_out_port(midi_port);
 }

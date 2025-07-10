@@ -19,10 +19,10 @@ add_executable(
   gui.cpp
   io.cpp
   midi.cpp
-  pipewire.cpp
-  pipewire-audio.cpp
+  mixer.cpp
   player.cpp
   sample.cpp
+  sdl3-audio.cpp
   sound.cpp
   time.cpp
 )
@@ -49,16 +49,10 @@ target_link_libraries(kaboem ${SNDFILE_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${SNDFILE_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${SNDFILE_CFLAGS_OTHER})
 
-pkg_check_modules(MIDI REQUIRED alsa)
-target_link_libraries(kaboem ${MIDI_LIBRARIES})
-target_include_directories(kaboem PUBLIC ${MIDI_INCLUDE_DIRS})
-target_compile_options(kaboem PUBLIC ${MIDI_CFLAGS_OTHER})
-
-find_package(PipeWire)
-pkg_check_modules(PIPEWIRE libpipewire-0.3)
-target_link_libraries(kaboem ${PIPEWIRE_LIBRARIES})
-target_include_directories(kaboem PUBLIC ${PIPEWIRE_INCLUDE_DIRS})
-target_compile_options(kaboem PUBLIC ${PIPEWIRE_CFLAGS_OTHER})
+pkg_check_modules(SMF REQUIRED smf)
+target_link_libraries(kaboem ${SMF_LIBRARIES})
+target_include_directories(kaboem PUBLIC ${SMF_INCLUDE_DIRS})
+target_compile_options(kaboem PUBLIC ${SMF_CFLAGS_OTHER})
 
 pkg_check_modules(NLOHMANN_JSON REQUIRED nlohmann_json)
 target_link_libraries(kaboem ${NLOHMANN_JSON_LIBRARIES})
@@ -69,6 +63,11 @@ pkg_check_modules(FONTCONFIG REQUIRED fontconfig)
 target_link_libraries(kaboem ${FONTCONFIG_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${FONTCONFIG_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${FONTCONFIG_CFLAGS_OTHER})
+
+pkg_check_modules(RTMIDI REQUIRED rtmidi)
+target_link_libraries(kaboem ${RTMIDI_LIBRARIES})
+target_include_directories(kaboem PUBLIC ${RTMIDI_INCLUDE_DIRS})
+target_compile_options(kaboem PUBLIC ${RTMIDI_CFLAGS_OTHER})
 
 pkg_search_module(FFTW REQUIRED fftw3 IMPORTED_TARGET)
 include_directories(PkgConfig::FFTW)

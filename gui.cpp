@@ -4,8 +4,11 @@
 #include <cmath>
 #include <csignal>
 #include <ctime>
+#include <mutex>
 #include <optional>
+#include <smf.h>
 #include <sndfile.h>
+#include <unistd.h>
 #include <vector>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_render.h>
@@ -16,10 +19,10 @@
 #include "gui.h"
 #include "io.h"
 #include "midi.h"
-#include "pipewire.h"
-#include "pipewire-audio.h"
+#include "mixer.h"
 #include "player.h"
 #include "sample.h"
+#include "sdl3-audio.h"
 #include "sound.h"
 #include "time.h"
 
@@ -41,20 +44,46 @@ void fs_callback(void *userdata, const char * const *filelist, int filter)
 {
 	fileselector_data *fs_data = reinterpret_cast<fileselector_data *>(userdata);
 	std::lock_guard<std::mutex> lck(fs_data->lock);
-	if (filelist && filelist[0]) {
-		char *temp = realpath(filelist[0], nullptr);
-		if (temp) {
-			fs_data->file = temp;
-			free(temp);
-		}
-		else if (errno == ENOENT) {  // save
-			fs_data->file = filelist[0];
-		}
-	}
-	else {
+	if (filelist && filelist[0])
+		fs_data->file = filelist[0];
+	else
 		fs_data->file.clear();
-	}
 	fs_data->finished = true;
+}
+
+bool start_wav_recording(sound_parameters *const sound_pars, const std::string & file)
+{
+	SF_INFO si { };
+	si.samplerate = sample_rate;
+	si.channels   = 2;
+	si.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_24;
+	auto handle   = sf_open(file.c_str(), SFM_WRITE, &si);
+
+	std::unique_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
+	sound_pars->record_handle = handle;
+
+	return sound_pars->record_handle != nullptr;
+}
+
+bool start_mid_recording(sound_parameters *const sound_pars, const std::string & file)
+{
+	std::unique_lock<std::shared_mutex> lck(sound_pars->smf_lock);
+	sound_pars->smf           = smf_new();
+	sound_pars->smf_track     = smf_track_new();
+	sound_pars->smf_start     = get_us();
+	sound_pars->smf_file_name = file;
+	smf_add_track(sound_pars->smf, sound_pars->smf_track);
+	return true;
+}
+
+bool close_mid_file(sound_parameters *const sound_pars)
+{
+	std::unique_lock<std::shared_mutex> lck(sound_pars->smf_lock);
+	auto rc = smf_save(sound_pars->smf, sound_pars->smf_file_name.c_str());
+	smf_delete(sound_pars->smf);
+	sound_pars->smf       = nullptr;
+	sound_pars->smf_track = nullptr;
+	return rc == 0;
 }
 
 std::optional<size_t> find_clickable(const std::vector<clickable> & clickables, const int x, const int y)
@@ -506,8 +535,11 @@ void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, co
 	SDL_DestroySurface(surface);
 }
 
-void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::vector<double> & scope)
+void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::vector<float> & scope)
 {
+	if (scope.empty())
+		return;
+
 	SDL_SetRenderDrawColor(screen, 40, 255, 40, 255);
 
 	float px         = where.x;
@@ -843,9 +875,6 @@ bool are_you_sure(TTF_Font *const font, SDL_Renderer *const screen, const SDL_Di
 
 int main(int argc, char *argv[])
 {
-	int pw_argc = 1;
-	init_pipewire(&pw_argc, &argv);
-
 	bool full_screen = true;
 
 	int c = -1;
@@ -858,21 +887,23 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (init_midi() == false)
+		return 1;
+
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+
 	sound_parameters sound_pars(sample_rate, 2);
-	configure_pipewire_audio(&sound_pars);
-	sound_pars.global_volume = 1.;
 
 	srand(time(nullptr));
 
-	const std::string path      = get_current_dir_name();
+	char              p_buf[4096] { };
+	const std::string path      = getcwd(p_buf, sizeof p_buf);
 	std::string       work_path = path;
 	auto              midi_in   = allocate_midi_input_port();
 
 	signal(SIGTERM, sigh);
 
 	init_fonts();
-
-	SDL_Init(SDL_INIT_VIDEO);
 
 	SDL_DisplayID display_id = SDL_GetPrimaryDisplay();
 	if (display_id == 0) {
@@ -888,9 +919,14 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS,  "1");
-	SDL_SetHint(SDL_HINT_RENDER_VSYNC,        "1");
-	SDL_SetHint(SDL_HINT_VIDEO_DOUBLE_BUFFER, "1");
+	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "1024"      );
+	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS,         "1"         );
+	SDL_SetHint(SDL_HINT_RENDER_VSYNC,               "1"         );
+	SDL_SetHint(SDL_HINT_VIDEO_DOUBLE_BUFFER,        "1"         );
+	SDL_SetHint(SDL_HINT_APP_ID,                     PROG_NAME   );
+	SDL_SetHint(SDL_HINT_APP_NAME,                   PROG_NAME   );
+	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_STREAM_NAME,   PROG_NAME   );
+	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_APP_ICON_NAME, "audio-card");
 	SDL_Window *win = SDL_CreateWindow(PROG_NAME,
                           display_mode->w, display_mode->h,
                           (full_screen ? SDL_WINDOW_FULLSCREEN: 0));
@@ -978,7 +1014,7 @@ int main(int argc, char *argv[])
 
 	SDL_DialogFileFilter sf_filters[]        { { "Kaboem files", PROG_EXT  } };
 	SDL_DialogFileFilter sf_filters_sample[] { { "Samples",      "wav;mp3" } };
-	SDL_DialogFileFilter sf_filters_record[] { { "Record",       "wav"     } };
+	SDL_DialogFileFilter sf_filters_record[] { { "Record",       "wav;mid" } };
 
 	const std::vector<file_parameter> file_parameters {
 		{ "bpm",          file_parameter::T_INT,    &bpm,              nullptr,                nullptr, nullptr,      nullptr, nullptr      },
@@ -1025,6 +1061,14 @@ int main(int argc, char *argv[])
 			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &swing_amount_parameter, &start_t);
 			});
 
+	std::thread mixer_thread([&sound_pars] {
+			mixer(&do_exit, &sound_pars);
+		});
+
+	if (configure_sdl3_audio(&sound_pars) == false)
+		return 1;
+	sound_pars.global_volume = 1.;
+
 	while(!do_exit) {
 		// determine pattern index
 		size_t pat_index = 0;
@@ -1050,16 +1094,12 @@ int main(int argc, char *argv[])
 		}
 
 		// check for midi events
-		if (midi_in.first && snd_seq_event_input_pending(midi_in.first, 1) != 0) {
-			snd_seq_event_t *ev { nullptr };
-			snd_seq_event_input(midi_in.first, &ev);
-			if (ev->type == SND_SEQ_EVENT_NOTEON) {
-				uint8_t ch = ev->data.note.channel;
-				if (selected_midi_channel.has_value() && ch == selected_midi_channel) {
-					std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
-					pat_clickables[pattern_group].pattern[pat_index].selected = true;
-					redraw = true;
-				}
+		if (midi_in && selected_midi_channel.has_value()) {
+			auto msg = receive_midi_note(midi_in);
+			if (msg.size() == 3 && msg.at(0) == 0x90 + selected_midi_channel.value()) {
+				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
+				pat_clickables[pattern_group].pattern[pat_index].selected = true;
+				redraw = true;
 			}
 		}
 
@@ -1173,16 +1213,18 @@ int main(int argc, char *argv[])
 			}
 			else if (fs_action == fs_record) {
 				if (fs_data.finished) {
-					std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-					SF_INFO si { };
-					si.samplerate = sample_rate;
-					si.channels   = 2;
-					si.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_24;
-					sound_pars.record_handle = sf_open(fs_data.file.c_str(), SFM_WRITE, &si);
-					if (sound_pars.record_handle)
+					size_t name_len = fs_data.file.size();
+					std::string ext = name_len >= 4 ? fs_data.file.substr(name_len - 4) : fs_data.file;
+
+					bool succeeded = false;
+					if (ext == ".wav")
+						succeeded = start_wav_recording(&sound_pars, fs_data.file);
+					else if (ext == ".mid")
+						succeeded = start_mid_recording(&sound_pars, fs_data.file);
+
+					if (succeeded)
 						settings_menu_buttons[record_idx].selected = true;
 					else {
-						lck.unlock();
 						menu_status = "cannot create " + fs_data.file;
 						do_error_message(font, screen, display_mode, menu_status);
 					}
@@ -1260,7 +1302,7 @@ int main(int argc, char *argv[])
 				cb.text = std::to_string(busyness) + "%";
 				draw_text(font, screen, cb.where.x, cb.where.y, cb.text, { { cb.where.w, cb.where.h } });
 
-				std::vector<double> scope;
+				std::vector<float> scope;
 				{
 					std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 					scope = sound_pars.scope;
@@ -1475,10 +1517,15 @@ int main(int argc, char *argv[])
 						}
 						else if (idx == record_idx) {
 							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-							if (sound_pars.record_handle) {
-								sf_close(sound_pars.record_handle);
-								sound_pars.record_handle                   = nullptr;
+							if (sound_pars.record_handle || sound_pars.smf) {
 								menu_status                                = "recording stopped";
+								if (sound_pars.record_handle)
+									sf_close(sound_pars.record_handle);
+								if (sound_pars.smf) {
+									if (close_mid_file(&sound_pars) == false)
+										menu_status = "MIDI file writing failed";
+								}
+								sound_pars.record_handle                   = nullptr;
 								settings_menu_buttons[record_idx].selected = false;
 							}
 							else {
@@ -1732,15 +1779,15 @@ int main(int argc, char *argv[])
 	draw_please_wait(font, screen, display_mode);
 
 	player_thread.join();
-
-	pw_main_loop_quit(sound_pars.pw.loop);
-	sound_pars.pw.th->join();
-	delete sound_pars.pw.th;
+	mixer_thread.join();
+	stop_sdl3_audio(&sound_pars);
 
 	{  // stop any recording
 		std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 		if (sound_pars.record_handle)
 			sf_close(sound_pars.record_handle);
+		if (sound_pars.smf)
+			close_mid_file(&sound_pars);
 	}
 
 	{
@@ -1751,7 +1798,8 @@ int main(int argc, char *argv[])
 	SDL_Quit();
 	deinit_fonts();
 
-	pw_deinit();
+	close_midi_in_port(midi_in);
+	deinit_midi();
 
 	return 0;
 }
