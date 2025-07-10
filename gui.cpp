@@ -18,6 +18,7 @@
 #include "gui.h"
 #include "io.h"
 #include "midi.h"
+#include "mixer.h"
 #include "player.h"
 #include "sample.h"
 #include "sdl3-audio.h"
@@ -535,6 +536,9 @@ void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, co
 
 void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::vector<float> & scope)
 {
+	if (scope.empty())
+		return;
+
 	SDL_SetRenderDrawColor(screen, 40, 255, 40, 255);
 
 	float px         = where.x;
@@ -1058,6 +1062,10 @@ int main(int argc, char *argv[])
 	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &force_trigger, &polyrythmic, &swing_amount_parameter, &start_t] {
 			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &swing_amount_parameter, &start_t);
 			});
+
+	std::thread mixer_thread([&sound_pars] {
+			mixer(&do_exit, &sound_pars);
+		});
 
 	while(!do_exit) {
 		// determine pattern index
@@ -1769,6 +1777,7 @@ int main(int argc, char *argv[])
 	draw_please_wait(font, screen, display_mode);
 
 	player_thread.join();
+	mixer_thread.join();
 	stop_sdl3_audio(&sound_pars);
 
 	{  // stop any recording

@@ -19,6 +19,7 @@ add_executable(
   gui.cpp
   io.cpp
   midi.cpp
+  mixer.cpp
   player.cpp
   sample.cpp
   sdl3-audio.cpp

@@ -7,6 +7,7 @@
 #include <map>
 #include <math.h>
 #include <optional>
+#include <queue>
 #include <set>
 #include <shared_mutex>
 #include <smf.h>
@@ -223,7 +224,10 @@ public:
 
 	sdl3_data_audio      pw;
 
-	std::shared_mutex    sounds_lock;
+	std::shared_mutex    stream_lock;
+	std::queue<std::vector<float> > stream;
+
+	std::shared_mutex    sounds_lock;  ///
 	struct queued_sound {
 		const sound *s;
 		int t;
@@ -238,12 +242,6 @@ public:
 	double               global_volume    { 1.      };
 	double               sound_saturation { 1.      };
 
-	std::shared_mutex    smf_lock;
-	smf_t               *smf              { nullptr };
-	smf_track_t         *smf_track        { nullptr };
-	uint64_t             smf_start        { 0       };
-	std::string          smf_file_name;
-
 	std::vector<float>   scope;
 	int                  scope_t          { 0       };
 
@@ -255,4 +253,11 @@ public:
 	int                  n_busyness       { 0       };
 	int                  t_busyness       { 0       };
 	int                  busyness         { 0       };
+	///
+
+	std::shared_mutex    smf_lock;
+	smf_t               *smf              { nullptr };
+	smf_track_t         *smf_track        { nullptr };
+	uint64_t             smf_start        { 0       };
+	std::string          smf_file_name;
 };
