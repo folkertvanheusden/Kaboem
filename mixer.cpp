@@ -1,4 +1,6 @@
+#include "config.h"
 #include <atomic>
+#include <cfloat>
 #include <mutex>
 #include <shared_mutex>
 #include <sndfile.h>

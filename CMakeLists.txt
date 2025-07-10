@@ -83,3 +83,14 @@ install(DIRECTORY demos DESTINATION share/kaboem)
 install(FILES README.md LICENSE DESTINATION share/kaboem)
 install(FILES kaboem.desktop DESTINATION share/applications/)
 install(FILES images/icon.png DESTINATION share/icons/hicolor/256x256/ RENAME kaboem.png)
+
+configure_file(config.h.in config.h)
+target_include_directories(kaboem PUBLIC "${PROJECT_BINARY_DIR}")
+
+if (RTMIDI_FOUND)
+	message("librtmidi found, MIDI in/out support enable")
+endif()
+
+if (SMF_FOUND)
+	message("libsmf found, can write MIDI files")
+endif()

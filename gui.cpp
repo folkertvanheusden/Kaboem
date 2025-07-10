@@ -1,3 +1,4 @@
+#include "config.h"
 #include <array>
 #include <atomic>
 #include <cassert>
@@ -6,7 +7,9 @@
 #include <ctime>
 #include <mutex>
 #include <optional>
+#if HAVE_SMF == 1
 #include <smf.h>
+#endif
 #include <sndfile.h>
 #include <unistd.h>
 #include <vector>
@@ -68,23 +71,29 @@ bool start_wav_recording(sound_parameters *const sound_pars, const std::string &
 
 bool start_mid_recording(sound_parameters *const sound_pars, const std::string & file)
 {
+#if HAVE_SMF == 1
 	std::unique_lock<std::shared_mutex> lck(sound_pars->smf_lock);
 	sound_pars->smf           = smf_new();
 	sound_pars->smf_track     = smf_track_new();
 	sound_pars->smf_start     = get_us();
 	sound_pars->smf_file_name = file;
 	smf_add_track(sound_pars->smf, sound_pars->smf_track);
+#endif
 	return true;
 }
 
 bool close_mid_file(sound_parameters *const sound_pars)
 {
+#if HAVE_SMF == 1
 	std::unique_lock<std::shared_mutex> lck(sound_pars->smf_lock);
 	auto rc = smf_save(sound_pars->smf, sound_pars->smf_file_name.c_str());
 	smf_delete(sound_pars->smf);
 	sound_pars->smf       = nullptr;
 	sound_pars->smf_track = nullptr;
 	return rc == 0;
+#else
+	return true;
+#endif
 }
 
 std::optional<size_t> find_clickable(const std::vector<clickable> & clickables, const int x, const int y)
@@ -1523,6 +1532,7 @@ int main(int argc, char *argv[])
 						}
 						else if (idx == record_idx) {
 							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+#if HAVE_SMF == 1
 							if (sound_pars.record_handle || sound_pars.smf) {
 								menu_status                                = "recording stopped";
 								if (sound_pars.record_handle)
@@ -1534,6 +1544,15 @@ int main(int argc, char *argv[])
 								sound_pars.record_handle                   = nullptr;
 								settings_menu_buttons[record_idx].selected = false;
 							}
+#else
+							if (sound_pars.record_handle) {
+								menu_status                                = "recording stopped";
+								if (sound_pars.record_handle)
+									sf_close(sound_pars.record_handle);
+								sound_pars.record_handle                   = nullptr;
+								settings_menu_buttons[record_idx].selected = false;
+							}
+#endif
 							else {
 								lck.unlock();
 
@@ -1792,8 +1811,10 @@ int main(int argc, char *argv[])
 		std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 		if (sound_pars.record_handle)
 			sf_close(sound_pars.record_handle);
+#if HAVE_SMF == 1
 		if (sound_pars.smf)
 			close_mid_file(&sound_pars);
+#endif
 	}
 
 	{
