@@ -27,6 +27,6 @@ float agc::calculate_gain(const float input)
 		gain_db = (threshold_db - envelope) * (1.0f - 1.0f / ratio);
 
 	// Convert gain to linear
-	float gain_linear = std::powf(10.0f, gain_db / 20.0f);
+	float gain_linear = powf(10.0f, gain_db / 20.0f);
 	return gain_linear;
 }
