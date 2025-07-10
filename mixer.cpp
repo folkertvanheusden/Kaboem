@@ -130,7 +130,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		std::unique_lock<std::shared_mutex> s_lck(sound_pars->stream_lock);
 		sound_pars->stream.push(dest);
 
-		if (sound_pars->stream.size() >= sound_pars->pw.frames * 2 / period_size) {
+		if (sound_pars->stream.size() >= size_t(sound_pars->pw.frames * 2 / period_size)) {
 			s_lck.unlock();
 
 			uint64_t end     = get_us();

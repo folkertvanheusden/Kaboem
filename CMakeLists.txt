@@ -25,6 +25,7 @@ add_executable(
   sdl3-audio.cpp
   sound.cpp
   time.cpp
+  utils.cpp
 )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)

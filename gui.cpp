@@ -25,6 +25,7 @@
 #include "sdl3-audio.h"
 #include "sound.h"
 #include "time.h"
+#include "utils.h"
 
 
 std::atomic_bool do_exit { false };
@@ -1058,10 +1059,12 @@ int main(int argc, char *argv[])
 	std::atomic_uint64_t start_t        = 0;
 
 	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &force_trigger, &polyrythmic, &swing_amount_parameter, &start_t] {
+			set_thread_name("KAB-player");
 			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &swing_amount_parameter, &start_t);
 			});
 
 	std::thread mixer_thread([&sound_pars] {
+			set_thread_name("KAB-mixer");
 			mixer(&do_exit, &sound_pars);
 		});
 
