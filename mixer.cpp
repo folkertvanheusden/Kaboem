@@ -1,4 +1,5 @@
 #include <atomic>
+#include <mutex>
 #include <shared_mutex>
 #include <sndfile.h>
 #include <SDL3/SDL.h>
@@ -145,7 +146,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		lck.unlock();
 
 		// queue for sdl3-audio
-		std::shared_lock<std::shared_mutex> s_lck(sound_pars->stream_lock);
+		std::unique_lock<std::shared_mutex> s_lck(sound_pars->stream_lock);
 		sound_pars->stream.push(samples);
 
 		delete [] dest;
@@ -155,6 +156,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		int64_t  sleep_n = sr_sleep - took;
 
 		if (sound_pars->stream.size() >= 2) {
+			s_lck.unlock();
 			// printf("%zu %zu %zd\n", sr_sleep, took, sleep_n);
 			if (sleep_n > 0)
 				usleep(sleep_n);
