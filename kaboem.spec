@@ -15,8 +15,8 @@ Kaboem is a simple (MIDI enabled) audio sequencer.
 %setup -q -n %{name}-%{version}
 
 %build
-%cmake .
-%cmake_build
+cmake -S . -B redhat-linux-build -DCMAKE_INSTALL_PREFIX=%{_prefix}
+cmake --build redhat-linux-build
 
 %install
 %cmake_install
@@ -24,7 +24,9 @@ Kaboem is a simple (MIDI enabled) audio sequencer.
 %files
 /usr/bin/kaboem
 /usr/share/kaboem
+/usr/share/applications/kaboem.desktop
+/usr/share/icons/hicolor/256x256/kaboem.png
 
 %changelog
-* Sun Jul 6 2025 Folkert van Heusden <folkert@vanheusden.com>
+* Thu Jul 11 2025 Folkert van Heusden <folkert@vanheusden.com>
 -
