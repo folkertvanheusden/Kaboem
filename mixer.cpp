@@ -38,9 +38,10 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 
 				bool   fin               = false;
 				size_t n_source_channels = item.s->get_n_channels();
+				double t_use             = item.t * item.pitch;
 
 				for(size_t ch=0; ch<n_source_channels; ch++) {
-					auto rc = item.s->get_sample(item.t * item.pitch, ch);
+					auto rc = item.s->get_sample(t_use, ch);
 
 					if (rc.has_value() == false)
 						fin = true;
