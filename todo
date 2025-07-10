@@ -10,6 +10,7 @@
 - get rid of channel-mapping
 - save midi files: https://github.com/rbdannenberg/portsmf
   => not the streaming variant
+- ook mono samples pannen
 - record: show how long it is recording
 
 - "normaal is swing/shuffle (zelfde dacht ik) dat elke 2e en 4e noot wordt gedelayed, met een positieve dan wel negatieve offset" -> humanize in de huidige vorm
