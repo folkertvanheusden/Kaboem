@@ -1,3 +1,4 @@
+#include <atomic>
 #include <cfloat>
 #include <cmath>
 #include <mutex>
@@ -9,24 +10,16 @@
 #include "time.h"
 
 
-int counter = 0;
-uint64_t sub_ts = 0;
+extern std::atomic_bool do_exit;
 
 void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_amount, int total_amount)
 {
+	uint64_t t_start = get_us();
 	if (additional_amount == 0)
 		return;
-	uint64_t          t_start  = get_us();
 
 	sound_parameters *sp = reinterpret_cast<sound_parameters *>(userdata);
 
-	static uint64_t pt_start = 0;
-	if (pt_start)
-		printf("%lu on_process_audio @ %lu - %d / %d\n", t_start - sub_ts, t_start - pt_start, additional_amount, total_amount);
-	pt_start = t_start;
-	counter++;
-
-	int    stride       = sizeof(float) * sp->n_channels;
 	int    period_size  = std::min(additional_amount, sp->pw.frames);
 	double latency      = period_size * 1000000.0 / sp->sample_rate;
 
@@ -35,7 +28,7 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 	// TODO:
 	// - condition variable
 	// - check for do_exit
-	for(;;) {
+	while(!do_exit) {
 		bool empty = true;
 
 		{
@@ -53,6 +46,8 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 		printf("underflow\n");
 		SDL_Delay(1);
 	}
+	if (do_exit)
+		return;
 
 	if (SDL_PutAudioStreamData(astream, data.data(), data.size()) == false)
 		SDL_Log("Couldn't play audio stream: %s", SDL_GetError());
@@ -71,9 +66,6 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 	sp->scope_t++;
 
 	// statistics
-	sp->n_busyness++;
-	sp->t_busyness += 100 * (get_us() - t_start) / latency;
-
 	if (sp->n_loud_checked >= sp->sample_rate / 2) {
 		if (sp->too_loud_count > 0)
 			sp->clip_factor = sp->too_loud_total / sp->too_loud_count;
@@ -86,6 +78,9 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 		sp->n_busyness     = 0;
 		sp->t_busyness     = 0;
 	}
+
+	sp->n_busyness++;
+	sp->t_busyness += 100 * (get_us() - t_start) / latency;
 }
 
 bool configure_sdl3_audio(sound_parameters *const target)

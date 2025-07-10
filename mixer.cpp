@@ -125,8 +125,6 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 				sf_writef_float(sound_pars->record_handle, dest, period_size);
 		}
 
-		printf("PUSH data\n");
-
 		std::vector<float> samples(dest, dest + sound_pars->n_channels * period_size * sizeof(float));
 		std::unique_lock<std::shared_mutex> lck(sound_pars->stream_lock);
 		sound_pars->stream.push(samples);
