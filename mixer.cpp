@@ -10,24 +10,23 @@
 
 void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 {
-	const int period_size = sound_pars->pw.frames;
+	const int period_size = 128;
 
-	printf("Mixer thread started, period size: %d\n", period_size);
+	printf("Mixer thread started, period size: %d (of %d)\n", period_size, sound_pars->pw.frames);
 
-	uint64_t t_offset = 0;
-	uint64_t sr_sleep = 1000000 * period_size / sound_pars->sample_rate;
+	uint64_t sr_sleep = 1000000ll * period_size / sound_pars->sample_rate;
+	printf("sleep: %zu\n", sr_sleep);
 
 	while(*do_exit == false) {
-		uint64_t start = get_us();
-		std::shared_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
+		uint64_t start       = get_us();
 
-		float    *temp_buffer   = new float[sound_pars->n_channels * period_size]();
-		float    *dest          = new float[sound_pars->n_channels * period_size]();
+		std::shared_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
+		float   *temp_buffer = new float[sound_pars->n_channels * period_size]();
 
 		for(int t=0; t<period_size; t++) {
-			uint64_t  now                 = get_us();
-			float    *current_sample_base = &temp_buffer[t * sound_pars->n_channels];
+			float *current_sample_base = &temp_buffer[t * sound_pars->n_channels];
 
+			// sum all samples
 			for(size_t s_idx=0; s_idx<sound_pars->sounds.size();) {
 				auto & item = sound_pars->sounds[s_idx];
 				if (item.s == nullptr) {
@@ -35,30 +34,11 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 					continue;
 				}
 
-				if (t_offset == 0) {
-					t_offset      = now - item.play_at;
-				}
-				else {
-					uint64_t when = item.play_at + t_offset;
-					if (when > now) {
-//						printf("skip %zu, %zu\n", s_idx, when - now);
-//						s_idx++;
-//						continue;
-					}
-//					printf("play %zu, %zu\n", s_idx, now - when);
-
-					if (item.playing == false) {
-						auto td = now - when;
-						if (td > 170000 || td < 165000)
-							printf("%lu GET: %zu from %d\n", get_us(), td, item.nr);
-					}
-					item.playing = true;
-				}
-
 				bool   fin               = false;
 				size_t n_source_channels = item.s->get_n_channels();
 				double t_use             = item.t * item.pitch;
 
+				// ...and each channel for each sample at that time
 				for(size_t ch=0; ch<n_source_channels; ch++) {
 					auto rc = item.s->get_sample(t_use, ch);
 
@@ -83,11 +63,13 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 
 		sound_pars->n_loud_checked += period_size;
 
+		std::vector<float> dest(sound_pars->n_channels * period_size);
+
 		if (sound_pars->agc_enabled) {
 			float *c_temp = new float[sound_pars->n_channels];
 			for(int t=0; t<period_size; t++) {
 				float *current_sample_base_in  = &temp_buffer[t * sound_pars->n_channels];
-				float *current_sample_base_out = &dest       [t * sound_pars->n_channels];
+				size_t dest_index              = t * sound_pars->n_channels;
 
 				float gain = DBL_MAX;
 				for(int c=0; c<sound_pars->n_channels; c++) {
@@ -104,15 +86,15 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 						temp = sound_pars->filter_hp->apply(temp);
 
 					float sign = temp < 0 ? -1 : 1;
-					current_sample_base_out[c] = powf(fabsf(temp), sound_pars->sound_saturation) * sign;
+					dest[dest_index + c] = powf(fabsf(temp), sound_pars->sound_saturation) * sign;
 				}
 			}
 			delete [] c_temp;
 		}
 		else {
 			for(int t=0; t<period_size; t++) {
-				float *current_sample_base_in  = &temp_buffer[t * sound_pars->n_channels];
-				float *current_sample_base_out = &dest[t * sound_pars->n_channels];
+				float *current_sample_base_in = &temp_buffer[t * sound_pars->n_channels];
+				size_t dest_index             = t * sound_pars->n_channels;
 
 				float too_loud = 0;
 				for(int c=0; c<sound_pars->n_channels; c++) {
@@ -129,7 +111,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 						temp = sound_pars->filter_hp->apply(temp);
 
 					float sign = temp < 0 ? -1 : 1;
-					current_sample_base_out[c] = powf(fabsf(temp), sound_pars->sound_saturation) * sign;
+					dest[dest_index + c] = powf(fabsf(temp), sound_pars->sound_saturation) * sign;
 				}
 
 				sound_pars->too_loud_total += too_loud;
@@ -140,28 +122,24 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		delete [] temp_buffer;
 
 		if (sound_pars->record_handle)
-			sf_writef_float(sound_pars->record_handle, dest, period_size);
+			sf_writef_float(sound_pars->record_handle, dest.data(), dest.size() / sound_pars->n_channels);
 
-		std::vector<float> samples(dest, dest + sound_pars->n_channels * period_size * sizeof(float));
 		lck.unlock();
 
 		// queue for sdl3-audio
 		std::unique_lock<std::shared_mutex> s_lck(sound_pars->stream_lock);
-		sound_pars->stream.push(samples);
+		sound_pars->stream.push(dest);
 
-		delete [] dest;
-
-		uint64_t end     = get_us();
-		uint64_t took    = end - start;
-		int64_t  sleep_n = sr_sleep - took;
-
-		if (sound_pars->stream.size() >= 2) {
+		if (sound_pars->stream.size() >= sound_pars->pw.frames * 2 / period_size) {
 			s_lck.unlock();
-			// printf("%zu %zu %zd\n", sr_sleep, took, sleep_n);
+
+			uint64_t end     = get_us();
+			uint64_t took    = end - start;
+			int64_t  sleep_n = sr_sleep - took;
 			if (sleep_n > 0)
 				usleep(sleep_n);
 			else
-				printf("********* slow **********\n");
+				printf("Slow system\n");
 		}
 	}
 

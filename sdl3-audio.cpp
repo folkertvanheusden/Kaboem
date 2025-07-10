@@ -32,32 +32,36 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 			std::unique_lock<std::shared_mutex> lck(sp->stream_lock);
 			empty = sp->stream.empty();
 			if (!empty) {
-				data = sp->stream.front();
+				auto & cur = sp->stream.front();
+				std::copy(cur.begin(), cur.end(), std::back_inserter(data));
 				sp->stream.pop();
 			}
 		}
 
-		if (!empty)
+		if (data.size() >= size_t(period_size * 4 * 2))
 			break;
 
-		printf("underflow\n");
-		SDL_Delay(1);
+		if (empty) {
+			printf("underflow (got %zu of %d)\n", data.size(), period_size);
+			SDL_Delay(1);
+		}
 	}
 	if (do_exit)
 		return;
 
-	if (SDL_PutAudioStreamData(astream, data.data(), data.size()) == false)
+	if (SDL_PutAudioStreamData(astream, data.data(), data.size() * sizeof(float)) == false)
 		SDL_Log("Couldn't play audio stream: %s", SDL_GetError());
 
 	// scope
 	sp->scope.clear();
-	sp->scope.resize(period_size);
+	sp->scope.resize(data.size() / sp->n_channels);
 
-	for(int i=0; i<period_size; i++) {
+	for(size_t i=0; i<data.size(); i += sp->n_channels) {
+		size_t s_index = i / sp->n_channels;
 		for(int c=0; c<sp->n_channels; c++)
-			sp->scope[i] += data[i * sp->n_channels + c];
+			sp->scope[s_index] += data[i + c];
 
-		sp->scope[i] /= sp->n_channels;
+		sp->scope[s_index] /= sp->n_channels;
 	}
 
 	sp->scope_t++;

@@ -55,7 +55,7 @@ bool start_wav_recording(sound_parameters *const sound_pars, const std::string &
 {
 	SF_INFO si { };
 	si.samplerate = sample_rate;
-	si.channels   = 2;
+	si.channels   = sound_pars->n_channels;
 	si.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_24;
 	auto handle   = sf_open(file.c_str(), SFM_WRITE, &si);
 
