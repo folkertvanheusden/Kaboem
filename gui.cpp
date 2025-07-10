@@ -1050,13 +1050,16 @@ int main(int argc, char *argv[])
 
 	std::atomic_int      sleep_us       = 60 * 1000000 / bpm;
 	size_t               prev_pat_index = size_t(-1);
-	std::atomic_bool     paused         = false;
+	std::atomic_bool     paused         = true;
 	std::atomic_bool     force_trigger  = false;
 	bool                 shift          = false;
 	bool                 ctrl           = false;
 	int                  prev_scope_t   = -1;
 	size_t               selected_cell  = 0;
 	std::atomic_uint64_t start_t        = 0;
+
+	pattern_menu         [p_pause_idx].selected = paused;
+	settings_menu_buttons[pause_idx]  .selected = paused;
 
 	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &force_trigger, &polyrythmic, &swing_amount_parameter, &start_t] {
 			set_thread_name("KAB-player");
