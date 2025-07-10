@@ -50,7 +50,7 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 		if (!empty)
 			break;
 
-		//		printf("underflow\n");
+		printf("underflow\n");
 		SDL_Delay(1);
 	}
 

@@ -17,12 +17,11 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 			std::unique_lock<std::shared_mutex> lck(sound_pars->stream_lock);
 			if (sound_pars->stream.size() >= 2) {
 				lck.unlock();
+//				printf("overflow\n");
 				SDL_Delay(1);
 				continue;
 			}
 		}
-
-		printf("hier001 %d\n", period_size);
 
 		float    *temp_buffer   = new float[sound_pars->n_channels * period_size]();
 		float    *dest          = new float[sound_pars->n_channels * period_size]();
@@ -61,8 +60,6 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 				}
 			}
 		}
-
-		printf("hier002\n");
 
 		sound_pars->n_loud_checked += period_size;
 
@@ -122,8 +119,6 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 
 		delete [] temp_buffer;
 
-		printf("hier003\n");
-
 		{
 			std::shared_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
 			if (sound_pars->record_handle)
@@ -136,11 +131,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		std::unique_lock<std::shared_mutex> lck(sound_pars->stream_lock);
 		sound_pars->stream.push(samples);
 
-		printf("hier004\n");
-
 		delete [] dest;
-
-		printf("hier005\n");
 	}
 
 	printf("Mixer thread terminating\n");
