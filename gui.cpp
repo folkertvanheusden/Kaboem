@@ -891,6 +891,47 @@ bool are_you_sure(TTF_Font *const font, SDL_Renderer *const screen, const SDL_Di
 	return false;
 }
 
+void clear_everything(std::array<pattern, pattern_groups> & pat_clickables, std::shared_mutex *const pat_clickables_lock, sound_parameters & sound_pars, std::string *const menu_status, const std::string & path, std::array<sample, pattern_groups> & samples, const std::vector<file_parameter> & file_parameters, std::vector<clickable> & channel_clickables)
+{
+	{
+		const std::string file_name = path + "/before_clear." PROG_EXT;
+
+		std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
+		if (write_file(file_name, pat_clickables, samples, file_parameters) == false)
+			menu_status->assign("failed: " + file_name);
+	}
+	{
+		std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
+		sound_pars.sounds.clear();
+	}
+	{
+		std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
+		for(size_t i=0; i<pattern_groups; i++) {
+			for(auto & element: pat_clickables[i].pattern) {
+				element.selected = false;
+				element.text.clear();
+			}
+
+			for(auto & element: pat_clickables[i].note_delta)
+				element = 0.;
+
+			for(auto & element: pat_clickables[i].volume_left)
+				element = 1.;
+			for(auto & element: pat_clickables[i].volume_right)
+				element = 1.;
+
+			{
+				std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
+				sample & s = samples[i];
+				delete s.s;
+				s.s = nullptr;
+				s.name.clear();
+			}
+			channel_clickables[i].text.clear();
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	bool full_screen = true;
@@ -1459,44 +1500,7 @@ int main(int argc, char *argv[])
 							bool choice = are_you_sure(font, screen, display_mode, font_height, "Clear everything");
 							if (choice) {
 								draw_please_wait(font, screen, display_mode);
-
-								{
-									const std::string file_name = path + "/before_clear." PROG_EXT;
-
-									std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-									if (write_file(file_name, pat_clickables, samples, file_parameters) == false)
-										menu_status = "failed: " + file_name;
-								}
-								{
-									std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
-									sound_pars.sounds.clear();
-								}
-								{
-									std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-									for(size_t i=0; i<pattern_groups; i++) {
-										for(auto & element: pat_clickables[i].pattern) {
-											element.selected = false;
-											element.text.clear();
-										}
-
-										for(auto & element: pat_clickables[i].note_delta)
-											element = 0.;
-
-										for(auto & element: pat_clickables[i].volume_left)
-											element = 1.;
-										for(auto & element: pat_clickables[i].volume_right)
-											element = 1.;
-
-										{
-											std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
-											sample & s = samples[i];
-											delete s.s;
-											s.s = nullptr;
-											s.name.clear();
-										}
-										channel_clickables[i].text.clear();
-									}
-								}
+								clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, path, samples, file_parameters, channel_clickables);
 								menu_status = "cleared";
 							}
 
