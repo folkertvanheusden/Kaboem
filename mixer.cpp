@@ -37,21 +37,18 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 					continue;
 				}
 
-				bool   fin               = false;
-				size_t n_source_channels = item.s->get_n_channels();
-				double t_use             = item.t * item.pitch;
+				bool   fin   = false;
+				double t_use = item.t * item.pitch;
 
-				// ...and each channel for each sample at that time
-				for(size_t ch=0; ch<n_source_channels; ch++) {
+				// assume stereo (maybe in the future 2+1? or even 5+1?)
+				for(size_t ch=0; ch<2; ch++) {
 					auto rc = item.s->get_sample(t_use, ch);
 
 					if (rc.has_value() == false)
 						fin = true;
 					else if (item.s->get_mute() == false) {
 						float value = rc.value().first * (ch ? item.volume_right : item.volume_left);
-
-						for(auto mapping : rc.value().second)
-							current_sample_base[mapping.first] += value * mapping.second;
+						current_sample_base[ch] += value * rc.value().second;
 					}
 				}
 

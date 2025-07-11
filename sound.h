@@ -53,7 +53,7 @@ protected:
 	bool   muted       { false };
 
 	// input channel, { output channel, volume }
-	std::vector<std::map<int, float> > input_output_matrix;
+	std::vector<float> volumes;
 
 	std::vector<sound_control> controls;
 
@@ -76,26 +76,14 @@ public:
 		printf("%f\n", controls.at(nr).current_setting);
 	}
 
-	void add_mapping(const int from, const int to, const float volume)
+	void add_mapping(const int to, const float volume)
 	{
-		// note that 'from' is ignored here as this object has only 1 generator
-		input_output_matrix[from].insert({ to, volume });
+		set_volume(to, volume);
 	}
 
 	float get_mapping_target_volume(const int to)
 	{
-		for(auto & mapping: input_output_matrix) {
-			auto it = mapping.find(to);
-			if (it != mapping.end())
-				return it->second;
-		}
-
-		return 0.1;
-	}
-
-	void remove_mapping(const int from, const int to)
-	{
-		input_output_matrix[from].erase(to);
+		return volumes[to];
 	}
 
 	void set_pitch_bend(const double pb)
@@ -108,54 +96,38 @@ public:
 		return pitchbend;
 	}
 
-	void set_volume(const int from, const int to, const double v)
+	void set_volume(const size_t to, const double v)
 	{
-		input_output_matrix[from][to] = v;
-	}
-
-	void set_mapping_target_volume(const int to, const double volume)
-	{
-		for(auto & mapping: input_output_matrix) {
-			auto it = mapping.find(to);
-			if (it != mapping.end()) {
-				it->second = volume;
-				break;
-			}
-		}
+		if (to >= volumes.size())
+			volumes.resize(to + 1);
+		volumes[to] = v;
 	}
 
 	void set_volume(const double v)
 	{
-		for(size_t from=0; from<input_output_matrix.size(); from++) {
-			for(auto & to: input_output_matrix.at(from))
-				to.second = v;
-		}
+		for(auto & to: volumes)
+			to = v;
 	}
 
 	float get_avg_volume()
 	{
-		double v = 0;
-		int    n = 0;
+		float v = 0;
 
-		for(size_t from=0; from<input_output_matrix.size(); from++) {
-			for(auto & to: input_output_matrix.at(from)) {
-				v += to.second;
-				n++;
-			}
-		}
+		for(auto & to: volumes)
+			v += to;
 
-		return v / n;
+		return v / volumes.size();
 	}
 
-	float get_volume(const int from, const int to)
+	float get_volume(const int to)
 	{
-		return input_output_matrix[from][to];
+		return volumes[to];
 	}
 
 	virtual size_t get_n_channels() const = 0;
 
 	// sample, output-channels
-	virtual std::optional<std::pair<float, std::map<int, float> > > get_sample(const double t, const size_t channel_nr) const = 0;
+	virtual std::optional<std::pair<float, float> > get_sample(const double t, const size_t channel_nr) const = 0;
 
 	virtual std::string get_name()           const = 0;
 	virtual double      get_base_frequency() const = 0;
@@ -197,7 +169,7 @@ public:
 	const std::vector<std::vector<float> > & get_raw() const { return samples; }
 	unsigned get_sample_rate() const { return sample_sample_rate; }
 
-	std::optional<std::pair<float, std::map<int, float> > > get_sample(const double t, const size_t channel_nr) const override;
+	std::optional<std::pair<float, float> > get_sample(const double t, const size_t channel_nr) const override;
 
 	std::string get_name() const override;
 	double      get_base_frequency() const override { return base_frequency; }

@@ -750,13 +750,13 @@ bool configure_volume(sound_parameters *const sound_pars, const up_down_widget &
 	int mul = shift ? 3 : 1;
 
 	if (widget_idx == widget.up)
-		s->set_mapping_target_volume(channel_index, std::min(1.1, s->get_mapping_target_volume(channel_index) + 0.01 * mul));
+		s->set_volume(channel_index, std::min(1.1, s->get_volume(channel_index) + 0.01 * mul));
 	else if (widget_idx == widget.up_10)
-		s->set_mapping_target_volume(channel_index, std::min(1.1, s->get_mapping_target_volume(channel_index) + 0.1 * mul));
+		s->set_volume(channel_index, std::min(1.1, s->get_volume(channel_index) + 0.1 * mul));
 	else if (widget_idx == widget.down)
-		s->set_mapping_target_volume(channel_index, std::max(0., s->get_mapping_target_volume(channel_index) - 0.01 * mul));
+		s->set_volume(channel_index, std::max(0., s->get_volume(channel_index) - 0.01 * mul));
 	else if (widget_idx == widget.down_10)
-		s->set_mapping_target_volume(channel_index, std::max(0., s->get_mapping_target_volume(channel_index) - 0.1 * mul));
+		s->set_volume(channel_index, std::max(0., s->get_volume(channel_index) - 0.1 * mul));
 	else
 		return false;
 
@@ -1258,12 +1258,10 @@ int main(int argc, char *argv[])
 						}
 
 						if (s->s) {
-							bool is_stereo = s->s->get_n_channels() >= 2;
-							s->s->add_mapping(0, 0, 1.0);
-							s->s->add_mapping(is_stereo ? 1 : 0, 1, 1.0);
-
 							menu_status = "file " + get_filename(fs_data.file) + " read";
 							channel_clickables[fs_action_sample_index].text = get_filename(s->name).substr(0, 5);
+							s->s->set_volume(0, 1.);
+							s->s->set_volume(1, 1.);
 						}
 						else {
 							menu_status = "file " + get_filename(fs_data.file) + " NOT FOUND";
@@ -1388,13 +1386,11 @@ int main(int argc, char *argv[])
 				std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 				int                 vol_left  = 0;
 				int                 vol_right = 0;
-				bool                is_stereo = false;
 				sound_sample *const s         = samples[fs_action_sample_index].s;
 				auto                midi_note = samples[fs_action_sample_index].midi_note;
 				if (s) {
-					is_stereo = s->get_n_channels() >= 2;
-					vol_left  = s->get_mapping_target_volume(0) * 100;
-					vol_right = s->get_mapping_target_volume(1) * 100;
+					vol_left  = s->get_volume(0) * 100;
+					vol_right = s->get_volume(1) * 100;
 				}
 
 				std::string name = samples[fs_action_sample_index].name;
@@ -1406,10 +1402,8 @@ int main(int argc, char *argv[])
 				draw_clickables(font, screen, sample_buttons_clickables, { }, { });
 				draw_text(font, screen, sample_vol_widget_left.x,  sample_vol_widget_left.y,  std::to_string(vol_left),
 					{ { sample_vol_widget_left.text_w,  sample_vol_widget_left.text_h } });
-				if (is_stereo) {
-					draw_text(font, screen, sample_vol_widget_right.x, sample_vol_widget_right.y, std::to_string(vol_right),
-						{ { sample_vol_widget_right.text_w, sample_vol_widget_right.text_h } });
-				}
+				draw_text(font, screen, sample_vol_widget_right.x, sample_vol_widget_right.y, std::to_string(vol_right),
+					{ { sample_vol_widget_right.text_w, sample_vol_widget_right.text_h } });
 				if (midi_note.has_value()) {
 					draw_text(font, screen, midi_note_widget_pars.x, midi_note_widget_pars.y,  std::to_string(midi_note.value() + 1),
 						{ { midi_note_widget_pars.text_w,  midi_note_widget_pars.text_h } });
@@ -1664,7 +1658,6 @@ int main(int argc, char *argv[])
 							std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 							sound_sample *const s         = samples[fs_action_sample_index].s;
 							auto              & midi_note = samples[fs_action_sample_index].midi_note;
-							bool                is_stereo = s ? s->get_n_channels() >= 2 : false;
 							int                 pitch     = s ? s->get_pitch_bend() * 1000 : 0;
 
 							if (set_up_down_value(idx, midi_note_widget_pars, 0, 127, &midi_note, shift)) {
@@ -1687,11 +1680,8 @@ int main(int argc, char *argv[])
 							}
 							else if (configure_volume(&sound_pars, sample_vol_widget_left, idx, s, 0, shift)) {
 							}
-							else if (is_stereo && configure_volume(&sound_pars, sample_vol_widget_right, idx, s, 1, shift)) {
+							else if (configure_volume(&sound_pars, sample_vol_widget_right, idx, s, 1, shift)) {
 							}
-
-							if (!is_stereo)
-								s->set_mapping_target_volume(1, s->get_mapping_target_volume(0));
 						}
 					}
 				}

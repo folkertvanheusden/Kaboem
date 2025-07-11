@@ -59,11 +59,11 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 		sample["file-name"] = sample_file.name;
 
 		if (sample_file.s) {
-			sample["vol-left"]    = sample_file.s->get_mapping_target_volume(0);
+			sample["vol-left"]    = sample_file.s->get_volume(0);
 			if (sample_file.s->get_n_channels() >= 2)
-				sample["vol-right"] = sample_file.s->get_mapping_target_volume(1);
+				sample["vol-right"] = sample_file.s->get_volume(1);
 			else
-				sample["vol-right"] = sample_file.s->get_mapping_target_volume(0);
+				sample["vol-right"] = sample_file.s->get_volume(0);
 			sample["pitch"]       = sample_file.s->get_pitch_bend();
 			sample["mute"]        = sample_file.s->get_mute();
 
@@ -218,11 +218,11 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 				if (!s.s)
 					return false;
 				bool is_stereo = s.s->get_n_channels() >= 2;
-				s.s->add_mapping(0, 0, j["samples"][group]["vol-left"]);
+				s.s->set_volume(0, j["samples"][group]["vol-left"]);
 				if (is_stereo)
-					s.s->add_mapping(1, 1, j["samples"][group]["vol-right"]);
+					s.s->set_volume(1, j["samples"][group]["vol-right"]);
 				else
-					s.s->add_mapping(0, 1, 1.0);  // mono -> right
+					s.s->set_volume(1, s.s->get_volume(0));
 				s.s->set_pitch_bend(j["samples"][group]["pitch"]);
 				if (j["samples"][group].contains("mute"))
 					s.s->set_mute(j["samples"][group]["mute"]);

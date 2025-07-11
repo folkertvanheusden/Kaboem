@@ -47,9 +47,9 @@ bool sound_sample::begin()
 	name               = midi_note_to_name(base_midi_note);
 	delta_t            = sample_sample_rate / double(sample_rate);
 
-	input_output_matrix.resize(samples.at(0).size());
+	volumes.resize(samples.at(0).size());
 
-	printf("Sample %s has %zu channel(s), is sampled at %u Hz and sounds like a %s (%.2f Hz), duration: %.2fs\n", file_name.c_str(), input_output_matrix.size(), sample_sample_rate, name.c_str(), base_frequency, samples.size() / double(sample_sample_rate));
+	printf("Sample %s has %zu channel(s), is sampled at %u Hz and sounds like a %s (%.2f Hz), duration: %.2fs\n", file_name.c_str(), volumes.size(), sample_sample_rate, name.c_str(), base_frequency, samples.size() / double(sample_sample_rate));
 
 	return true;
 }
@@ -59,7 +59,7 @@ std::string sound_sample::get_name() const
 	return name;
 }
 
-std::optional<std::pair<float, std::map<int, float> > > sound_sample::get_sample(const double t, const size_t channel_nr) const
+std::optional<std::pair<float, float> > sound_sample::get_sample(const double t, const size_t channel_nr) const
 {
 	double use_t = t * delta_t * pitchbend;
 	if (use_t < 0 || use_t >= samples.size())
@@ -67,5 +67,11 @@ std::optional<std::pair<float, std::map<int, float> > > sound_sample::get_sample
 
 	size_t offset = use_t;
 
-	return { { samples.at(offset).at(channel_nr), input_output_matrix[channel_nr] } };
+	if (channel_nr >= samples.at(offset).size()) {
+		if (channel_nr >= volumes.size())
+			return { { samples.at(offset).at(0), volumes[0] } };
+		return { { samples.at(offset).at(0), volumes[channel_nr] } };
+	}
+
+	return { { samples.at(offset).at(channel_nr), volumes[channel_nr] } };
 }

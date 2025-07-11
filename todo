@@ -10,8 +10,5 @@
   => not the streaming variant
 - record: show how long it is recording
 
-- also pan mono samples -> "load as stereo?"
-  -> skip this? use channel mapping? - get rid of channel-mapping
-
 - "normaal is swing/shuffle (zelfde dacht ik) dat elke 2e en 4e noot wordt gedelayed, met een positieve dan wel negatieve offset" -> humanize in de huidige vorm
 - high-pass doet 't zelfde als low pass
