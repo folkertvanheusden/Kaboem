@@ -3,7 +3,6 @@
 - external sync (via midi?)
 - shorten filenames (with '...') when they don't fit on screen
 - adjust fontsizes so that text fits
-- show version number somewhere
 - clock_nanosleep instead of usleep
 - timing toepassen op 1 cell, dat-ie iets eerder of later begint
 - delay per kanaal en galm

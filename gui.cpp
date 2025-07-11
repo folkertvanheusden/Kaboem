@@ -1349,8 +1349,9 @@ int main(int argc, char *argv[])
 					draw_text(font, screen, 0, display_mode->h / 2 / 100, get_filename(samples[pattern_group].name), { });
 			}
 			else if (mode == m_settings) {
-				if (menu_status.empty() == false)
-					draw_text(font, screen, 0, display_mode->h - font_height * 5, menu_status, { { display_mode->w, font_height } });
+				if (menu_status.empty())
+					menu_status = "Kaboem " KABOEM_VERSION;
+				draw_text(font, screen, 0, display_mode->h - font_height * 5, menu_status, { { display_mode->w, font_height } });
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 				draw_clickables(font, screen, settings_menu_buttons, { }, { });
 				draw_text(font, screen, bpm_widget.x, bpm_widget.y, std::to_string(bpm), { { bpm_widget.text_w, bpm_widget.text_h } });
