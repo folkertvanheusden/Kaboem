@@ -932,6 +932,14 @@ void clear_everything(std::array<pattern, pattern_groups> & pat_clickables, std:
 	}
 }
 
+void set_samples_mute_button(sound_parameters & sound_pars, std::array<sample, pattern_groups> & samples, std::vector<clickable> & sample_buttons_clickables, const size_t idx, const size_t mute_idx)
+{
+	std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
+	sound_sample *const s = samples[idx].s;
+	if (s)
+		sample_buttons_clickables[mute_idx].selected = s->get_mute();
+}
+
 int main(int argc, char *argv[])
 {
 	bool full_screen = true;
@@ -1594,9 +1602,9 @@ int main(int argc, char *argv[])
 						mode = m_sample;
 						channel_clickables[fs_action_sample_index].selected = false;
 						fs_action_sample_index = sample_clicked.value();
-
 						channel_clickables[fs_action_sample_index].selected = true;
 						fs_data.finished = false;
+						set_samples_mute_button(sound_pars, samples, sample_buttons_clickables, fs_action_sample_index, mute_idx);
 					}
 				}
 				else if (mode == m_sample) {
@@ -1613,10 +1621,7 @@ int main(int argc, char *argv[])
 						channel_clickables[fs_action_sample_index].selected = true;
 						fs_data.finished = false;
 
-						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
-						sound_sample *const s = samples[fs_action_sample_index].s;
-						if (s)
-							sample_buttons_clickables[mute_idx].selected = s->get_mute();
+						set_samples_mute_button(sound_pars, samples, sample_buttons_clickables, fs_action_sample_index, mute_idx);
 					}
 					else if (menus_clicked.has_value()) {
 						size_t idx = menus_clicked.value();
