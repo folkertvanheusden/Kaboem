@@ -33,7 +33,7 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 			empty = sp->stream.empty();
 			if (!empty) {
 				auto & cur = sp->stream.front();
-				std::copy(cur.begin(), cur.end(), std::back_inserter(data));
+				data.insert(data.end(), cur.begin(), cur.end());
 				sp->stream.pop();
 			}
 		}
