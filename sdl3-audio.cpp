@@ -14,14 +14,11 @@ extern std::atomic_bool do_exit;
 
 void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_amount, int total_amount)
 {
-	uint64_t t_start = get_us();
-
 	if (additional_amount == 0)
 		return;
 
 	sound_parameters *sp = reinterpret_cast<sound_parameters *>(userdata);
 	int    period_size   = std::min(additional_amount, sp->pw.frames);
-	double latency       = period_size * 1000000.0 / sp->sample_rate;
 
 	std::vector<float> data;
 
@@ -67,9 +64,6 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 	sp->scope_t++;
 
 	// statistics
-	sp->n_busyness++;
-	sp->t_busyness += 100 * (get_us() - t_start) / latency;
-
 	if (sp->n_loud_checked >= sp->sample_rate / 2) {
 		if (sp->too_loud_count > 0)
 			sp->clip_factor = sp->too_loud_total / sp->too_loud_count;
@@ -78,7 +72,8 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 		sp->too_loud_total = 0;
 		sp->too_loud_count = 0;
 		sp->n_loud_checked = 0;
-		sp->busyness       = sp->t_busyness / sp->n_busyness;
+		if (sp->n_busyness)
+			sp->busyness = sp->t_busyness / sp->n_busyness;
 		sp->n_busyness     = 0;
 		sp->t_busyness     = 0;
 	}
