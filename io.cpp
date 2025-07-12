@@ -123,7 +123,7 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 		return true;
 	}
 	catch(const std::ifstream::failure& e) {
-		printf("Cannot access %s\n", file_name.c_str());
+		printf("Cannot access \"%s\"\n", file_name.c_str());
 	}
 
 	return false;
@@ -241,7 +241,7 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 		return true;
 	}
 	catch(const std::ifstream::failure & e) {
-		printf("Cannot access %s\n", file_name.c_str());
+		printf("Cannot access \"%s\"\n", file_name.c_str());
 	}
 	catch(const json::parse_error & pe) {
 		printf("File %s is incorrect\n", file_name.c_str());
