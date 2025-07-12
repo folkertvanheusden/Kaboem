@@ -42,7 +42,7 @@ static TTF_Font * load_font(const std::string & font_name, const unsigned int fo
 
         TTF_Font *font = TTF_OpenFont(font_path.c_str(), font_height);
 	if (!font) {
-		printf("Font error: %s\n", SDL_GetError());
+		printf("Font error for \"%s\": %s\n", font_path.c_str(), SDL_GetError());
 		return nullptr;
 	}
 
