@@ -119,7 +119,7 @@ public:
 		return v / volumes.size();
 	}
 
-	float get_volume(const int to)
+	float get_volume(const int to) const
 	{
 		return volumes[to];
 	}

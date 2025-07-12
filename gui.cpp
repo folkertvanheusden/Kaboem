@@ -958,6 +958,16 @@ void set_bpm_sleep(std::atomic_int *const sleep_us, const int bpm)
 	*sleep_us = 60 * 1000000 / (bpm * 4);
 }
 
+void update_queued_sounds(std::vector<sound_parameters::queued_sound> & sounds, const sound_sample *const s)
+{
+	for(auto & sound: sounds) {
+		if (sound.s == s) {
+			sound.volume_left  = s->get_volume(0);
+			sound.volume_right = s->get_volume(1);
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	bool full_screen = true;
@@ -1730,8 +1740,10 @@ int main(int argc, char *argv[])
 								// skip volume when no sample
 							}
 							else if (configure_volume(&sound_pars, sample_vol_widget_left, idx, s, 0, shift)) {
+								update_queued_sounds(sound_pars.sounds, s);
 							}
 							else if (configure_volume(&sound_pars, sample_vol_widget_right, idx, s, 1, shift)) {
+								update_queued_sounds(sound_pars.sounds, s);
 							}
 						}
 					}
