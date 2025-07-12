@@ -13,6 +13,53 @@
 #include "time.h"
 
 
+ssize_t determine_pattern_index(const uint64_t now, std::atomic_bool *const polyrythmic, std::atomic_int *const sleep_us, const int swing, const ssize_t current_dim, const size_t max_steps)
+{
+	if (*polyrythmic)
+		return (now - swing) / *sleep_us % current_dim;
+
+	return size_t((now - swing) / double(*sleep_us) * current_dim / double(max_steps)) % current_dim;
+}
+
+void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, const sample *const s, const pattern *const pat, RtMidiOut *const midi_port)
+{
+	if (!s->s)
+		return;
+
+	sound_parameters::queued_sound qs { };
+	qs.s     = s->s;
+	qs.t     = 0;
+
+	int    base_note       = qs.s->get_base_midi_note();
+	double base_note_f     = midi_note_to_frequency(base_note);
+	int    adjusted_note   = base_note + pat->note_delta[pat_index];
+	int    adjusted_note_f = midi_note_to_frequency(adjusted_note);
+
+	double pitch           = base_note_f ? adjusted_note_f / base_note_f : 1.;
+	qs.pitch        = pitch;
+	qs.volume_left  = pat->volume_left [pat_index];
+	qs.volume_right = pat->volume_right[pat_index];
+	qs.echo_t       = s->echo_t;
+
+	sound_pars->sounds.push_back(qs);
+
+	if (s->midi_note.has_value()) {
+#if HAVE_SMF == 1
+		{
+			std::unique_lock<std::mutex> lck(sound_pars->smf_lock);
+			if (sound_pars->smf_track) {
+				uint8_t msg[3] = { 0x99, uint8_t(s->midi_note.value()), 127 };
+				smf_event_t *event = smf_event_new_from_pointer(msg, sizeof msg);
+				smf_track_add_event_seconds(sound_pars->smf_track, event, (get_us() - sound_pars->smf_start) / 1000000.);
+			}
+		}
+#endif
+
+		if (midi_port)
+			send_midi_note(midi_port, s->midi_note.value(), 127);
+	}
+}
+
 void player(const std::array<pattern, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock,
 		const std::array<sample, pattern_groups> *const samples,
 		std::atomic_int  *const sleep_us, sound_parameters *const sound_pars,
@@ -57,7 +104,6 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 			}
 
 			for(size_t i=0; i<pattern_groups; i++) {
-				ssize_t pat_index   = 0;
 				ssize_t current_dim = (*pat_clickables)[i].dim;
 
 				int sw_fac = *swing_factor * 1000;  // microseconds
@@ -66,51 +112,14 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 				else
 					swing[i] = 0;
 
-				if (*polyrythmic)
-					pat_index = (now - swing[i]) / *sleep_us % current_dim;
-				else
-					pat_index = size_t((now - swing[i]) / double(*sleep_us) * current_dim / double(max_steps)) % current_dim;
+				ssize_t pat_index = determine_pattern_index(now, polyrythmic, sleep_us, swing[i], current_dim, max_steps);
 
 				if ((pat_index != prev_pat_index1[i] && pat_index != prev_pat_index2[i]) || force_trigger->exchange(false)) {
 					prev_pat_index2[i] = prev_pat_index1[i];
 					prev_pat_index1[i] = pat_index;
 
-					if ((*pat_clickables)[i].pattern[pat_index].selected) {
-						if ((*samples)[i].s) {
-							sound_parameters::queued_sound qs { };
-							qs.s     = (*samples)[i].s;
-							qs.t     = 0;
-
-							int    base_note       = qs.s->get_base_midi_note();
-							double base_note_f     = midi_note_to_frequency(base_note);
-							int    adjusted_note   = base_note + (*pat_clickables)[i].note_delta[pat_index];
-							int    adjusted_note_f = midi_note_to_frequency(adjusted_note);
-
-							double pitch           = base_note_f ? adjusted_note_f / base_note_f : 1.;
-							qs.pitch        = pitch;
-							qs.volume_left  = (*pat_clickables)[i].volume_left [pat_index];
-							qs.volume_right = (*pat_clickables)[i].volume_right[pat_index];
-							qs.echo_t       = (*samples)[i].echo_t;
-
-							sound_pars->sounds.push_back(qs);
-						}
-
-						if ((*samples)[i].midi_note.has_value()) {
-#if HAVE_SMF == 1
-							{
-								std::unique_lock<std::mutex> lck(sound_pars->smf_lock);
-								if (sound_pars->smf_track) {
-									uint8_t msg[3] = { 0x99, uint8_t((*samples)[i].midi_note.value()), 127 };
-									smf_event_t *event = smf_event_new_from_pointer(msg, sizeof msg);
-									smf_track_add_event_seconds(sound_pars->smf_track, event, (get_us() - sound_pars->smf_start) / 1000000.);
-								}
-							}
-#endif
-
-							if (midi_port)
-								send_midi_note(midi_port, (*samples)[i].midi_note.value(), 127);
-						}
-					}
+					if ((*pat_clickables)[i].pattern[pat_index].selected)
+						queue_sample(sound_pars, pat_index, &(*samples)[i], &(*pat_clickables)[i], midi_port);
 				}
 			}
 		}
