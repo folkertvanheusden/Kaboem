@@ -1032,7 +1032,7 @@ int main(int argc, char *argv[])
 	unsigned  font_height = display_mode->h * 5 / 100;
 	TTF_Font *font        = load_font_by_filenames({ "Arial.ttf", "FreeSans.ttf", "DejaVuSans.ttf" }, font_height, false);
 	if (font == nullptr)
-		font = load_font({ "DejaVu Sans", "Ubuntu Sans Regular", "Free Sans", "Arial" }, font_height, false);
+		font = load_font({ "Free Sans", "Arial", "Ubuntu Sans Regular", "DejaVu Sans" }, font_height, false);
 	assert(font);
 
 	bool redraw = true;
