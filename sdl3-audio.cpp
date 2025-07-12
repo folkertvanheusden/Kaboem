@@ -17,8 +17,8 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 	if (additional_amount == 0)
 		return;
 
-	sound_parameters *sp = reinterpret_cast<sound_parameters *>(userdata);
-	int    period_size   = std::min(additional_amount, sp->pw.frames);
+	sound_parameters *sound_pars  = reinterpret_cast<sound_parameters *>(userdata);
+	int               period_size = std::min(additional_amount, sound_pars->pw.frames);
 
 	std::vector<float> data;
 
@@ -26,12 +26,12 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 		bool empty = true;
 
 		{
-			std::unique_lock<std::shared_mutex> lck(sp->stream_lock);
-			empty = sp->stream.empty();
+			std::unique_lock<std::shared_mutex> lck(sound_pars->stream_lock);
+			empty = sound_pars->stream.empty();
 			if (!empty) {
-				auto & cur = sp->stream.front();
+				auto & cur = sound_pars->stream.front();
 				data.insert(data.end(), cur.begin(), cur.end());
-				sp->stream.pop();
+				sound_pars->stream.pop();
 			}
 		}
 
@@ -50,32 +50,33 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 		SDL_Log("Couldn't play audio stream: %s", SDL_GetError());
 
 	// scope
-	sp->scope.clear();
-	sp->scope.resize(data.size() / sp->n_channels);
+	std::unique_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
+	sound_pars->scope.clear();
+	sound_pars->scope.resize(data.size() / sound_pars->n_channels);
 
-	for(size_t i=0; i<data.size(); i += sp->n_channels) {
-		size_t s_index = i / sp->n_channels;
-		for(int c=0; c<sp->n_channels; c++)
-			sp->scope[s_index] += data[i + c];
+	for(size_t i=0; i<data.size(); i += sound_pars->n_channels) {
+		size_t s_index = i / sound_pars->n_channels;
+		for(int c=0; c<sound_pars->n_channels; c++)
+			sound_pars->scope[s_index] += data[i + c];
 
-		sp->scope[s_index] /= sp->n_channels;
+		sound_pars->scope[s_index] /= sound_pars->n_channels;
 	}
 
-	sp->scope_t++;
+	sound_pars->scope_t++;
 
 	// statistics
-	if (sp->n_loud_checked >= sp->sample_rate / 2) {
-		if (sp->too_loud_count > 0)
-			sp->clip_factor = sp->too_loud_total / sp->too_loud_count;
+	if (sound_pars->n_loud_checked >= sound_pars->sample_rate / 2) {
+		if (sound_pars->too_loud_count > 0)
+			sound_pars->clip_factor = sound_pars->too_loud_total / sound_pars->too_loud_count;
 		else
-			sp->clip_factor = 0;
-		sp->too_loud_total = 0;
-		sp->too_loud_count = 0;
-		sp->n_loud_checked = 0;
-		if (sp->n_busyness)
-			sp->busyness = sp->t_busyness / sp->n_busyness;
-		sp->n_busyness     = 0;
-		sp->t_busyness     = 0;
+			sound_pars->clip_factor = 0;
+		sound_pars->too_loud_total = 0;
+		sound_pars->too_loud_count = 0;
+		sound_pars->n_loud_checked = 0;
+		if (sound_pars->n_busyness)
+			sound_pars->busyness = sound_pars->t_busyness / sound_pars->n_busyness;
+		sound_pars->n_busyness     = 0;
+		sound_pars->t_busyness     = 0;
 	}
 }
 
