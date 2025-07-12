@@ -1030,7 +1030,7 @@ int main(int argc, char *argv[])
 	assert(screen);
 
 	unsigned  font_height = display_mode->h * 5 / 100;
-	TTF_Font *font        = load_font_by_filename("FreeSans.ttf", font_height, false);
+	TTF_Font *font        = load_font_by_filenames({ "FreeSans.ttf", "DejaVuSans.ttf" }, font_height, false);
 	if (font == nullptr)
 		font = load_font({ "DejaVu Sans", "Ubuntu Sans Regular", "Free Sans" }, font_height, false);
 	assert(font);

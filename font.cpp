@@ -63,16 +63,16 @@ TTF_Font * load_font(const std::vector<std::string> & font_names, const unsigned
 	return nullptr;
 }
 
-TTF_Font * load_font_by_filename(const std::string & filename, const unsigned int font_height, const bool fast_rendering)
+TTF_Font * load_font_by_filenames(const std::vector<std::string> & filenames, const unsigned int font_height, const bool fast_rendering)
 {
-        TTF_Font *font = TTF_OpenFont(filename.c_str(), font_height);
-	if (!font) {
-		printf("Font error: %s\n", SDL_GetError());
-		return nullptr;
+	for(auto & font_file : filenames) {
+		TTF_Font *font = TTF_OpenFont(font_file.c_str(), font_height);
+		if (font) {
+			if (!fast_rendering)
+				TTF_SetFontHinting(font, TTF_HINTING_NORMAL);
+			return font;
+		}
 	}
 
-        if (!fast_rendering)
-                TTF_SetFontHinting(font, TTF_HINTING_NORMAL);
-
-	return font;
+	return nullptr;
 }
