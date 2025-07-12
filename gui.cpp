@@ -940,6 +940,11 @@ void set_samples_mute_button(sound_parameters & sound_pars, std::array<sample, p
 		sample_buttons_clickables[mute_idx].selected = s->get_mute();
 }
 
+void set_bpm_sleep(std::atomic_int *const sleep_us, const int bpm)
+{
+	*sleep_us = 60 * 1000000 / (bpm * 4);
+}
+
 int main(int argc, char *argv[])
 {
 	bool full_screen = true;
@@ -1114,7 +1119,7 @@ int main(int argc, char *argv[])
 		reset_all_patterns(&pat_clickables, &pat_clickables_lock, samples, false);
 	}
 
-	std::atomic_int      sleep_us       = 60 * 1000000 / bpm;
+	std::atomic_int      sleep_us       = 0;
 	size_t               prev_pat_index = size_t(-1);
 	std::atomic_bool     paused         = true;
 	std::atomic_bool     force_trigger  = false;
@@ -1123,6 +1128,8 @@ int main(int argc, char *argv[])
 	int                  prev_scope_t   = -1;
 	size_t               selected_cell  = 0;
 	std::atomic_uint64_t start_t        = 0;
+
+	set_bpm_sleep(&sleep_us, bpm);
 
 	pattern_menu         [p_pause_idx].selected = paused;
 	settings_menu_buttons[pause_idx]  .selected = paused;
@@ -1192,7 +1199,7 @@ int main(int argc, char *argv[])
 							settings_menu_buttons[agc_idx].selected         = agc;
 							settings_menu_buttons[polyrythmic_idx].selected = polyrythmic;
 							swing_amount_parameter                          = swing_amount;
-							sleep_us                                        = 60 * 1000000 / bpm;
+							set_bpm_sleep(&sleep_us, bpm);
 
 							for(size_t i=0; i<pattern_groups; i++) {
 								if (samples[i].name.empty() == false)
@@ -1588,7 +1595,7 @@ int main(int argc, char *argv[])
 							agc = !agc;
 							settings_menu_buttons[agc_idx].selected = agc;
 						}
-						sleep_us                 = 60 * 1000000 / bpm;
+						set_bpm_sleep(&sleep_us, bpm);
 						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 						sound_pars.global_volume = vol / 100.;
 						sound_pars.agc_enabled   = agc;
