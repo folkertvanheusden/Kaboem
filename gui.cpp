@@ -800,26 +800,26 @@ void reset_all_patterns(std::array<pattern, pattern_groups> *const pat_clickable
 	}
 }
 
-void draw_message(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode, const std::string & message, const uint8_t r, const uint8_t g, const uint8_t b)
+void draw_message(TTF_Font *const font, SDL_Renderer *const screen, int win_width, int win_height, const std::string & message, const uint8_t r, const uint8_t g, const uint8_t b)
 {
-	int dim_w = display_mode->w / 6;
-	int dim_h = display_mode->h / 6;
+	int dim_w = win_width / 6;
+	int dim_h = win_height / 6;
 
-	SDL_FRect rec { float(dim_w), float(dim_h), float(display_mode->w - dim_w * 2), float(display_mode->h - dim_h * 2) };
+	SDL_FRect rec { float(dim_w), float(dim_h), float(win_width - dim_w * 2), float(win_height - dim_h * 2) };
 	SDL_SetRenderDrawColor(screen, 50, 40, 40, 255);
 	SDL_RenderFillRect(screen, &rec);
 	SDL_SetRenderDrawColor(screen, 40, 40, 40, 191);
 	SDL_RenderRect(screen, &rec);
 
 	SDL_SetRenderDrawColor(screen, r, g, b, 255);
-	draw_text(font, screen, 0, 0, message, { { display_mode->w, display_mode->h } }, true);
+	draw_text(font, screen, 0, 0, message, { { win_width, win_height } }, true);
 	SDL_RenderPresent(screen);
 
 }
 
-void draw_please_wait(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode)
+void draw_please_wait(TTF_Font *const font, SDL_Renderer *const screen, int win_width, int win_height)
 {
-	draw_message(font, screen, display_mode, "Please wait", 40, 200, 40);
+	draw_message(font, screen, win_width, win_height, "Please wait", 40, 200, 40);
 }
 
 void wait_for_any_event()
@@ -835,9 +835,9 @@ void wait_for_any_event()
 	}
 }
 
-void do_error_message(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode, const std::string & error)
+void do_error_message(TTF_Font *const font, SDL_Renderer *const screen, int win_width, int win_height, const std::string & error)
 {
-	draw_message(font, screen, display_mode, error, 255, 40, 40);
+	draw_message(font, screen, win_width, win_height, error, 255, 40, 40);
 
 	wait_for_any_event();
 
@@ -846,17 +846,17 @@ void do_error_message(TTF_Font *const font, SDL_Renderer *const screen, const SD
 	SDL_RenderPresent(screen);
 }
 
-bool are_you_sure(TTF_Font *const font, SDL_Renderer *const screen, const SDL_DisplayMode *const display_mode, const int font_height, const std::string & question)
+bool are_you_sure(TTF_Font *const font, SDL_Renderer *const screen, int win_width, int win_height, const int font_height, const std::string & question)
 {
-	int dim_w              = display_mode->w / 6;
-	int dim_h              = display_mode->h / 6;
-	int scr_half_w         = display_mode->w / 2;
-	int scr_half_h         = display_mode->h / 2;
+	int dim_w              = win_width / 6;
+	int dim_h              = win_height / 6;
+	int scr_half_w         = win_width / 2;
+	int scr_half_h         = win_height / 2;
 
-	int menu_button_width  = display_mode->w * 10 / 100;
-	int menu_button_height = display_mode->h * 10 / 100;
+	int menu_button_width  = win_width * 10 / 100;
+	int menu_button_height = win_height * 10 / 100;
 
-	SDL_FRect r { float(dim_w), float(dim_h), float(display_mode->w - dim_w * 2), float(display_mode->h - dim_h * 2) };
+	SDL_FRect r { float(dim_w), float(dim_h), float(win_width - dim_w * 2), float(win_height - dim_h * 2) };
 	SDL_SetRenderDrawColor(screen, 50, 40, 40, 255);
 	SDL_RenderFillRect(screen, &r);
 	SDL_SetRenderDrawColor(screen, 40, 40, 40, 191);
@@ -880,8 +880,8 @@ bool are_you_sure(TTF_Font *const font, SDL_Renderer *const screen, const SDL_Di
 	draw_clickables(font, screen, clickables, { }, { });
 
 	SDL_SetRenderDrawColor(screen, 255, 40, 40, 255);
-	draw_text(font, screen, 0, scr_half_h - font_height * 2, question,        { { display_mode->w, font_height } }, true);
-	draw_text(font, screen, 0, scr_half_h - font_height,     "Are you sure?", { { display_mode->w, font_height } }, true);
+	draw_text(font, screen, 0, scr_half_h - font_height * 2, question,        { { win_width, font_height } }, true);
+	draw_text(font, screen, 0, scr_half_h - font_height,     "Are you sure?", { { win_width, font_height } }, true);
 	SDL_RenderPresent(screen);
 
 	while(!do_exit) {
@@ -998,22 +998,6 @@ int main(int argc, char *argv[])
 
 	signal(SIGTERM, sigh);
 
-	init_fonts();
-
-	SDL_DisplayID display_id = SDL_GetPrimaryDisplay();
-	if (display_id == 0) {
-		SDL_Log("Failed to get primary display: %s", SDL_GetError());
-		SDL_Quit();
-		return 1;
-	}
-
-	const SDL_DisplayMode *display_mode = SDL_GetCurrentDisplayMode(display_id);
-	if (display_mode == nullptr) {
-		SDL_Log("Failed to get display mode: %s", SDL_GetError());
-		SDL_Quit();
-		return 1;
-	}
-
 	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "1024"      );
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS,         "1"         );
 	SDL_SetHint(SDL_HINT_RENDER_VSYNC,               "1"         );
@@ -1022,14 +1006,45 @@ int main(int argc, char *argv[])
 	SDL_SetHint(SDL_HINT_APP_NAME,                   PROG_NAME   );
 	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_STREAM_NAME,   PROG_NAME   );
 	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_APP_ICON_NAME, "audio-card");
-	SDL_Window *win = SDL_CreateWindow(PROG_NAME,
-                          display_mode->w, display_mode->h,
-                          (full_screen ? SDL_WINDOW_FULLSCREEN: 0));
+
+	SDL_DisplayID display_id = SDL_GetPrimaryDisplay();
+	if (display_id == 0) {
+		SDL_Log("Failed to get primary display: %s", SDL_GetError());
+		SDL_Quit();
+		return 1;
+	}
+
+	SDL_Window *win = nullptr;
+
+	if (full_screen) {
+		const SDL_DisplayMode *display_mode = SDL_GetCurrentDisplayMode(display_id);
+		if (display_mode == nullptr) {
+			SDL_Log("Failed to get display mode: %s", SDL_GetError());
+			SDL_Quit();
+			return 1;
+		}
+		win = SDL_CreateWindow(PROG_NAME,
+				  display_mode->w, display_mode->h,
+				  (full_screen ? SDL_WINDOW_FULLSCREEN: 0));
+	}
+	else {
+		win = SDL_CreateWindow(PROG_NAME, 320, 240, SDL_WINDOW_RESIZABLE);
+		SDL_MaximizeWindow(win);
+		SDL_SyncWindow(win);
+	}
 	assert(win);
+
+	int win_width  = 0;
+	int win_height = 0;
+	SDL_GetWindowSize(win, &win_width, &win_height);
+	printf("Window size: %dx%d\n", win_width, win_height);
+
 	SDL_Renderer *screen = SDL_CreateRenderer(win, nullptr);
 	assert(screen);
 
-	unsigned  font_height = display_mode->h * 5 / 100;
+	init_fonts();
+
+	unsigned  font_height = win_height * 5 / 100;
 	TTF_Font *font        = load_font_by_filenames({ "Arial.ttf", "FreeSans.ttf", "DejaVuSans.ttf" }, font_height, false);
 	if (font == nullptr)
 		font = load_font({ "Free Sans", "Arial", "Ubuntu Sans Regular", "DejaVu Sans" }, font_height, false);
@@ -1050,9 +1065,9 @@ int main(int argc, char *argv[])
 	uint64_t               pat_clickable_pressed_since = 0;
 	size_t                 pattern_group = 0;
 
-	std::vector<clickable> channel_clickables      = generate_channel_column(display_mode->w, display_mode->h, pattern_groups);
+	std::vector<clickable> channel_clickables      = generate_channel_column(win_width, win_height, pattern_groups);
 
-	std::vector<clickable> menu_button_clickables  = generate_menu_button(display_mode->w, display_mode->h);
+	std::vector<clickable> menu_button_clickables  = generate_menu_button(win_width, win_height);
 
 	size_t         pattern_load_idx = 0;
 	size_t         save_idx         = 0;
@@ -1080,7 +1095,7 @@ int main(int argc, char *argv[])
 	bool           agc              = false;
 	size_t         scope_idx        = 0;
 	size_t         record_time_idx  = 0;
-	std::vector<clickable> settings_menu_buttons = generate_settings_menu_buttons(display_mode->w, display_mode->h,
+	std::vector<clickable> settings_menu_buttons = generate_settings_menu_buttons(win_width, win_height,
 			&pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget,
 			&pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget, &sound_saturation_widget,
 			&polyrythmic_idx, &swing_widget, &agc_idx, &clipping_idx, &scope_idx, &busyness_idx,
@@ -1090,7 +1105,7 @@ int main(int argc, char *argv[])
 	up_down_widget pitch_widget       { };
 	up_down_widget cell_volume_left_widget  { };
 	up_down_widget cell_volume_right_widget { };
-	std::vector<clickable> cell_menu_buttons = generate_cell_settings_menu_buttons(display_mode->w, display_mode->h,
+	std::vector<clickable> cell_menu_buttons = generate_cell_settings_menu_buttons(win_width, win_height,
 			&pitch_widget, &cell_volume_left_widget, &cell_volume_right_widget);
 
 	size_t         sample_load_idx        = 0;
@@ -1102,15 +1117,15 @@ int main(int argc, char *argv[])
 	up_down_widget n_steps_pars             { };
 	up_down_widget pitch_pars               { };
 	up_down_widget echo_t_pars              { };
-	std::vector<clickable> sample_buttons_clickables = generate_sample_buttons(display_mode->w, display_mode->h,
+	std::vector<clickable> sample_buttons_clickables = generate_sample_buttons(win_width, win_height,
 			&sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right, &midi_note_widget_pars,
 			&n_steps_pars, &pitch_pars, &sample_unload_idx, &mute_idx, &echo_t_pars);
 
 	size_t         p_pause_idx            = 0;
 	size_t         restart_idx            = 0;
-	std::vector<clickable> pattern_menu = generate_pattern_menu(display_mode->w, display_mode->h, &p_pause_idx, &restart_idx);
+	std::vector<clickable> pattern_menu = generate_pattern_menu(win_width, win_height, &p_pause_idx, &restart_idx);
 	for(size_t i=0; i<pattern_groups; i++)
-		pat_clickables[i] = generate_pattern_grid(display_mode->w, display_mode->h, steps);
+		pat_clickables[i] = generate_pattern_grid(win_width, win_height, steps);
 
 	std::array<sample, pattern_groups> samples { };
 
@@ -1144,7 +1159,7 @@ int main(int argc, char *argv[])
 		settings_menu_buttons[polyrythmic_idx].selected = polyrythmic;
 		swing_amount_parameter                          = swing_amount;
 
-		regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
+		regenerate_pattern_grid(win_width, win_height, &pat_clickables[pattern_group]);
 
 		reset_all_patterns(&pat_clickables, &pat_clickables_lock, samples, false);
 	}
@@ -1218,7 +1233,7 @@ int main(int argc, char *argv[])
 			if (fs_action == fs_load) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
-						draw_please_wait(font, screen, display_mode);
+						draw_please_wait(font, screen, win_width, win_height);
 
 						std::unique_lock<std::shared_mutex> lck    (sound_pars.sounds_lock);
 						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock   );
@@ -1238,7 +1253,7 @@ int main(int argc, char *argv[])
 							}
 							menu_status = "file " + get_filename(fs_data.file) + " read";
 
-							regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[pattern_group]);
+							regenerate_pattern_grid(win_width, win_height, &pat_clickables[pattern_group]);
 
 							reset_all_patterns(&pat_clickables, &pat_clickables_lock, samples, false);
 
@@ -1249,7 +1264,7 @@ int main(int argc, char *argv[])
 							pat_lck.unlock();
 
 							menu_status = "cannot read " + get_filename(fs_data.file);
-							do_error_message(font, screen, display_mode, menu_status);
+							do_error_message(font, screen, win_width, win_height, menu_status);
 						}
 
 						redraw = true;
@@ -1261,7 +1276,7 @@ int main(int argc, char *argv[])
 			else if (fs_action == fs_save) {
 				if (fs_data.finished) {
 					if (fs_data.file.empty() == false) {
-						draw_please_wait(font, screen, display_mode);
+						draw_please_wait(font, screen, win_width, win_height);
 
 						std::string file     = fs_data.file;
 						size_t      file_len = file.size();
@@ -1272,7 +1287,7 @@ int main(int argc, char *argv[])
 						if (write_file(file, pat_clickables, samples, file_parameters))
 							menu_status = "file " + get_filename(fs_data.file) + " written";
 						else
-							do_error_message(font, screen, display_mode, "cannot write " + get_filename(fs_data.file));
+							do_error_message(font, screen, win_width, win_height, "cannot write " + get_filename(fs_data.file));
 
 						redraw = true;
 					}
@@ -1302,7 +1317,7 @@ int main(int argc, char *argv[])
 						}
 						else {
 							menu_status = "file " + get_filename(fs_data.file) + " NOT FOUND";
-							do_error_message(font, screen, display_mode, get_filename(fs_data.file) + " invalid/not found");
+							do_error_message(font, screen, win_width, win_height, get_filename(fs_data.file) + " invalid/not found");
 						}
 
 						for(size_t i=0; i<sound_pars.sounds.size(); i++) {
@@ -1333,7 +1348,7 @@ int main(int argc, char *argv[])
 						settings_menu_buttons[record_idx].selected = true;
 					else {
 						menu_status = "cannot create " + fs_data.file;
-						do_error_message(font, screen, display_mode, menu_status);
+						do_error_message(font, screen, win_width, win_height, menu_status);
 					}
 
 					fs_action = fs_none;
@@ -1371,7 +1386,7 @@ int main(int argc, char *argv[])
 			SDL_SetRenderDrawColor(screen, 0, 0, 0, 255);
 			SDL_RenderClear(screen);
 
-			int font_height = display_mode->h / 2 / 100;
+			int font_height = win_height / 2 / 100;
 
 			draw_clickables(font, screen, menu_button_clickables, { }, { });
 
@@ -1387,12 +1402,12 @@ int main(int argc, char *argv[])
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 
 				if (samples[pattern_group].name.empty() == false)
-					draw_text(font, screen, 0, display_mode->h / 2 / 100, get_filename(samples[pattern_group].name), { });
+					draw_text(font, screen, 0, win_height / 2 / 100, get_filename(samples[pattern_group].name), { });
 			}
 			else if (mode == m_settings) {
 				if (menu_status.empty())
 					menu_status = "Kaboem " KABOEM_VERSION;
-				draw_text(font, screen, 0, display_mode->h - font_height * 5, menu_status, { { display_mode->w, font_height } });
+				draw_text(font, screen, 0, win_height - font_height * 5, menu_status, { { win_width, font_height } });
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 				draw_clickables(font, screen, settings_menu_buttons, { }, { });
 				draw_text(font, screen, bpm_widget.x, bpm_widget.y, std::to_string(bpm), { { bpm_widget.text_w, bpm_widget.text_h } });
@@ -1453,7 +1468,7 @@ int main(int argc, char *argv[])
 				lck.unlock();
 
 				if (name.empty() == false)
-					draw_text(font, screen, 0, display_mode->h - font_height * 5, get_filename(name), { { display_mode->w, font_height } });
+					draw_text(font, screen, 0, win_height - font_height * 5, get_filename(name), { { win_width, font_height } });
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 				draw_clickables(font, screen, sample_buttons_clickables, { }, { });
 				draw_text(font, screen, sample_vol_widget_left.x,  sample_vol_widget_left.y,  std::to_string(vol_left),
@@ -1558,9 +1573,9 @@ int main(int argc, char *argv[])
 					else if (menus_clicked.has_value()) {
 						size_t idx = menus_clicked.value();
 						if (idx == clear_idx) {
-							bool choice = are_you_sure(font, screen, display_mode, font_height, "Clear everything");
+							bool choice = are_you_sure(font, screen, win_width, win_height, font_height, "Clear everything");
 							if (choice) {
-								draw_please_wait(font, screen, display_mode);
+								draw_please_wait(font, screen, win_width, win_height);
 								clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, path, samples, file_parameters, channel_clickables);
 								menu_status = "cleared";
 							}
@@ -1568,7 +1583,7 @@ int main(int argc, char *argv[])
 							redraw = true;
 						}
 						else if (idx == pattern_load_idx) {
-							if (are_you_sure(font, screen, display_mode, font_height, "Load")) {
+							if (are_you_sure(font, screen, win_width, win_height, font_height, "Load")) {
 								fs_data.finished = false;
 								fs_action = fs_load;
 								SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, work_path.c_str(), false);
@@ -1580,7 +1595,7 @@ int main(int argc, char *argv[])
 							SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters, 1, work_path.c_str());
 						}
 						else if (idx == quit_idx) {
-							if (are_you_sure(font, screen, display_mode, font_height, "Quit"))
+							if (are_you_sure(font, screen, win_width, win_height, font_height, "Quit"))
 								do_exit = true;
 						}
 						else if (set_up_down_value(idx, swing_widget, 0, 200, &swing_amount, shift)) {
@@ -1732,11 +1747,11 @@ int main(int argc, char *argv[])
 							}
 							else if (idx == n_steps_pars.up) {
 								pat_clickables[fs_action_sample_index].dim = std::min(max_pattern_dim, pat_clickables[fs_action_sample_index].dim + 1);
-								regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[fs_action_sample_index]);
+								regenerate_pattern_grid(win_width, win_height, &pat_clickables[fs_action_sample_index]);
 							}
 							else if (idx == n_steps_pars.down) {
 								pat_clickables[fs_action_sample_index].dim = std::max(size_t(2), pat_clickables[fs_action_sample_index].dim - 1);
-								regenerate_pattern_grid(display_mode->w, display_mode->h, &pat_clickables[fs_action_sample_index]);
+								regenerate_pattern_grid(win_width, win_height, &pat_clickables[fs_action_sample_index]);
 							}
 							else if (s == nullptr) {
 								// skip volume when no sample
@@ -1874,7 +1889,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	draw_please_wait(font, screen, display_mode);
+	draw_please_wait(font, screen, win_width, win_height);
 
 	player_thread.join();
 	mixer_thread.join();
