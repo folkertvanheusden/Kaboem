@@ -64,7 +64,8 @@ bool start_wav_recording(sound_parameters *const sound_pars, const std::string &
 	auto handle   = sf_open(file.c_str(), SFM_WRITE, &si);
 
 	std::unique_lock<std::mutex> r_lck(sound_pars->record_lock);
-	sound_pars->record_handle = handle;
+	sound_pars->record_handle        = handle;
+	sound_pars->record_wav_smf_since = get_us();
 
 	return sound_pars->record_handle != nullptr;
 }
@@ -73,11 +74,12 @@ bool start_mid_recording(sound_parameters *const sound_pars, const std::string &
 {
 #if HAVE_SMF == 1
 	std::unique_lock<std::mutex> lck(sound_pars->smf_lock);
-	sound_pars->smf           = smf_new();
-	sound_pars->smf_track     = smf_track_new();
-	sound_pars->smf_start     = get_us();
-	sound_pars->smf_file_name = file;
+	sound_pars->smf                  = smf_new();
+	sound_pars->smf_track            = smf_track_new();
+	sound_pars->smf_start            = get_us();
+	sound_pars->smf_file_name        = file;
 	smf_add_track(sound_pars->smf, sound_pars->smf_track);
+	sound_pars->record_wav_smf_since = get_us();
 #endif
 	return true;
 }
@@ -234,7 +236,7 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 		up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars,
 		up_down_widget *const sound_saturation_pars, size_t *const polyrythmic_idx,
 		up_down_widget *const swing_widget_pars, size_t *const agc_idx, size_t *const clipping_idx, size_t *const scope_idx,
-		size_t *const busyness_idx)
+		size_t *const busyness_idx, size_t *const record_time_idx)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -376,6 +378,14 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 		c.where          = { int(menu_button_width * 4.1), 4 * menu_button_height, int(menu_button_width * 1.8), menu_button_height * 2 };
 		c.without_bg     = true;
 		*scope_idx = clickables.size();
+		clickables.push_back(c);
+	}
+
+	{
+		clickable c { };
+		c.where          = { int(menu_button_width * 4.1), 6 * menu_button_height, int(menu_button_width * 1.8), half_height };
+		c.without_bg     = true;
+		*record_time_idx = clickables.size();
 		clickables.push_back(c);
 	}
 
@@ -1057,10 +1067,12 @@ int main(int argc, char *argv[])
 	size_t         agc_idx          = 0;
 	bool           agc              = false;
 	size_t         scope_idx        = 0;
+	size_t         record_time_idx  = 0;
 	std::vector<clickable> settings_menu_buttons = generate_settings_menu_buttons(display_mode->w, display_mode->h,
 			&pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget,
 			&pause_idx, &midi_ch_widget, &lp_filter_widget, &hp_filter_widget, &sound_saturation_widget,
-			&polyrythmic_idx, &swing_widget, &agc_idx, &clipping_idx, &scope_idx, &busyness_idx);
+			&polyrythmic_idx, &swing_widget, &agc_idx, &clipping_idx, &scope_idx, &busyness_idx,
+			&record_time_idx);
 	std::string    menu_status;
 
 	up_down_widget pitch_widget       { };
@@ -1337,6 +1349,12 @@ int main(int argc, char *argv[])
 			busyness            = sound_pars.busyness;
 		}
 
+		if (sound_pars.record_wav_smf_since != 0 && mode == m_settings) {
+			static uint64_t prev_record_wav_smf_since = 0;
+			redraw |= sound_pars.record_wav_smf_since - prev_record_wav_smf_since >= 100000;  // update counter 10x/second
+			prev_record_wav_smf_since = sound_pars.record_wav_smf_since;
+		}
+
 		if (redraw && fs_action == fs_none) {
 			SDL_SetRenderDrawColor(screen, 0, 0, 0, 255);
 			SDL_RenderClear(screen);
@@ -1394,6 +1412,18 @@ int main(int argc, char *argv[])
 
 				clickable & scope_c = settings_menu_buttons[scope_idx];
 				draw_scope(screen, scope_c.where, scope);
+
+				if (sound_pars.record_wav_smf_since) {
+					char buffer[13];
+					uint64_t ms_running = (get_us() - sound_pars.record_wav_smf_since) / 1000;
+					snprintf(buffer, sizeof buffer, "%02d:%02d:%02d.%03d", 
+							int(ms_running / (3600 * 1000)),
+							int(ms_running / (  60 * 1000) % 60),
+							int(ms_running / (       1000) % 60),
+							int(ms_running % 1000));
+					clickable & record_time_c = settings_menu_buttons[record_time_idx];
+					draw_text(font, screen, record_time_c.where.x, record_time_c.where.y, buffer, { { record_time_c.where.w, record_time_c.where.h } });
+				}
 			}
 			else if (mode == m_sample) {
 				std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
@@ -1585,8 +1615,9 @@ int main(int argc, char *argv[])
 							}
 
 							if (was_writing == true) {
-								menu_status = "recording stopped";
+								menu_status                                = "recording stopped";
 								settings_menu_buttons[record_idx].selected = false;
+								sound_pars.record_wav_smf_since            = 0;
 							}
 							else {
 								fs_data.finished = false;

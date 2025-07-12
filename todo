@@ -5,7 +5,6 @@
 - adjust fontsizes so that text fits
 - timing toepassen op 1 cell, dat-ie iets eerder of later begint
 - delay per channel
-- record: show how long it is recording
 
 - "normaal is swing/shuffle (zelfde dacht ik) dat elke 2e en 4e noot wordt gedelayed, met een positieve dan wel negatieve offset" -> humanize in de huidige vorm
 - high-pass doet 't zelfde als low pass
