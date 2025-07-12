@@ -56,8 +56,10 @@ TTF_Font * load_font(const std::vector<std::string> & font_names, const unsigned
 {
 	for(auto & font_name : font_names) {
 		TTF_Font *font = load_font(font_name, font_height, fast_rendering);
-		if (font)
+		if (font) {
+			printf("Using font %s\n", font_name.c_str());
 			return font;
+		}
 	}
 
 	return nullptr;
@@ -70,6 +72,7 @@ TTF_Font * load_font_by_filenames(const std::vector<std::string> & filenames, co
 		if (font) {
 			if (!fast_rendering)
 				TTF_SetFontHinting(font, TTF_HINTING_NORMAL);
+			printf("Using font %s\n", font_file.c_str());
 			return font;
 		}
 	}

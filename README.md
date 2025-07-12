@@ -20,6 +20,8 @@ make
 The executable will then named 'kaboem'.
 When invoked, it runs in "full screen"-mode. To get it in a window, run it with the "-w" switch.
 
+If you're running this program on microsoft windows and the characters look strange, install the Arial font from https://downloads.sourceforge.net/corefonts/arial32.exe
+
 Please note that this software is not even an alpha version. Work in progress!
 
 The main screen shows 16 steps. In the settings-menu this can be changed to 3 upto 32 steps. The red square in the pattern-block is the cursor.
