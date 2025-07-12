@@ -144,7 +144,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 			uint64_t took    = end - t_start;
 			int64_t  sleep_n = sr_sleep - took;
 			if (sleep_n > 0)
-				usleep(sleep_n);
+				my_us_sleep(sleep_n);
 			else
 				printf("Slow system\n");
 		}

@@ -37,7 +37,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		uint64_t start = get_us();
 
 		if (*pause) {
-			usleep(10000);
+			my_us_sleep(10000);
 			continue;
 		}
 
@@ -117,7 +117,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 
 		int64_t to_sleep = 1000 - (get_us() - start);
 		if (to_sleep > 0)
-			usleep(to_sleep);
+			my_us_sleep(to_sleep);
 		else
 			printf("slow system\n");
 	}
