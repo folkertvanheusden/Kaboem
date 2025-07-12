@@ -31,7 +31,7 @@ private:
 	double output_history[3] { };
 
 public:
-	filter_butterworth(const int sample_rate, const double is_high_pass, const double resonance);
+	filter_butterworth(const int sample_rate, const bool is_high_pass, const double resonance);
 
 	void   configure(const double frequency);
 	double apply    (const double new_input);

@@ -4,7 +4,7 @@
 #include "filter.h"
 
 
-filter_butterworth::filter_butterworth(const int sample_rate, const double is_high_pass, const double resonance):
+filter_butterworth::filter_butterworth(const int sample_rate, const bool is_high_pass, const double resonance):
 	sample_rate(sample_rate),
 	is_high_pass(is_high_pass),
 	resonance(resonance)
