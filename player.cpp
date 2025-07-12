@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
+#include <mutex>
 #include <unistd.h>
 
 #include "frequencies.h"
@@ -96,10 +97,13 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 
 						if ((*samples)[i].midi_note.has_value()) {
 #if HAVE_SMF == 1
-							if (sound_pars->smf_track) {
-								uint8_t msg[3] = { 0x99, uint8_t((*samples)[i].midi_note.value()), 127 };
-								smf_event_t *event = smf_event_new_from_pointer(msg, sizeof msg);
-								smf_track_add_event_seconds(sound_pars->smf_track, event, (get_us() - sound_pars->smf_start) / 1000000.);
+							{
+								std::unique_lock<std::mutex> lck(sound_pars->smf_lock);
+								if (sound_pars->smf_track) {
+									uint8_t msg[3] = { 0x99, uint8_t((*samples)[i].midi_note.value()), 127 };
+									smf_event_t *event = smf_event_new_from_pointer(msg, sizeof msg);
+									smf_track_add_event_seconds(sound_pars->smf_track, event, (get_us() - sound_pars->smf_start) / 1000000.);
+								}
 							}
 #endif
 

@@ -85,7 +85,6 @@ bool start_mid_recording(sound_parameters *const sound_pars, const std::string &
 bool close_mid_file(sound_parameters *const sound_pars)
 {
 #if HAVE_SMF == 1
-	std::unique_lock<std::mutex> lck(sound_pars->smf_lock);
 	auto rc = smf_save(sound_pars->smf, sound_pars->smf_file_name.c_str());
 	smf_delete(sound_pars->smf);
 	sound_pars->smf       = nullptr;
@@ -1563,29 +1562,32 @@ int main(int argc, char *argv[])
 							// taken
 						}
 						else if (idx == record_idx) {
-							std::unique_lock<std::mutex> r_lck(sound_pars.record_lock);
+							bool was_writing = false;
 #if HAVE_SMF == 1
-							std::unique_lock<std::mutex> s_lck(sound_pars.smf_lock);
-							if (sound_pars.record_handle || sound_pars.smf) {
-								menu_status                                = "recording stopped";
-								if (sound_pars.record_handle)
-									sf_close(sound_pars.record_handle);
+							{
+								std::unique_lock<std::mutex> s_lck(sound_pars.smf_lock);
 								if (sound_pars.smf) {
 									if (close_mid_file(&sound_pars) == false)
 										menu_status = "MIDI file writing failed";
+									sound_pars.smf = nullptr;
+									was_writing    = true;
 								}
-								sound_pars.record_handle                   = nullptr;
-								settings_menu_buttons[record_idx].selected = false;
-							}
-#else
-							if (sound_pars.record_handle) {
-								menu_status                                = "recording stopped";
-								if (sound_pars.record_handle)
-									sf_close(sound_pars.record_handle);
-								sound_pars.record_handle                   = nullptr;
-								settings_menu_buttons[record_idx].selected = false;
 							}
 #endif
+
+							{
+								std::unique_lock<std::mutex> r_lck(sound_pars.record_lock);
+								if (sound_pars.record_handle) {
+									sf_close(sound_pars.record_handle);
+									sound_pars.record_handle = nullptr;
+									was_writing              = true;
+								}
+							}
+
+							if (was_writing == true) {
+								menu_status = "recording stopped";
+								settings_menu_buttons[record_idx].selected = false;
+							}
 							else {
 								fs_data.finished = false;
 								fs_action        = fs_record;
