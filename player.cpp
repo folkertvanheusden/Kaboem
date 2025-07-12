@@ -60,7 +60,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 				ssize_t pat_index   = 0;
 				ssize_t current_dim = (*pat_clickables)[i].dim;
 
-				int sw_fac = *swing_factor;
+				int sw_fac = *swing_factor * 1000;  // microseconds
 				if (sw_fac)
 					swing[i] = (rand() % sw_fac) - sw_fac / 2;
 				else
