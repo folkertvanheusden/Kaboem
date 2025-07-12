@@ -198,6 +198,9 @@ public:
 	std::shared_mutex               stream_lock;
 	std::queue<std::vector<float> > stream;
 
+	std::mutex           record_lock;
+	SNDFILE             *record_handle    { nullptr };
+
 	std::shared_mutex    sounds_lock;  ///
 	struct queued_sound {
 		const sound *s;
@@ -208,7 +211,6 @@ public:
 		int          echo_t;
 	};
 	std::vector<queued_sound> sounds;
-	SNDFILE             *record_handle    { nullptr };
 	filter_butterworth  *filter_lp        { nullptr };
 	filter_butterworth  *filter_hp        { nullptr };
 	double               global_volume    { 1.      };
@@ -228,7 +230,7 @@ public:
 	///
 
 #if HAVE_SMF == 1
-	std::shared_mutex    smf_lock;
+	std::mutex           smf_lock;
 	smf_t               *smf              { nullptr };
 	smf_track_t         *smf_track        { nullptr };
 	uint64_t             smf_start        { 0       };

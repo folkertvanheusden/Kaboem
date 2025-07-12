@@ -63,7 +63,7 @@ bool start_wav_recording(sound_parameters *const sound_pars, const std::string &
 	si.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_24;
 	auto handle   = sf_open(file.c_str(), SFM_WRITE, &si);
 
-	std::unique_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
+	std::unique_lock<std::mutex> r_lck(sound_pars->record_lock);
 	sound_pars->record_handle = handle;
 
 	return sound_pars->record_handle != nullptr;
@@ -72,7 +72,7 @@ bool start_wav_recording(sound_parameters *const sound_pars, const std::string &
 bool start_mid_recording(sound_parameters *const sound_pars, const std::string & file)
 {
 #if HAVE_SMF == 1
-	std::unique_lock<std::shared_mutex> lck(sound_pars->smf_lock);
+	std::unique_lock<std::mutex> lck(sound_pars->smf_lock);
 	sound_pars->smf           = smf_new();
 	sound_pars->smf_track     = smf_track_new();
 	sound_pars->smf_start     = get_us();
@@ -85,7 +85,7 @@ bool start_mid_recording(sound_parameters *const sound_pars, const std::string &
 bool close_mid_file(sound_parameters *const sound_pars)
 {
 #if HAVE_SMF == 1
-	std::unique_lock<std::shared_mutex> lck(sound_pars->smf_lock);
+	std::unique_lock<std::mutex> lck(sound_pars->smf_lock);
 	auto rc = smf_save(sound_pars->smf, sound_pars->smf_file_name.c_str());
 	smf_delete(sound_pars->smf);
 	sound_pars->smf       = nullptr;
@@ -1563,8 +1563,9 @@ int main(int argc, char *argv[])
 							// taken
 						}
 						else if (idx == record_idx) {
-							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+							std::unique_lock<std::mutex> r_lck(sound_pars.record_lock);
 #if HAVE_SMF == 1
+							std::unique_lock<std::mutex> s_lck(sound_pars.smf_lock);
 							if (sound_pars.record_handle || sound_pars.smf) {
 								menu_status                                = "recording stopped";
 								if (sound_pars.record_handle)
@@ -1586,8 +1587,6 @@ int main(int argc, char *argv[])
 							}
 #endif
 							else {
-								lck.unlock();
-
 								fs_data.finished = false;
 								fs_action        = fs_record;
 								SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters_record, 1, work_path.c_str());
@@ -1835,10 +1834,13 @@ int main(int argc, char *argv[])
 	stop_sdl3_audio(&sound_pars);
 
 	{  // stop any recording
-		std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
+		std::unique_lock<std::mutex> r_lck(sound_pars.record_lock);
 		if (sound_pars.record_handle)
 			sf_close(sound_pars.record_handle);
+	}
+	{
 #if HAVE_SMF == 1
+		std::unique_lock<std::mutex> lck(sound_pars.smf_lock);
 		if (sound_pars.smf)
 			close_mid_file(&sound_pars);
 #endif

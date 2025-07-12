@@ -121,10 +121,13 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 
 		delete [] temp_buffer;
 
-		if (sound_pars->record_handle)
-			sf_writef_float(sound_pars->record_handle, dest.data(), dest.size() / sound_pars->n_channels);
-
 		lck.unlock();
+
+		{
+			std::unique_lock<std::mutex> r_lck(sound_pars->record_lock);
+			if (sound_pars->record_handle)
+				sf_writef_float(sound_pars->record_handle, dest.data(), dest.size() / sound_pars->n_channels);
+		}
 
 		// queue for sdl3-audio
 		std::unique_lock<std::shared_mutex> s_lck(sound_pars->stream_lock);
