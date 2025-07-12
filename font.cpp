@@ -17,7 +17,7 @@ void deinit_fonts()
 	TTF_Quit();
 }
 
-static TTF_Font * load_font(const std::string & font_name, unsigned int font_height, bool fast_rendering)
+static TTF_Font * load_font(const std::string & font_name, const unsigned int font_height, const bool fast_rendering)
 {
 	FcPattern *pattern = FcNameParse(reinterpret_cast<const FcChar8 *>(font_name.c_str()));
 	FcConfigSubstitute(nullptr, pattern, FcMatchPattern);
@@ -52,7 +52,7 @@ static TTF_Font * load_font(const std::string & font_name, unsigned int font_hei
         return font;
 }
 
-TTF_Font * load_font(const std::vector<std::string> & font_names, unsigned int font_height, bool fast_rendering)
+TTF_Font * load_font(const std::vector<std::string> & font_names, const unsigned int font_height, const bool fast_rendering)
 {
 	for(auto & font_name : font_names) {
 		TTF_Font *font = load_font(font_name, font_height, fast_rendering);
@@ -61,4 +61,18 @@ TTF_Font * load_font(const std::vector<std::string> & font_names, unsigned int f
 	}
 
 	return nullptr;
+}
+
+TTF_Font * load_font_by_filename(const std::string & filename, const unsigned int font_height, const bool fast_rendering)
+{
+        TTF_Font *font = TTF_OpenFont(filename.c_str(), font_height);
+	if (!font) {
+		printf("Font error: %s\n", SDL_GetError());
+		return nullptr;
+	}
+
+        if (!fast_rendering)
+                TTF_SetFontHinting(font, TTF_HINTING_NORMAL);
+
+	return font;
 }
