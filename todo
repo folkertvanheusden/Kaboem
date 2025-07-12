@@ -1,10 +1,10 @@
 - auto adjust tempo by what is entered
 - swirl channel through left/right
-- external sync (via midi?)
 - shorten filenames (with '...') when they don't fit on screen
 - adjust fontsizes so that text fits
-- timing toepassen op 1 cell, dat-ie iets eerder of later begint
 - delay per channel
-
-- "normaal is swing/shuffle (zelfde dacht ik) dat elke 2e en 4e noot wordt gedelayed, met een positieve dan wel negatieve offset" -> humanize in de huidige vorm
 - high-pass doet 't zelfde als low pass
+
+- timing toepassen op 1 cell, dat-ie iets eerder of later begint
+- "normaal is swing/shuffle (zelfde dacht ik) dat elke 2e en 4e noot wordt gedelayed, met een positieve dan wel negatieve offset" -> humanize in de huidige vorm
+- external sync (via midi?)
