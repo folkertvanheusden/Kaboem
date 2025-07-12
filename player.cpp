@@ -89,6 +89,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 							qs.pitch        = pitch;
 							qs.volume_left  = (*pat_clickables)[i].volume_left [pat_index];
 							qs.volume_right = (*pat_clickables)[i].volume_right[pat_index];
+							qs.echo_t       = (*samples)[i].echo_t;
 
 							sound_pars->sounds.push_back(qs);
 						}

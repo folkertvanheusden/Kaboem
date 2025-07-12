@@ -54,6 +54,7 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 
 	json samples    = json::array();
 	json midi_notes = json::array();
+	json echo_t     = json::array();
 	for(auto & sample_file : sample_files) {
 		json sample;
 		sample["file-name"] = sample_file.name;
@@ -84,12 +85,15 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 			midi_notes.push_back(sample_file.midi_note.value());
 		else
 			midi_notes.push_back(-1);
+
+		echo_t.push_back(sample_file.echo_t);
 	}
 
 	json out;
-	out["patterns"]         = patterns;
-	out["samples"]          = samples;
-	out["midi-notes"]       = midi_notes;
+	out["patterns"]   = patterns;
+	out["samples"]    = samples;
+	out["midi-notes"] = midi_notes;
+	out["echo-t"]     = echo_t;
 
 	for(auto & element: parameters) {
 		if (element.type == file_parameter::T_FLOAT) {
@@ -204,6 +208,9 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 				if (note != -1)
 					s.midi_note = note;
 			}
+
+			if (j.contains("echo-t"))
+				s.echo_t = j["echo-t"][group];
 
 			if (s.name.empty() == false) {
 				printf("Loading \"%s\"...\n", s.name.c_str());

@@ -318,7 +318,27 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 	std::vector<clickable> swing_widget = generate_up_down_widget(w, h, x, y, "swing", clickables.size(), swing_widget_pars);
 	std::copy(swing_widget.begin(), swing_widget.end(), std::back_inserter(clickables));
 	x += menu_button_width;
-	y += menu_button_height;
+
+	y += menu_button_height + up_down_height;
+
+	x = 0;
+	{
+		clickable c { };
+		c.where          = { x, y, menu_button_width, menu_button_height };
+		c.text           = "polyryth.";
+		*polyrythmic_idx = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
+
+	{
+		clickable c { };
+		c.where          = { x, y, menu_button_width, menu_button_height };
+		c.text           = "AGC";
+		*agc_idx         = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
 
 	int half_height = menu_button_height / 2;
 	{
@@ -352,28 +372,9 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 		y += menu_button_height;
 	}
 
-	x = 0;
 	{
 		clickable c { };
-		c.where          = { x, y + menu_button_height, menu_button_width, menu_button_height };
-		c.text           = "polyryth.";
-		*polyrythmic_idx = clickables.size();
-		clickables.push_back(c);
-		x += menu_button_width;
-	}
-
-	{
-		clickable c { };
-		c.where          = { x, y + menu_button_height, menu_button_width, menu_button_height };
-		c.text           = "AGC";
-		*agc_idx         = clickables.size();
-		clickables.push_back(c);
-		x += menu_button_width;
-	}
-
-	{
-		clickable c { };
-		c.where          = { menu_button_width * 4, 4 * menu_button_height, int(menu_button_width * 1.9), menu_button_height * 2 };
+		c.where          = { int(menu_button_width * 4.1), 4 * menu_button_height, int(menu_button_width * 1.8), menu_button_height * 2 };
 		c.without_bg     = true;
 		*scope_idx = clickables.size();
 		clickables.push_back(c);
@@ -382,7 +383,7 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 	return clickables;
 }
 
-std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t *const sample_load_idx, up_down_widget *const vol_widget_left_pars, up_down_widget *const vol_widget_right_pars, up_down_widget *const midi_note_widget_pars, up_down_widget *const n_steps_pars, up_down_widget *const pitch_pars, size_t *const sample_unload_idx, size_t *const mute_idx)
+std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t *const sample_load_idx, up_down_widget *const vol_widget_left_pars, up_down_widget *const vol_widget_right_pars, up_down_widget *const midi_note_widget_pars, up_down_widget *const n_steps_pars, up_down_widget *const pitch_pars, size_t *const sample_unload_idx, size_t *const mute_idx, up_down_widget *const echo_t_pars)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -432,6 +433,9 @@ std::vector<clickable> generate_sample_buttons(const int w, const int h, size_t 
 
 	std::vector<clickable> pitch_widget = generate_up_down_widget(w, h, menu_button_width * 4, y, "pitch", clickables.size(), pitch_pars, true);
 	std::copy(pitch_widget.begin(), pitch_widget.end(), std::back_inserter(clickables));
+
+	std::vector<clickable> echo_t_pars_widget = generate_up_down_widget(w, h, menu_button_width * 5, y, "echo", clickables.size(), echo_t_pars);
+	std::copy(echo_t_pars_widget.begin(), echo_t_pars_widget.end(), std::back_inserter(clickables));
 
 	return clickables;
 }
@@ -1074,7 +1078,10 @@ int main(int argc, char *argv[])
 	up_down_widget midi_note_widget_pars    { };
 	up_down_widget n_steps_pars             { };
 	up_down_widget pitch_pars               { };
-	std::vector<clickable> sample_buttons_clickables = generate_sample_buttons(display_mode->w, display_mode->h, &sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right, &midi_note_widget_pars, &n_steps_pars, &pitch_pars, &sample_unload_idx, &mute_idx);
+	up_down_widget echo_t_pars              { };
+	std::vector<clickable> sample_buttons_clickables = generate_sample_buttons(display_mode->w, display_mode->h,
+			&sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right, &midi_note_widget_pars,
+			&n_steps_pars, &pitch_pars, &sample_unload_idx, &mute_idx, &echo_t_pars);
 
 	size_t         p_pause_idx            = 0;
 	size_t         restart_idx            = 0;
@@ -1395,6 +1402,7 @@ int main(int argc, char *argv[])
 				int                 vol_right = 0;
 				sound_sample *const s         = samples[fs_action_sample_index].s;
 				auto                midi_note = samples[fs_action_sample_index].midi_note;
+				int                 echo_t    = samples[fs_action_sample_index].echo_t;
 				if (s) {
 					vol_left  = s->get_volume(0) * 100;
 					vol_right = s->get_volume(1) * 100;
@@ -1419,6 +1427,8 @@ int main(int argc, char *argv[])
 					{ { n_steps_pars.text_w, n_steps_pars.text_h } });
 				draw_text(font, screen, pitch_pars.x, pitch_pars.y, std::to_string(s ? s->get_pitch_bend() : 0),
 					{ { pitch_pars.text_w, pitch_pars.text_h } });
+				draw_text(font, screen, echo_t_pars.x, echo_t_pars.y, std::to_string(echo_t),
+					{ { echo_t_pars.text_w, echo_t_pars.text_h } });
 			}
 			else if (mode == m_cell) {
 				std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
@@ -1673,6 +1683,8 @@ int main(int argc, char *argv[])
 							else if (set_up_down_value(idx, pitch_pars, 0, 10000, &pitch, shift)) {
 								if (s)
 									s->set_pitch_bend(pitch / 1000.);
+							}
+							else if (set_up_down_value(idx, echo_t_pars, 0, 10000, &samples[fs_action_sample_index].echo_t, shift)) {
 							}
 							else if (idx == n_steps_pars.up) {
 								pat_clickables[fs_action_sample_index].dim = std::min(max_pattern_dim, pat_clickables[fs_action_sample_index].dim + 1);

@@ -127,7 +127,7 @@ public:
 	virtual size_t get_n_channels() const = 0;
 
 	// sample, output-channels
-	virtual std::optional<std::pair<float, float> > get_sample(const double t, const size_t channel_nr) const = 0;
+	virtual std::optional<std::pair<float, float> > get_sample(const double t, const size_t channel_nr, const int echo_t) const = 0;
 
 	virtual std::string get_name()           const = 0;
 	virtual double      get_base_frequency() const = 0;
@@ -161,15 +161,12 @@ public:
 
 	bool begin();
 
-	size_t get_n_channels() const override
-	{
-		return samples.at(0).size();
-	}
+	size_t get_n_channels() const override { return samples.at(0).size(); }
 
 	const std::vector<std::vector<float> > & get_raw() const { return samples; }
 	unsigned get_sample_rate() const { return sample_sample_rate; }
 
-	std::optional<std::pair<float, float> > get_sample(const double t, const size_t channel_nr) const override;
+	std::optional<std::pair<float, float> > get_sample(const double t, const size_t channel_nr, const int echo_t) const override;
 
 	std::string get_name() const override;
 	double      get_base_frequency() const override { return base_frequency; }
@@ -208,6 +205,7 @@ public:
 		double       pitch;
 		double       volume_left;
 		double       volume_right;
+		int          echo_t;
 	};
 	std::vector<queued_sound> sounds;
 	SNDFILE             *record_handle    { nullptr };

@@ -31,6 +31,7 @@ struct sample
 	sound_sample      *s;
 	std::string        name;
 	std::optional<int> midi_note;
+	int                echo_t;
 };
 
 constexpr const int    sample_rate     = 48000;

@@ -42,7 +42,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 
 				// assume stereo (maybe in the future 2+1? or even 5+1?)
 				for(size_t ch=0; ch<2; ch++) {
-					auto rc = item.s->get_sample(t_use, ch);
+					auto rc = item.s->get_sample(t_use, ch, item.echo_t);
 
 					if (rc.has_value() == false)
 						fin = true;
