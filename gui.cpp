@@ -1031,6 +1031,7 @@ int main(int argc, char *argv[])
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 
 	sound_parameters sound_pars(sample_rate, 2);
+	sound_pars.global_volume    = 1.;
 
 	srand(time(nullptr));
 
@@ -1237,7 +1238,6 @@ int main(int argc, char *argv[])
 
 	if (configure_sdl3_audio(&sound_pars) == false)
 		return 1;
-	sound_pars.global_volume = 1.;
 
 	while(!do_exit) {
 		// determine pattern index
