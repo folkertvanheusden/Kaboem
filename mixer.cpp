@@ -16,9 +16,8 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 	const int period_size = 128;
 	double    latency     = period_size * 1000000.0 / sound_pars->sample_rate;
 	uint64_t  sr_sleep    = latency;
-	printf("sleep: %zu\n", sr_sleep);
 
-	printf("Mixer thread started, period size: %d (of %d)\n", period_size, sound_pars->pw.frames);
+	printf("Mixer thread started, period size: %d (of %d), sleep:: %zu\n", period_size, sound_pars->pw.frames, size_t(sr_sleep));
 
 	while(*do_exit == false) {
 		uint64_t t_start = get_us();
@@ -151,11 +150,13 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		}
 
 		// queue for sdl3-audio
+
 		std::unique_lock<std::shared_mutex> s_lck(sound_pars->stream_lock);
 		sound_pars->stream.push(dest);
 
 		sound_pars->n_busyness++;
-		sound_pars->t_busyness += 100 * (get_us() - t_start) / latency;
+		uint64_t took = get_us() - t_start;
+		sound_pars->t_busyness += 100 * took / latency;
 
 		if (sound_pars->stream.size() >= size_t(sound_pars->pw.frames * 2 / period_size)) {
 			s_lck.unlock();

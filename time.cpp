@@ -19,6 +19,13 @@ uint64_t get_us()
 	return static_cast<uint64_t>(micros);
 }
 
+uint64_t get_ns()
+{
+	auto now = std::chrono::steady_clock::now();
+	auto nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+	return static_cast<uint64_t>(nanos);
+}
+
 void my_us_sleep(const uint64_t duration)
 {
 	timespec ts_duration { (long int)(duration / 1000000), (long int)((duration % 1000000) * 1000) };
