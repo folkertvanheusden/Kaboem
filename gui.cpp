@@ -645,14 +645,20 @@ bool configure_filter(pattern *const pat, std::shared_mutex *const lock, const u
 	if (widget_idx == widget.up) {
 		if (frequency.has_value() == false)
 			frequency = 1.;
-		else
+		else {
 			frequency = std::min(sample_rate / 2., frequency.value() + 20 * mul);
+			if (frequency >= sample_rate / 2)
+				frequency.reset();
+		}
 	}
 	else if (widget_idx == widget.up_10) {
 		if (frequency.has_value() == false)
 			frequency = 1.;
-		else
+		else {
 			frequency = std::min(sample_rate / 2., frequency.value() + 1000 * mul);
+			if (frequency >= sample_rate / 2)
+				frequency.reset();
+		}
 	}
 	else if (widget_idx == widget.down) {
 		if (frequency.has_value() == false)
