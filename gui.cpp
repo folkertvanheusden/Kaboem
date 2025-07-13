@@ -38,6 +38,8 @@ void sigh(int s)
 	do_exit = true;
 }
 
+enum text_alignment { left = 0, top = 0, right = 1, bottom = 1, center = 2 };
+
 struct fileselector_data {
 	std::mutex  lock;
 	std::string file;
@@ -529,7 +531,7 @@ void regenerate_pattern_grid(const int w, const int h, pattern *const p)
 	}
 }
 
-void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, const int y, const std::string & text, const std::optional<std::pair<int, int> > & center_in, const bool important = false)
+void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, const int y, const std::string & text, const std::optional<std::pair<int, int> > & in, const bool important = false, const text_alignment h_alignment = text_alignment::center, const text_alignment v_alignment = text_alignment::center)
 {
 	SDL_Surface *surface = nullptr;
 	if (important)
@@ -541,17 +543,20 @@ void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, co
 	SDL_Texture *texture = SDL_CreateTextureFromSurface(screen, surface);
 	assert(texture);
 
-	SDL_FRect dest { };
-	if (center_in.has_value()) {
-		dest.x = x + center_in.value().first  / 2 - surface->w / 2;
-		dest.y = y + center_in.value().second / 2 - surface->h / 2;
+	SDL_FRect dest { float(x), float(y), float(surface->w), float(surface->h) };
+	if (in.has_value()) {
+		if (h_alignment == text_alignment::center)
+			dest.x = x + in.value().first / 2 - surface->w / 2;
+		else if (h_alignment == text_alignment::right)
+			dest.x = x + in.value().first - surface->w;
+
+		if (v_alignment == text_alignment::center)
+			dest.y = y + in.value().second / 2 - surface->h / 2;
+		else if (v_alignment == text_alignment::bottom)
+			dest.y = y + in.value().second - surface->h;
+
+		printf("Render [%d | %d] at %d,%d (%dx%d in %dx%d, relative to %d,%d): \"%s\"\n", h_alignment, v_alignment, int(dest.x), int(dest.y), int(dest.w), int(dest.h), in.value().first, in.value().second, x, y, text.c_str());
 	}
-	else {
-		dest.x = x;
-		dest.y = y;
-	}
-	dest.w = surface->w;
-	dest.h = surface->h;
 	SDL_RenderTexture(screen, texture, nullptr, &dest);
 
 	SDL_DestroyTexture(texture);
@@ -1145,25 +1150,7 @@ int main(int argc, char *argv[])
 		{ "agc",          file_parameter::T_BOOL,   nullptr,           nullptr,                nullptr, nullptr,      &agc,    nullptr      }
 	};
 
-	std::atomic_int swing_amount_parameter { swing_amount };
-	if (read_file("default." PROG_EXT, &pat_clickables, &samples, &file_parameters)) {
-		for(size_t i=0; i<pattern_groups; i++) {
-			if (samples[i].name.empty() == false)
-				channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
-		}
-
-		sound_pars.global_volume                        = vol / 100.;
-		sound_pars.sound_saturation                     = 1. - sound_saturation / 1000.;
-		sound_pars.agc_enabled                          = agc;
-		settings_menu_buttons[agc_idx].selected         = agc;
-		settings_menu_buttons[polyrythmic_idx].selected = polyrythmic;
-		swing_amount_parameter                          = swing_amount;
-
-		regenerate_pattern_grid(win_width, win_height, &pat_clickables[pattern_group]);
-
-		reset_all_patterns(&pat_clickables, &pat_clickables_lock, samples, false);
-	}
-
+	std::atomic_int      swing_amount_parameter { swing_amount };
 	std::atomic_int      sleep_us       = 0;
 	size_t               prev_pat_index = size_t(-1);
 	std::atomic_bool     paused         = true;
@@ -1173,6 +1160,7 @@ int main(int argc, char *argv[])
 	int                  prev_scope_t   = -1;
 	size_t               selected_cell  = 0;
 	std::atomic_uint64_t start_t        = 0;
+	std::string          kaboem_file;
 
 	set_bpm_sleep(&sleep_us, bpm);
 
@@ -1235,9 +1223,13 @@ int main(int argc, char *argv[])
 					if (fs_data.file.empty() == false) {
 						draw_please_wait(font, screen, win_width, win_height);
 
+						clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, path, samples,
+								file_parameters, channel_clickables);
+
 						std::unique_lock<std::shared_mutex> lck    (sound_pars.sounds_lock);
 						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock   );
 						if (read_file(fs_data.file, &pat_clickables, &samples, &file_parameters)) {
+							kaboem_file                                     = fs_data.file;
 							sound_pars.global_volume                        = vol / 100.;
 							sound_pars.sound_saturation                     = 1. - sound_saturation / 1000.;
 							sound_pars.agc_enabled                          = agc;
@@ -1282,6 +1274,8 @@ int main(int argc, char *argv[])
 						size_t      file_len = file.size();
 						if (file_len > 7 && file.substr(file_len - 7) != "." PROG_EXT)
 							file += "." PROG_EXT;
+
+						kaboem_file = file;
 
 						std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 						if (write_file(file, pat_clickables, samples, file_parameters))
@@ -1386,7 +1380,7 @@ int main(int argc, char *argv[])
 			SDL_SetRenderDrawColor(screen, 0, 0, 0, 255);
 			SDL_RenderClear(screen);
 
-			int font_height = win_height / 2 / 100;
+			int font_height = win_height * 2 / 100;
 
 			draw_clickables(font, screen, menu_button_clickables, { }, { });
 
@@ -1401,13 +1395,20 @@ int main(int argc, char *argv[])
 				draw_clickables(font, screen, pat_clickables[pattern_group].pattern, click_state, pat_index, pat_clickables[pattern_group].dim);
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 
-				if (samples[pattern_group].name.empty() == false)
-					draw_text(font, screen, 0, win_height / 2 / 100, get_filename(samples[pattern_group].name), { });
+				int pattern_width = win_width * 85 / 100;
+				int text_height   = win_height * 5 / 100;
+				std::string sample_filename = get_filename(samples[pattern_group].name);
+				if (sample_filename.empty() == false)
+					draw_text(font, screen, 0, 0, sample_filename,
+							{ { pattern_width, text_height } }, false, text_alignment::left,  text_alignment::top);
+				if (kaboem_file.empty() == false)
+					draw_text(font, screen, 0, 0, get_filename(kaboem_file),
+							{ { pattern_width, text_height } }, false, text_alignment::right, text_alignment::top);
 			}
 			else if (mode == m_settings) {
 				if (menu_status.empty())
-					menu_status = "Kaboem " KABOEM_VERSION;
-				draw_text(font, screen, 0, win_height - font_height * 5, menu_status, { { win_width, font_height } });
+					menu_status = PROG_NAME " " KABOEM_VERSION;
+				draw_text(font, screen, 0, 0, menu_status, { { win_width, win_height } }, false, text_alignment::left, text_alignment::bottom);
 				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
 				draw_clickables(font, screen, settings_menu_buttons, { }, { });
 				draw_text(font, screen, bpm_widget.x, bpm_widget.y, std::to_string(bpm), { { bpm_widget.text_w, bpm_widget.text_h } });
@@ -1583,7 +1584,7 @@ int main(int argc, char *argv[])
 							redraw = true;
 						}
 						else if (idx == pattern_load_idx) {
-							if (are_you_sure(font, screen, win_width, win_height, font_height, "Load")) {
+							if (kaboem_file.empty() || are_you_sure(font, screen, win_width, win_height, font_height, "Load")) {
 								fs_data.finished = false;
 								fs_action = fs_load;
 								SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, work_path.c_str(), false);
