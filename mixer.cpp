@@ -60,6 +60,11 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 						float value         = rc.value().first * (ch ? item.volume_right : item.volume_left);
 						float value_volumed = value * rc.value().second;
 
+						if (item.filter_lp)
+							value_volumed = item.filter_lp->apply(value_volumed);
+						if (item.filter_hp)
+							value_volumed = item.filter_hp->apply(value_volumed);
+
 						if (apply_echo && item.t >= item.echo_t) {
 							constexpr const float feedback = 0.5;  // TODO configurable?
 							value_volumed += feedback * item.history[item.t - item.echo_t][ch];
@@ -73,8 +78,12 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 					item.history.push_back(applied_echo);
 				}
 
-				if (fin)
+				if (fin) {
+					delete item.filter_lp;
+					delete item.filter_hp;
+
 					sound_pars->sounds.erase(sound_pars->sounds.begin() + s_idx);
+				}
 				else {
 					item.t++;
 					s_idx++;
@@ -100,12 +109,6 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 
 				for(int c=0; c<sound_pars->n_channels; c++) {
 					float temp = std::clamp(c_temp[c] * gain, -1.f, 1.f);
-
-					if (sound_pars->filter_lp)
-						temp = sound_pars->filter_lp->apply(temp);
-					if (sound_pars->filter_hp)
-						temp = sound_pars->filter_hp->apply(temp);
-
 					float sign = temp < 0 ? -1 : 1;
 					dest[dest_index + c] = powf(fabsf(temp), sound_pars->sound_saturation) * sign;
 				}
@@ -124,11 +127,6 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 						temp = -1., too_loud = std::max(too_loud, fabsf(temp));
 					else if (temp > 1.)
 						temp = 1.,  too_loud = std::max(too_loud, temp);
-
-					if (sound_pars->filter_lp)
-						temp = sound_pars->filter_lp->apply(temp);
-					if (sound_pars->filter_hp)
-						temp = sound_pars->filter_hp->apply(temp);
 
 					float sign = temp < 0 ? -1 : 1;
 					dest[dest_index + c] = powf(fabsf(temp), sound_pars->sound_saturation) * sign;

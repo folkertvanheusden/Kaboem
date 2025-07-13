@@ -42,6 +42,16 @@ void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, c
 	qs.echo_t       = s->echo_t;
 	qs.history.reserve(s->s->get_sample_count() + s->echo_t);
 
+	if (pat->lp_cutoff.has_value()) {
+		qs.filter_lp = new filter_butterworth(sample_rate, false, sqrt(2.));
+		qs.filter_lp->configure(pat->lp_cutoff.value());
+	}
+
+	if (pat->hp_cutoff.has_value()) {
+		qs.filter_hp = new filter_butterworth(sample_rate, true, sqrt(2.));
+		qs.filter_hp->configure(pat->hp_cutoff.value());
+	}
+
 	std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
 	sound_pars->sounds.push_back(qs);
 

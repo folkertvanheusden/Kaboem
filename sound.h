@@ -202,17 +202,17 @@ public:
 
 	std::shared_mutex    sounds_lock;  ///
 	struct queued_sound {
-		const sound *s;
+		const sound *s                             { nullptr };
 		int          t;
 		double       pitch;
 		double       volume_left;
 		double       volume_right;
 		int          echo_t;
 		std::vector<std::vector<float> > history;
+		filter_butterworth              *filter_lp { nullptr };
+		filter_butterworth              *filter_hp { nullptr };
 	};
 	std::vector<queued_sound> sounds;
-	filter_butterworth  *filter_lp        { nullptr };
-	filter_butterworth  *filter_hp        { nullptr };
 	double               global_volume    { 1.      };
 	double               sound_saturation { 1.      };
 
