@@ -42,8 +42,10 @@ void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, c
 	qs.echo_t       = s->echo_t;
 	qs.history.reserve(s->s->get_sample_count() + s->echo_t);
 
+	std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
 	sound_pars->sounds.push_back(qs);
 
+	// TODO move this to sdl3-audio code? or the mixer?
 	if (s->midi_note.has_value()) {
 #if HAVE_SMF == 1
 		{
@@ -90,8 +92,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		}
 
 		{
-			std::lock_guard <std::shared_mutex> lck    (sound_pars->sounds_lock);
-			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock   );
+			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
 
 			auto abs_now = get_us();
 			auto now     = abs_now - *t_start;
