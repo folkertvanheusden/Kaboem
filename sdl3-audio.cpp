@@ -31,10 +31,8 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 			sound_pars->stream.pop();
 		}
 
-		if (data.size() >= size_t(period_size * 4 * 2)) {
-			stream_lck.unlock();
+		if (data.size() >= size_t(period_size * 4 * 2))
 			break;
-		}
 
 		if (empty) {
 			stream_lck.unlock();
@@ -43,6 +41,8 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 			stream_lck.lock();
 		}
 	}
+	stream_lck.unlock();
+
 	if (do_exit)
 		return;
 
