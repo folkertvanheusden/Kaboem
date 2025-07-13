@@ -969,12 +969,14 @@ void set_bpm_sleep(std::atomic_int *const sleep_us, const int bpm)
 	*sleep_us = 60 * 1000000 / (bpm * 4);
 }
 
-void update_queued_sounds(std::vector<sound_parameters::queued_sound> & sounds, const sound_sample *const s)
+void update_queued_sounds(std::vector<sound_parameters::queued_sound> & sounds, const sample *const sample_)
 {
+	sound_sample *const s = sample_->s;
 	for(auto & sound: sounds) {
 		if (sound.s == s) {
 			sound.volume_left  = s->get_volume(0);
 			sound.volume_right = s->get_volume(1);
+			sound.echo_t       = sample_->echo_t;
 		}
 	}
 }
@@ -1798,8 +1800,9 @@ int main(int argc, char *argv[])
 						}
 						else {
 							std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
-							sound_sample *const s         = samples[fs_action_sample_index].s;
-							auto              & midi_note = samples[fs_action_sample_index].midi_note;
+							sample       *const sample_   = &samples[fs_action_sample_index];
+							sound_sample *const s         = sample_->s;
+							auto              & midi_note = sample_->midi_note;
 							int                 pitch     = s ? s->get_pitch_bend() * 1000 : 0;
 
 							if (set_up_down_value(idx, midi_note_widget_pars, 0, 127, &midi_note, shift)) {
@@ -1809,7 +1812,8 @@ int main(int argc, char *argv[])
 								if (s)
 									s->set_pitch_bend(pitch / 1000.);
 							}
-							else if (set_up_down_value(idx, echo_t_pars, 0, 10000, &samples[fs_action_sample_index].echo_t, shift)) {
+							else if (set_up_down_value(idx, echo_t_pars, 0, 10000, &sample_->echo_t, shift)) {
+								update_queued_sounds(sound_pars.sounds, sample_);
 							}
 							else if (idx == n_steps_pars.up) {
 								pat_clickables[fs_action_sample_index].dim = std::min(max_pattern_dim, pat_clickables[fs_action_sample_index].dim + 1);
@@ -1823,10 +1827,10 @@ int main(int argc, char *argv[])
 								// skip volume when no sample
 							}
 							else if (configure_volume(&sound_pars, sample_vol_widget_left, idx, s, 0, shift)) {
-								update_queued_sounds(sound_pars.sounds, s);
+								update_queued_sounds(sound_pars.sounds, sample_);
 							}
 							else if (configure_volume(&sound_pars, sample_vol_widget_right, idx, s, 1, shift)) {
-								update_queued_sounds(sound_pars.sounds, s);
+								update_queued_sounds(sound_pars.sounds, sample_);
 							}
 						}
 					}

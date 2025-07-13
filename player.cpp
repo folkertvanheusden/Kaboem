@@ -40,6 +40,7 @@ void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, c
 	qs.volume_left  = pat->volume_left [pat_index];
 	qs.volume_right = pat->volume_right[pat_index];
 	qs.echo_t       = s->echo_t;
+	qs.history.reserve(s->s->get_sample_count() + s->echo_t);
 
 	sound_pars->sounds.push_back(qs);
 
@@ -128,7 +129,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		if (to_sleep > 0)
 			my_us_sleep(to_sleep);
 		else
-			printf("slow system\n");
+			printf("slow system (player): %zd\n", ssize_t(to_sleep));
 	}
 
 	close_midi_out_port(midi_port);

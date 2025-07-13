@@ -59,10 +59,10 @@ std::string sound_sample::get_name() const
 	return name;
 }
 
-std::optional<std::pair<float, float> > sound_sample::get_sample(const double t, const size_t channel_nr, const int echo_t) const
+std::optional<std::pair<float, float> > sound_sample::get_sample(const double t, const size_t channel_nr) const
 {
 	double use_t = t * delta_t * pitchbend;
-	if (use_t < 0 || use_t >= samples.size() + echo_t)
+	if (use_t < 0 || use_t >= samples.size())
 		return { };
 
 	size_t offset         = use_t;
@@ -76,13 +76,5 @@ std::optional<std::pair<float, float> > sound_sample::get_sample(const double t,
 			volume_channel = 0;
 	}
 
-	if (echo_t == 0)
-		return { { samples.at(offset).at(sample_channel), volumes[volume_channel] } };
-
-	ssize_t echo_offset = offset - echo_t;
-	if (use_t >= samples.size())
-		return { { samples.at(echo_offset).at(sample_channel), volumes[volume_channel] } };
-	if (echo_offset < 0)
-		return { { samples.at(offset).at(sample_channel), volumes[volume_channel] } };
-	return { { samples.at(offset).at(sample_channel) + samples.at(echo_offset).at(sample_channel), volumes[volume_channel] } };
+	return { { samples.at(offset).at(sample_channel), volumes[volume_channel] } };
 }

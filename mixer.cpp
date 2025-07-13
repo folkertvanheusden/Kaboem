@@ -38,19 +38,41 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 					continue;
 				}
 
-				bool   fin   = false;
-				double t_use = item.t * item.pitch;
+				bool   fin        = false;
+				bool   mute       = item.s->get_mute();
+				double t_use      = item.t * item.pitch;
+				bool   apply_echo = item.echo_t > 0;
 
-				// assume stereo (maybe in the future 2+1? or even 5+1?)
-				for(size_t ch=0; ch<2; ch++) {
-					auto rc = item.s->get_sample(t_use, ch, item.echo_t);
+				if (!mute) {
+					std::vector<float> applied_echo;
 
-					if (rc.has_value() == false)
-						fin = true;
-					else if (item.s->get_mute() == false) {
-						float value = rc.value().first * (ch ? item.volume_right : item.volume_left);
-						current_sample_base[ch] += value * rc.value().second;
+					// assume stereo (maybe in the future 2+1? or even 5+1?)
+					for(size_t ch=0; ch<2; ch++) {
+						auto rc = item.s->get_sample(t_use, ch);
+
+						if (rc.has_value() == false) {
+							if (!apply_echo) {
+								fin = true;
+								break;
+							}
+
+							rc = { 0, 1 };
+						}
+
+						float value         = rc.value().first * (ch ? item.volume_right : item.volume_left);
+						float value_volumed = value * rc.value().second;
+
+						if (apply_echo && item.t >= item.echo_t) {
+							constexpr const float feedback = 0.5;  // TODO configurable?
+							value_volumed += feedback * item.history[item.t - item.echo_t][ch];
+						}
+
+						applied_echo.push_back(value_volumed);
+
+						current_sample_base[ch] += value_volumed;
 					}
+
+					item.history.push_back(applied_echo);
 				}
 
 				if (fin)
@@ -146,7 +168,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 			if (sleep_n > 0)
 				my_us_sleep(sleep_n);
 			else
-				printf("Slow system\n");
+				printf("slow system (mixer): %zd\n", ssize_t(sleep_n));
 		}
 	}
 
