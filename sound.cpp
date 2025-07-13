@@ -62,14 +62,14 @@ std::string sound_sample::get_name() const
 std::optional<std::pair<float, float> > sound_sample::get_sample(const double t, const size_t channel_nr) const
 {
 	double use_t = t * delta_t * pitchbend;
-	if (use_t < 0 || use_t >= samples.size())
+	if (use_t >= samples.size()) [[unlikely]]
 		return { };
 
 	size_t offset         = use_t;
 	size_t sample_channel = channel_nr;
 	size_t volume_channel = channel_nr;
 
-	if (channel_nr >= samples.at(0).size()) {
+	if (channel_nr >= samples.at(0).size()) [[unlikely]] {
 		sample_channel = 0;
 
 		if (channel_nr >= volumes.size())
