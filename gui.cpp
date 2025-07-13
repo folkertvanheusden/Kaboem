@@ -5,6 +5,7 @@
 #include <cmath>
 #include <csignal>
 #include <ctime>
+#include <fstream>
 #include <mutex>
 #include <optional>
 #if HAVE_SMF == 1
@@ -13,6 +14,7 @@
 #include <sndfile.h>
 #include <unistd.h>
 #include <vector>
+#include <nlohmann/json.hpp>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_render.h>
 #include <SDL3_ttf/SDL_ttf.h>
@@ -30,6 +32,10 @@
 #include "time.h"
 #include "utils.h"
 
+
+using json = nlohmann::json;
+
+const std::string cfg_file = SDL_GetPrefPath("vanheusden", "Kaboem") + std::string("settings.json");
 
 std::atomic_bool do_exit { false };
 
@@ -555,7 +561,7 @@ void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, co
 		else if (v_alignment == text_alignment::bottom)
 			dest.y = y + in.value().second - surface->h;
 
-		printf("Render [%d | %d] at %d,%d (%dx%d in %dx%d, relative to %d,%d): \"%s\"\n", h_alignment, v_alignment, int(dest.x), int(dest.y), int(dest.w), int(dest.h), in.value().first, in.value().second, x, y, text.c_str());
+		// printf("Render [%d | %d] at %d,%d (%dx%d in %dx%d, relative to %d,%d): \"%s\"\n", h_alignment, v_alignment, int(dest.x), int(dest.y), int(dest.w), int(dest.h), in.value().first, in.value().second, x, y, text.c_str());
 	}
 	SDL_RenderTexture(screen, texture, nullptr, &dest);
 
@@ -973,6 +979,38 @@ void update_queued_sounds(std::vector<sound_parameters::queued_sound> & sounds, 
 	}
 }
 
+void load_configuration(std::string *const path, std::string *const kaboem_file)
+{
+	std::ifstream ifs(cfg_file);
+	if (ifs.is_open() == false)
+		return;
+	ifs.exceptions(std::ifstream::badbit);
+
+	json j = json::parse(ifs);
+
+	if (j.contains("path"))
+		path->assign(j["path"]);
+
+	if (j.contains("kaboem-file"))
+		kaboem_file->assign(j["kaboem-file"]);
+}
+
+void save_configuration(const std::string & path, const std::string & kaboem_file)
+{
+	json out;
+	out["path"]        = path;
+	out["kaboem-file"] = kaboem_file;
+
+        try {
+                std::ofstream o(cfg_file);
+                o.exceptions(std::ifstream::badbit);
+                o << out;
+        }
+        catch(const std::ifstream::failure& e) {
+                printf("Cannot access \"%s\"\n", cfg_file.c_str());
+        }
+}
+
 int main(int argc, char *argv[])
 {
 	bool full_screen = true;
@@ -996,10 +1034,12 @@ int main(int argc, char *argv[])
 
 	srand(time(nullptr));
 
-	char              p_buf[4096] { };
-	const std::string path      = getcwd(p_buf, sizeof p_buf);
+	const std::string path      = SDL_GetBasePath();
 	std::string       work_path = path;
 	auto              midi_in   = allocate_midi_input_port();
+	std::string       kaboem_file;
+
+	load_configuration(&work_path, &kaboem_file);
 
 	signal(SIGTERM, sigh);
 
@@ -1151,6 +1191,25 @@ int main(int argc, char *argv[])
 	};
 
 	std::atomic_int      swing_amount_parameter { swing_amount };
+
+	if (kaboem_file.empty() == false && read_file(kaboem_file, &pat_clickables, &samples, &file_parameters)) {
+		for(size_t i=0; i<pattern_groups; i++) {
+			if (samples[i].name.empty() == false)
+				channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
+		}
+
+		sound_pars.global_volume                        = vol / 100.;
+		sound_pars.sound_saturation                     = 1. - sound_saturation / 1000.;
+		sound_pars.agc_enabled                          = agc;
+		settings_menu_buttons[agc_idx].selected         = agc;
+		settings_menu_buttons[polyrythmic_idx].selected = polyrythmic;
+		swing_amount_parameter                          = swing_amount;
+
+		regenerate_pattern_grid(win_width, win_height, &pat_clickables[pattern_group]);
+
+		reset_all_patterns(&pat_clickables, &pat_clickables_lock, samples, false);
+	}
+
 	std::atomic_int      sleep_us       = 0;
 	size_t               prev_pat_index = size_t(-1);
 	std::atomic_bool     paused         = true;
@@ -1160,7 +1219,6 @@ int main(int argc, char *argv[])
 	int                  prev_scope_t   = -1;
 	size_t               selected_cell  = 0;
 	std::atomic_uint64_t start_t        = 0;
-	std::string          kaboem_file;
 
 	set_bpm_sleep(&sleep_us, bpm);
 
@@ -1223,7 +1281,7 @@ int main(int argc, char *argv[])
 					if (fs_data.file.empty() == false) {
 						draw_please_wait(font, screen, win_width, win_height);
 
-						clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, path, samples,
+						clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, work_path, samples,
 								file_parameters, channel_clickables);
 
 						std::unique_lock<std::shared_mutex> lck    (sound_pars.sounds_lock);
@@ -1250,6 +1308,9 @@ int main(int argc, char *argv[])
 							reset_all_patterns(&pat_clickables, &pat_clickables_lock, samples, false);
 
 							sound_pars.sounds.clear();
+
+							work_path = get_dirname(kaboem_file);
+							save_configuration(work_path, kaboem_file);
 						}
 						else {
 							lck    .unlock();
@@ -1278,10 +1339,14 @@ int main(int argc, char *argv[])
 						kaboem_file = file;
 
 						std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-						if (write_file(file, pat_clickables, samples, file_parameters))
+						if (write_file(file, pat_clickables, samples, file_parameters)) {
 							menu_status = "file " + get_filename(fs_data.file) + " written";
-						else
+							work_path   = get_dirname(kaboem_file);
+							save_configuration(work_path, kaboem_file);
+						}
+						else {
 							do_error_message(font, screen, win_width, win_height, "cannot write " + get_filename(fs_data.file));
+						}
 
 						redraw = true;
 					}
@@ -1577,7 +1642,7 @@ int main(int argc, char *argv[])
 							bool choice = are_you_sure(font, screen, win_width, win_height, font_height, "Clear everything");
 							if (choice) {
 								draw_please_wait(font, screen, win_width, win_height);
-								clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, path, samples, file_parameters, channel_clickables);
+								clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, work_path, samples, file_parameters, channel_clickables);
 								menu_status = "cleared";
 							}
 
@@ -1911,7 +1976,7 @@ int main(int argc, char *argv[])
 
 	{
 		std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-		write_file(path + "/default." PROG_EXT, pat_clickables, samples, file_parameters);
+		write_file(work_path + "/default." PROG_EXT, pat_clickables, samples, file_parameters);
 	}
 
 	SDL_Quit();

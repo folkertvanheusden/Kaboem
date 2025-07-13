@@ -22,5 +22,6 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 		const std::vector<file_parameter> & parameters);
 bool read_file (const std::string & file_name, std::array<pattern, pattern_groups> *const data, std::array<sample, pattern_groups> *const sample_files,
 		const std::vector<file_parameter> *const parameters);
+std::string get_dirname (const std::string & path);
 std::string get_filename(const std::string & path);
 sound_sample *find_sample(const std::vector<std::string> & search_paths, const std::string & file_name);
