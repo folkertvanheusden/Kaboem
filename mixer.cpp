@@ -15,11 +15,10 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 {
 	const int period_size = 128;
 	double    latency     = period_size * 1000000.0 / sound_pars->sample_rate;
-
-	printf("Mixer thread started, period size: %d (of %d)\n", period_size, sound_pars->pw.frames);
-
 	uint64_t  sr_sleep    = latency;
 	printf("sleep: %zu\n", sr_sleep);
+
+	printf("Mixer thread started, period size: %d (of %d)\n", period_size, sound_pars->pw.frames);
 
 	while(*do_exit == false) {
 		uint64_t t_start = get_us();
@@ -118,8 +117,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 			for(int t=0; t<period_size; t++) {
 				float *current_sample_base_in = &temp_buffer[t * sound_pars->n_channels];
 				size_t dest_index             = t * sound_pars->n_channels;
-
-				float too_loud = 0;
+				float  too_loud               = 0;
 				for(int c=0; c<sound_pars->n_channels; c++) {
 					float temp = current_sample_base_in[c] * sound_pars->global_volume;
 
