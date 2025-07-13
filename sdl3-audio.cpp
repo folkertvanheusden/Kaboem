@@ -51,17 +51,7 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 
 	// scope
 	std::unique_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
-	sound_pars->scope.clear();
-	sound_pars->scope.resize(data.size() / sound_pars->n_channels);
-
-	for(size_t i=0; i<data.size(); i += sound_pars->n_channels) {
-		size_t s_index = i / sound_pars->n_channels;
-		for(int c=0; c<sound_pars->n_channels; c++)
-			sound_pars->scope[s_index] += data[i + c];
-
-		sound_pars->scope[s_index] /= sound_pars->n_channels;
-	}
-
+	sound_pars->scope = data;
 	sound_pars->scope_t++;
 
 	// statistics

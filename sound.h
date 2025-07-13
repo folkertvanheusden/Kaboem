@@ -190,8 +190,8 @@ public:
 			delete a;
 	}
 
-	int                  sample_rate     { 0       };
-	int                  n_channels      { 0       };
+	int                  sample_rate     { 0       };  // assuming this doesn't change at run-time
+	int                  n_channels      { 0       };  // assuming this doesn't change at run-time
 	std::vector<agc *>   agc_instances;
 	bool                 agc_enabled     { false   };
 

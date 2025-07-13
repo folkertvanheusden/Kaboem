@@ -1499,10 +1499,21 @@ int main(int argc, char *argv[])
 				cb.text = std::to_string(busyness) + "%";
 				draw_text(font, screen, cb.where.x, cb.where.y, cb.text, { { cb.where.w, cb.where.h } });
 
-				std::vector<float> scope;
+				std::vector<float> scope_in;
 				{
 					std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-					scope = sound_pars.scope;
+					scope_in = sound_pars.scope;
+				}
+
+				const int n_channels = sound_pars.n_channels;
+				std::vector<float> scope;  // mono
+				scope.resize(scope_in.size() / n_channels);
+
+				for(size_t i=0; i<scope_in.size(); i += n_channels) {
+					size_t s_index = i / n_channels;
+					for(int c=0; c<n_channels; c++)
+						scope[s_index] += scope_in[i + c];
+					scope[s_index] /= n_channels;
 				}
 
 				clickable & scope_c = settings_menu_buttons[scope_idx];
