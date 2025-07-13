@@ -98,13 +98,13 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		if (sound_pars->agc_enabled) {
 			float *c_temp = new float[sound_pars->n_channels];
 			for(int t=0; t<period_size; t++) {
-				float *current_sample_base_in  = &temp_buffer[t * sound_pars->n_channels];
-				size_t dest_index              = t * sound_pars->n_channels;
+				float *current_sample_base_in = &temp_buffer[t * sound_pars->n_channels];
+				size_t dest_index             = t * sound_pars->n_channels;
 
 				float gain = DBL_MAX;
 				for(int c=0; c<sound_pars->n_channels; c++) {
 					c_temp[c] = current_sample_base_in[c] * sound_pars->global_volume;
-					gain      = std::min(gain, float(sound_pars->agc_instances[c]->calculate_gain(c_temp[c])));
+					gain      = std::min(gain, sound_pars->agc_instances[c]->calculate_gain(c_temp[c]));
 				}
 
 				for(int c=0; c<sound_pars->n_channels; c++) {
@@ -148,7 +148,6 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		}
 
 		// queue for sdl3-audio
-
 		std::unique_lock<std::shared_mutex> s_lck(sound_pars->stream_lock);
 		sound_pars->stream.push(dest);
 
