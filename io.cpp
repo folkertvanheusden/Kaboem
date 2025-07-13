@@ -168,18 +168,24 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 			(*data)[group].dim   = j["patterns"][group]["dim"];
 			auto & group_data    = (*data)[group];
 
+			group_data.note_delta.resize(max_pattern_dim);
 			size_t index_note_delta = 0;
 			for(auto & element: j["patterns"][group]["note-delta"])
 				group_data.note_delta[index_note_delta++]          = element;
 
+			group_data.pattern.resize(max_pattern_dim);
 			size_t index_pattern    = 0;
 			for(auto & element: j["patterns"][group]["pattern"])
 				group_data.pattern   [index_pattern++   ].selected = element;
+
+			group_data.volume_left .resize(max_pattern_dim);
+			group_data.volume_right.resize(max_pattern_dim);
 
 			if (j["patterns"][group].contains("volume-left")) {
 				size_t index_volume_left = 0;
 				for(auto & element: j["patterns"][group]["volume-left"])
 					group_data.volume_left[index_volume_left++]   = element;
+
 				size_t index_volume_right = 0;
 				for(auto & element: j["patterns"][group]["volume-right"])
 					group_data.volume_right[index_volume_right++] = element;
