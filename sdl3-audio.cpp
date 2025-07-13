@@ -22,25 +22,25 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 
 	std::vector<float> data;
 
+	std::unique_lock<std::shared_mutex> stream_lck(sound_pars->stream_lock);
 	while(!do_exit) {
-		bool empty = true;
-
-		{
-			std::unique_lock<std::shared_mutex> lck(sound_pars->stream_lock);
-			empty = sound_pars->stream.empty();
-			if (!empty) {
-				auto & cur = sound_pars->stream.front();
-				data.insert(data.end(), cur.begin(), cur.end());
-				sound_pars->stream.pop();
-			}
+		bool empty = sound_pars->stream.empty();
+		if (!empty) {
+			auto & cur = sound_pars->stream.front();
+			data.insert(data.end(), cur.begin(), cur.end());
+			sound_pars->stream.pop();
 		}
 
-		if (data.size() >= size_t(period_size * 4 * 2))
+		if (data.size() >= size_t(period_size * 4 * 2)) {
+			stream_lck.unlock();
 			break;
+		}
 
 		if (empty) {
+			stream_lck.unlock();
 			printf("underflow (got %zu of %d)\n", data.size(), period_size);
 			SDL_Delay(1);
+			stream_lck.lock();
 		}
 	}
 	if (do_exit)
