@@ -215,7 +215,9 @@ public:
 	std::vector<queued_sound> sounds;
 	double               global_volume    { 1.      };
 	double               sound_saturation { 1.      };
+	///
 
+	std::shared_mutex    stats_lock;  ///
 	std::vector<float>   scope;
 	int                  scope_t          { 0       };
 

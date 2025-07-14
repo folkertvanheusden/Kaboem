@@ -173,16 +173,12 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 			printf("Too slow!!!\n");
 		}
 
-		sound_pars->n_busyness++;
-		uint64_t took = get_us() - t_start;
-		sound_pars->t_busyness += 100 * took / latency;
-
+		uint64_t t_end = get_us();
 		if (sound_pars->stream.size() >= size_t(sound_pars->pw.frames * 2 / period_size)) {
 			if (locked)
 				sound_pars->stream_lock.unlock();
 
-			uint64_t end     = get_us();
-			uint64_t took    = end - t_start;
+			uint64_t took    = t_end - t_start;
 			int64_t  sleep_n = sr_sleep - took;
 			total_n++;
 			if (sleep_n > 0) {
@@ -197,6 +193,11 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 			if (locked)
 				sound_pars->stream_lock.unlock();
 		}
+
+		std::unique_lock<std::shared_mutex> r_lck(sound_pars->stats_lock);
+		sound_pars->n_busyness++;
+		uint64_t took = t_end - t_start;
+		sound_pars->t_busyness += 100 * took / latency;
 	}
 
 	printf("Mixer thread terminating\n");

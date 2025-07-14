@@ -1420,7 +1420,7 @@ int main(int argc, char *argv[])
 		double current_clip_factor = 0.;
 		int    busyness            = 0;
 		if (mode == m_settings) {
-			std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+			std::shared_lock<std::shared_mutex> lck(sound_pars.stats_lock);
 			if (sound_pars.scope_t != prev_scope_t) {
 				prev_scope_t = sound_pars.scope_t;
 				redraw       = true;
@@ -1489,7 +1489,7 @@ int main(int argc, char *argv[])
 
 				std::vector<float> scope_in;
 				{
-					std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
+					std::shared_lock<std::shared_mutex> lck(sound_pars.stats_lock);
 					scope_in = sound_pars.scope;
 				}
 
