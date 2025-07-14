@@ -11,19 +11,26 @@
 #include "time.h"
 
 
+uint64_t ok_n    = 0;
+uint64_t total_n = 0;
+
 void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 {
 	const int period_size = 128;
 	double    latency     = period_size * 1000000.0 / sound_pars->sample_rate;
 	uint64_t  sr_sleep    = latency;
 
-	printf("Mixer thread started, period size: %d (of %d), sleep:: %zu\n", period_size, sound_pars->pw.frames, size_t(sr_sleep));
+	printf("Mixer thread started, period size: %d (of %d), sleep: %zu\n", period_size, sound_pars->pw.frames, size_t(sr_sleep));
+
+	std::vector<std::vector<float> > buffer;
 
 	while(*do_exit == false) {
 		uint64_t t_start = get_us();
 
 		std::shared_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
-		float   *temp_buffer = new float[sound_pars->n_channels * period_size]();
+		float *temp_buffer = new float[sound_pars->n_channels * period_size]();
+
+		size_t n_sounds    = sound_pars->sounds.size();
 
 		for(int t=0; t<period_size; t++) {
 			float *current_sample_base = &temp_buffer[t * sound_pars->n_channels];
@@ -148,23 +155,47 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		}
 
 		// queue for sdl3-audio
-		std::unique_lock<std::shared_mutex> s_lck(sound_pars->stream_lock);
-		sound_pars->stream.push(dest);
+		bool locked = false;
+		if (sound_pars->stream_lock.try_lock()) {
+			if (buffer.empty() == false) {
+				printf("Queued: %zu\n", buffer.size());
+				for(auto & b: buffer)
+					sound_pars->stream.push(b);
+				buffer.clear();
+			}
+			sound_pars->stream.push(dest);
+			locked = true;
+		}
+		else if (buffer.size() < size_t(sound_pars->sample_rate / period_size)) {
+			buffer.push_back(dest);
+		}
+		else {
+			printf("Too slow!!!\n");
+		}
 
 		sound_pars->n_busyness++;
 		uint64_t took = get_us() - t_start;
 		sound_pars->t_busyness += 100 * took / latency;
 
 		if (sound_pars->stream.size() >= size_t(sound_pars->pw.frames * 2 / period_size)) {
-			s_lck.unlock();
+			if (locked)
+				sound_pars->stream_lock.unlock();
 
 			uint64_t end     = get_us();
 			uint64_t took    = end - t_start;
 			int64_t  sleep_n = sr_sleep - took;
-			if (sleep_n > 0)
+			total_n++;
+			if (sleep_n > 0) {
 				my_us_sleep(sleep_n);
-			else
-				printf("slow system (mixer): %zd\n", ssize_t(sleep_n));
+				ok_n++;
+			}
+			else {
+				printf("slow system (mixer): %zd, took: %zu, sounds: %zu, %.2f%% fail\n", ssize_t(sleep_n), size_t(took), n_sounds, 100 - ok_n * 100. / total_n);
+			}
+		}
+		else {
+			if (locked)
+				sound_pars->stream_lock.unlock();
 		}
 	}
 
