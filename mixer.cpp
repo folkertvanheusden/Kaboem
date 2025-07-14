@@ -11,9 +11,6 @@
 #include "time.h"
 
 
-uint64_t ok_n    = 0;
-uint64_t total_n = 0;
-
 void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 {
 	const int period_size = 128;
@@ -82,7 +79,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 						current_sample_base[ch] += value_volumed;
 					}
 
-					item.history.push_back(applied_echo);
+					item.history.push_back(std::move(applied_echo));
 				}
 
 				if (fin) {
@@ -160,14 +157,14 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 			if (buffer.empty() == false) {
 				printf("Queued: %zu\n", buffer.size());
 				for(auto & b: buffer)
-					sound_pars->stream.push(b);
+					sound_pars->stream.push(std::move(b));
 				buffer.clear();
 			}
-			sound_pars->stream.push(dest);
+			sound_pars->stream.push(std::move(dest));
 			locked = true;
 		}
 		else if (buffer.size() < size_t(sound_pars->sample_rate / period_size)) {
-			buffer.push_back(dest);
+			buffer.push_back(std::move(dest));
 		}
 		else {
 			printf("Too slow!!!\n");
@@ -180,14 +177,10 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 
 			uint64_t took    = t_end - t_start;
 			int64_t  sleep_n = sr_sleep - took;
-			total_n++;
-			if (sleep_n > 0) {
+			if (sleep_n > 0)
 				my_us_sleep(sleep_n);
-				ok_n++;
-			}
-			else {
-				printf("slow system (mixer): %zd, took: %zu, sounds: %zu, %.2f%% fail\n", ssize_t(sleep_n), size_t(took), n_sounds, 100 - ok_n * 100. / total_n);
-			}
+			else
+				printf("slow system (mixer): %zd, took: %zu, sounds: %zu\n", ssize_t(sleep_n), size_t(took), n_sounds);
 		}
 		else {
 			if (locked)
