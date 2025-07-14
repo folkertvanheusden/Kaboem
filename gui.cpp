@@ -1008,6 +1008,22 @@ void save_configuration(const std::string & path, const std::string & kaboem_fil
         }
 }
 
+void set_max_scheduling_priority(std::thread & target)
+{
+	sched_param sched_parameters { };
+	sched_parameters.sched_priority = sched_get_priority_max(SCHED_FIFO);
+	int p_rc_fifo = pthread_setschedparam(target.native_handle(), SCHED_FIFO, &sched_parameters);
+	if (p_rc_fifo == 0)
+		return;  // all good
+
+	int scheduling_policy { };
+	pthread_getschedparam(target.native_handle(), &scheduling_policy, &sched_parameters);
+	sched_parameters.sched_priority = sched_get_priority_max(scheduling_policy);
+	int p_rc = pthread_setschedparam(target.native_handle(), scheduling_policy, &sched_parameters);
+	if (p_rc != 0)
+		printf("Failed to set scheduling parameters for thread: %s\n", strerror(errno));
+}
+
 int main(int argc, char *argv[])
 {
 	bool full_screen = true;
@@ -1229,6 +1245,8 @@ int main(int argc, char *argv[])
 			set_thread_name("KAB-mixer");
 			mixer(&do_exit, &sound_pars);
 		});
+
+	set_max_scheduling_priority(mixer_thread);
 
 	if (configure_sdl3_audio(&sound_pars) == false)
 		return 1;
