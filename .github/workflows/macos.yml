@@ -11,10 +11,8 @@ jobs:
     - name: install sdl3 etc
       run: |
         brew install sdl3 sdl3_ttf libsndfile nlohmann-json fftw fontconfig rtmidi
-        file -L /opt/homebrew/lib/*SDL3*
-        exit 1
     - name: cmake
-      run: LD_LIBRARY_PATH=/opt/homebrew/lib cmake -S . -B build
+      run: cmake -S . -B build -DCMAKE_OSX_ARCHITECTURES="arm64"
     - name: make
       run: make -C build VERBOSE=1
     - name: store artifact in GitHub
