@@ -140,7 +140,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		if (to_sleep > 0)
 			my_us_sleep(to_sleep);
 		else
-			printf("slow system (player): %zd\n", ssize_t(to_sleep));
+			printf("slow system (player): %zd μs\n", ssize_t(to_sleep));
 	}
 
 	close_midi_out_port(midi_port);

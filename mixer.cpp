@@ -18,7 +18,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 	double    latency     = period_size * 1000000.0 / sound_pars->sample_rate;
 	uint64_t  sr_sleep    = latency;
 
-	printf("Mixer thread started, period size: %d (of %d), sleep: %zu\n", period_size, sound_pars->pw.frames, size_t(sr_sleep));
+	printf("Mixer thread started, period size: %d (of %d), sleep: %zu μs\n", period_size, sound_pars->pw.frames, size_t(sr_sleep));
 
 	while(*do_exit == false) {
 		uint64_t t_start = get_us();
@@ -166,7 +166,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		}
 		else {
 			if (sleep_n < 0 && n_buffers == 0)
-				printf("slow system (mixer): %zd, took: %zu, sounds: %zu\n", ssize_t(sleep_n), size_t(took), n_sounds);
+				printf("slow system (mixer): %zd μs, took: %zu μs, sounds: %zu\n", ssize_t(sleep_n), size_t(took), n_sounds);
 		}
 
 		std::unique_lock<std::shared_mutex> r_lck(sound_pars->stats_lock);

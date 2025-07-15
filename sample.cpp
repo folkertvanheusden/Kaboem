@@ -55,7 +55,7 @@ std::optional<std::tuple<std::vector<std::vector<float> > *, unsigned int, float
 	delete [] buffer;
 
 	float loudest_frequency = find_loudest_frequency(*samples, si.samplerate);
-	printf("loudest_frequency of \"%s\": %.1f\n", filename.c_str(), loudest_frequency);
+	printf("loudest_frequency of \"%s\": %.1f Hz\n", filename.c_str(), loudest_frequency);
 
 	return { { samples, si.samplerate, loudest_frequency } };
 }
