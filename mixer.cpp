@@ -23,7 +23,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 	while(*do_exit == false) {
 		uint64_t t_start = get_us();
 
-		std::shared_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
+		std::unique_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
 		float *temp_buffer = new float[sound_pars->n_channels * period_size]();
 
 		size_t n_sounds    = sound_pars->sounds.size();

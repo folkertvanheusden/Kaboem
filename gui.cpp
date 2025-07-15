@@ -920,11 +920,11 @@ void clear_everything(std::array<pattern, pattern_groups> & pat_clickables, std:
 			menu_status->assign("failed: " + file_name);
 	}
 	{
+		std::lock_guard<std::shared_mutex> pat_lck(*pat_clickables_lock);
+
 		std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 		sound_pars.sounds.clear();
-	}
-	{
-		std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
+
 		for(size_t i=0; i<pattern_groups; i++) {
 			for(auto & element: pat_clickables[i].pattern) {
 				element.selected = false;
@@ -940,7 +940,6 @@ void clear_everything(std::array<pattern, pattern_groups> & pat_clickables, std:
 				element = 1.;
 
 			{
-				std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 				sample & s = samples[i];
 				delete s.s;
 				s.s = nullptr;
@@ -1298,8 +1297,8 @@ int main(int argc, char *argv[])
 						clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, work_path, samples,
 								file_parameters, channel_clickables);
 
-						std::unique_lock<std::shared_mutex> lck    (sound_pars.sounds_lock);
 						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock   );
+						std::unique_lock<std::shared_mutex> lck    (sound_pars.sounds_lock);
 						if (read_file(fs_data.file, &pat_clickables, &samples, &file_parameters)) {
 							kaboem_file                                     = fs_data.file;
 							sound_pars.global_volume                        = vol / 100.;
