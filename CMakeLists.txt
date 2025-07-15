@@ -51,10 +51,10 @@ target_link_libraries(kaboem ${SDL_TTF_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${SDL_TTF_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${SDL_TTF_CFLAGS_OTHER})
 
-target_link_libraries(simple PRIVATE smf::smf)
+target_link_libraries(kaboem PRIVATE smf::smf)
 
 find_package(SndFile REQUIRED)
-target_link_libraries(my_application PRIVATE SndFile::sndfile)
+target_link_libraries(kaboem PRIVATE SndFile::sndfile)
 
 pkg_check_modules(NLOHMANN_JSON REQUIRED nlohmann_json)
 target_link_libraries(kaboem ${NLOHMANN_JSON_LIBRARIES})
