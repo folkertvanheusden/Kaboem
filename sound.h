@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "agc.h"
-#include "filter.h"
+#include "bp-filter.h"
 #include "sdl3-audio.h"
 
 
@@ -202,16 +202,15 @@ public:
 
 	std::shared_mutex    sounds_lock;  ///
 	struct queued_sound {
-		size_t       pattern_idx;
-		const sound *s                             { nullptr };
-		int          t;
-		double       pitch;
-		double       volume_left;
-		double       volume_right;
-		int          echo_t;
+		size_t         pattern_idx;
+		const sound   *s            { nullptr };
+		int            t;
+		double         pitch;
+		double         volume_left;
+		double         volume_right;
+		int            echo_t;
 		std::vector<std::vector<float> > history;
-		filter_butterworth              *filter_lp { nullptr };
-		filter_butterworth              *filter_hp { nullptr };
+		biquad_filter *bp_filter    { nullptr };
 	};
 	std::vector<queued_sound> sounds;
 	double               global_volume    { 1.      };

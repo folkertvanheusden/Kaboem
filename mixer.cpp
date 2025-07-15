@@ -51,10 +51,8 @@ float * mix(sound_parameters *const sound_pars, const int period_size)
 					float value         = rc.value().first * (ch ? item.volume_right : item.volume_left);
 					float value_volumed = value * rc.value().second;
 
-					if (item.filter_lp)
-						value_volumed = item.filter_lp->apply(value_volumed);
-					if (item.filter_hp)
-						value_volumed = item.filter_hp->apply(value_volumed);
+					if (item.bp_filter)
+						value_volumed = item.bp_filter->process(value_volumed);
 
 					if (apply_echo && item.t >= item.echo_t) {
 						constexpr const float feedback = 0.5;  // TODO configurable?
@@ -70,8 +68,7 @@ float * mix(sound_parameters *const sound_pars, const int period_size)
 			}
 
 			if (fin) {
-				delete item.filter_lp;
-				delete item.filter_hp;
+				delete item.bp_filter;
 
 				sound_pars->sounds.erase(sound_pars->sounds.begin() + s_idx);
 			}
