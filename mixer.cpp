@@ -1,6 +1,7 @@
 #include "config.h"
 #include <atomic>
 #include <cfloat>
+#include <fcntl.h>
 #include <mutex>
 #include <shared_mutex>
 #include <sndfile.h>
@@ -10,6 +11,17 @@
 #include "sound.h"
 #include "time.h"
 
+
+void trace_marker(const char *const msg)
+{
+	int fd = open("/sys/kernel/debug/tracing/trace_marker", O_WRONLY);
+	if (fd == -1) {
+		perror("open trace_marker");
+		return;
+	}
+	write(fd, msg, strlen(msg));
+	close(fd);
+}
 
 void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 {
@@ -171,25 +183,28 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		}
 
 		uint64_t t_end = get_us();
+		uint64_t took    = t_end - t_start;
+		int64_t  sleep_n = sr_sleep - took;
+		// ISSUE (TODO): this gets done unlocked sometimes
 		if (sound_pars->stream.size() >= size_t(sound_pars->pw.frames * 2 / period_size)) {
 			if (locked)
 				sound_pars->stream_lock.unlock();
 
-			uint64_t took    = t_end - t_start;
-			int64_t  sleep_n = sr_sleep - took;
 			if (sleep_n > 0)
 				my_us_sleep(sleep_n);
-			else
-				printf("slow system (mixer): %zd, took: %zu, sounds: %zu\n", ssize_t(sleep_n), size_t(took), n_sounds);
 		}
 		else {
+			if (sleep_n < 0 && sound_pars->stream.empty()) {
+				trace_marker("SLOW");
+				printf("slow system (mixer): %zd, took: %zu, sounds: %zu\n", ssize_t(sleep_n), size_t(took), n_sounds);
+			}
+
 			if (locked)
 				sound_pars->stream_lock.unlock();
 		}
 
 		std::unique_lock<std::shared_mutex> r_lck(sound_pars->stats_lock);
 		sound_pars->n_busyness++;
-		uint64_t took = t_end - t_start;
 		sound_pars->t_busyness += 100 * took / latency;
 	}
 
