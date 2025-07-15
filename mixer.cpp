@@ -12,17 +12,6 @@
 #include "time.h"
 
 
-void trace_marker(const char *const msg)
-{
-	int fd = open("/sys/kernel/debug/tracing/trace_marker", O_WRONLY);
-	if (fd == -1) {
-		perror("open trace_marker");
-		return;
-	}
-	write(fd, msg, strlen(msg));
-	close(fd);
-}
-
 void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 {
 	const int period_size = 128;
@@ -30,8 +19,6 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 	uint64_t  sr_sleep    = latency;
 
 	printf("Mixer thread started, period size: %d (of %d), sleep: %zu\n", period_size, sound_pars->pw.frames, size_t(sr_sleep));
-
-	std::vector<std::vector<float> > buffer;
 
 	while(*do_exit == false) {
 		uint64_t t_start = get_us();
@@ -164,43 +151,22 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		}
 
 		// queue for sdl3-audio
-		bool locked = false;
-		if (sound_pars->stream_lock.try_lock()) {
-			if (buffer.empty() == false) {
-				printf("Queued: %zu\n", buffer.size());
-				for(auto & b: buffer)
-					sound_pars->stream.push(std::move(b));
-				buffer.clear();
-			}
-			sound_pars->stream.push(std::move(dest));
-			locked = true;
-		}
-		else if (buffer.size() < size_t(sound_pars->sample_rate / period_size)) {
-			buffer.push_back(std::move(dest));
-		}
-		else {
-			printf("Too slow!!!\n");
-		}
+		std::unique_lock<std::shared_mutex> s_lck(sound_pars->stream_lock);
+		sound_pars->stream.push(std::move(dest));
 
-		uint64_t t_end = get_us();
-		uint64_t took    = t_end - t_start;
-		int64_t  sleep_n = sr_sleep - took;
-		// ISSUE (TODO): this gets done unlocked sometimes
-		if (sound_pars->stream.size() >= size_t(sound_pars->pw.frames * 2 / period_size)) {
-			if (locked)
-				sound_pars->stream_lock.unlock();
+		size_t   n_buffers = sound_pars->stream.size();
+		uint64_t t_end     = get_us();
+		uint64_t took      = t_end - t_start;
+		int64_t  sleep_n   = sr_sleep - took;
+		s_lck.unlock();
 
+		if (n_buffers >= size_t(sound_pars->pw.frames * 2 / period_size)) {
 			if (sleep_n > 0)
 				my_us_sleep(sleep_n);
 		}
 		else {
-			if (sleep_n < 0 && sound_pars->stream.empty()) {
-				trace_marker("SLOW");
+			if (sleep_n < 0 && n_buffers == 0)
 				printf("slow system (mixer): %zd, took: %zu, sounds: %zu\n", ssize_t(sleep_n), size_t(took), n_sounds);
-			}
-
-			if (locked)
-				sound_pars->stream_lock.unlock();
 		}
 
 		std::unique_lock<std::shared_mutex> r_lck(sound_pars->stats_lock);
