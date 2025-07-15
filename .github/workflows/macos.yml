@@ -1,20 +1,16 @@
 name: macos
 
-on:
-  push:
-    tags:
-      - '*'
+on: [push]
 
 jobs:
   build:
 
     runs-on: macos-14
-
     steps:
     - uses: actions/checkout@v4
     - name: install sdl3 etc
       run: |
-        brew install sdl3
+        brew install sdl3 sdl3-ttf libsndfile nlohmann-json fftw fontconfig rtmidi
     - name: cmake
       run: cmake -B build
     - name: make
