@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.9)
 
 project(kaboem)
 
@@ -42,7 +42,11 @@ target_link_libraries(kaboem Threads::Threads)
 include(FindPkgConfig)
 
 pkg_check_modules(SDL REQUIRED sdl3)
+if (IS_MAC)
+target_link_libraries(kaboem SDL3::SDL3)
+else ()
 target_link_libraries(kaboem ${SDL_LIBRARIES})
+endif ()
 target_include_directories(kaboem PUBLIC ${SDL_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${SDL_CFLAGS_OTHER})
 
