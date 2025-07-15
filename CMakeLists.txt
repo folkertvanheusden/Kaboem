@@ -104,10 +104,8 @@ target_link_libraries(kaboem ${NLOHMANN_JSON_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${NLOHMANN_JSON_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${NLOHMANN_JSON_CFLAGS_OTHER})
 
-pkg_check_modules(FONTCONFIG REQUIRED fontconfig)
-target_link_libraries(kaboem PRIVATE ${FONTCONFIG_LIBRARIES})
-target_include_directories(kaboem PUBLIC ${FONTCONFIG_INCLUDE_DIRS})
-target_compile_options(kaboem PUBLIC ${FONTCONFIG_CFLAGS_OTHER})
+find_package(Fontconfig)
+target_link_libraries(kaboem PRIVATE Fontconfig::Fontconfig)
 
 pkg_check_modules(RTMIDI rtmidi)
 target_link_libraries(kaboem PRIVATE ${RTMIDI_LIBRARIES})
