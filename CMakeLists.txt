@@ -41,14 +41,12 @@ target_link_libraries(kaboem Threads::Threads)
 
 include(FindPkgConfig)
 
-pkg_check_modules(SDL REQUIRED sdl3)
-#target_link_libraries(kaboem ${SDL_LIBRARIES})
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
 target_link_libraries(kaboem SDL3::SDL3)
 target_include_directories(kaboem PUBLIC ${SDL_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${SDL_CFLAGS_OTHER})
 
-pkg_check_modules(SDL_TTF REQUIRED sdl3-ttf)
+find_package(SDL3_ttf REQUIRED)
 target_link_libraries(kaboem ${SDL_TTF_LIBRARIES})
 target_include_directories(kaboem PUBLIC ${SDL_TTF_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${SDL_TTF_CFLAGS_OTHER})
