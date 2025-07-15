@@ -13,9 +13,11 @@ jobs:
         brew install sdl3 sdl3_ttf libsndfile nlohmann-json fftw fontconfig rtmidi
         pkg-config --libs sdl3
         pkg-config --cflags sdl3
-        ls /opt/homebrew/Cellar/sdl3/3.2.18
+        which -a pkg-config
+        ls -l /opt/homebrew/Cellar/sdl3/3.2.18/lib
+        ls -l /opt/homebrew/lib
     - name: cmake
-      run: cmake -S . -B build
+      run: LD_LIBRARY_PATH=/opt/homebrew/Cellar/sdl3/3.2.18/lib cmake -S . -B build
     - name: make
       run: make -C build VERBOSE=1
     - name: store artifact in GitHub
