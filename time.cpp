@@ -30,7 +30,12 @@ void my_us_sleep(const uint64_t duration)
 {
 	timespec ts_duration { (long int)(duration / 1000000), (long int)((duration % 1000000) * 1000) };
 
+#ifdef __MACH__
+	if (nanosleep(&ts_duration, nullptr) == -1)
+		printf("nanosleep failed: %s\n", strerror(errno));
+#else
 	// don't care about the remainder: it should only be shortened when signals come in
 	if (clock_nanosleep(CLOCK_MONOTONIC, 0, &ts_duration, nullptr) == -1)
 		printf("clock_nanosleep failed: %s\n", strerror(errno));
+#endif
 }
