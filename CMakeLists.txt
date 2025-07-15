@@ -94,7 +94,7 @@ configure_file(config.h.in config.h)
 target_include_directories(kaboem PUBLIC "${PROJECT_BINARY_DIR}")
 
 if (RTMIDI_FOUND)
-	message("librtmidi found, MIDI in/out support enable")
+	message("librtmidi found, MIDI in/out support enabled")
 endif()
 
 if (SMF_FOUND)
