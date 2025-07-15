@@ -12,7 +12,7 @@ jobs:
       run: |
         brew install sdl3 sdl3_ttf libsndfile nlohmann-json fftw fontconfig rtmidi
     - name: cmake
-      run: cmake -S . -B build -DCMAKE_OSX_ARCHITECTURES="arm64"
+      run: cmake -S . -B build
     - name: make
       run: make -C build VERBOSE=1
     - name: store artifact in GitHub

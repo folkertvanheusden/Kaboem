@@ -42,7 +42,8 @@ target_link_libraries(kaboem Threads::Threads)
 include(FindPkgConfig)
 
 pkg_check_modules(SDL REQUIRED sdl3)
-target_link_libraries(kaboem ${SDL_LIBRARIES})
+#target_link_libraries(kaboem ${SDL_LIBRARIES})
+target_link_libraries(kaboem SDL3::SDL3)
 target_include_directories(kaboem PUBLIC ${SDL_INCLUDE_DIRS})
 target_compile_options(kaboem PUBLIC ${SDL_CFLAGS_OTHER})
 
