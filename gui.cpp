@@ -1026,12 +1026,15 @@ void set_max_scheduling_priority(std::thread & target)
 
 int main(int argc, char *argv[])
 {
-	bool full_screen = true;
+	bool             full_screen = true;
+	std::atomic_bool paused      = true;
 
 	int c = -1;
-	while((c = getopt(argc, argv, "-w")) != -1) {
+	while((c = getopt(argc, argv, "wu")) != -1) {
 		if (c == 'w')
 			full_screen = false;
+		else if (c == 'u')
+			paused = false;
 		else {
 			fprintf(stderr, "\"-%c\" is not understood\n", c);
 			return 1;
@@ -1223,7 +1226,6 @@ int main(int argc, char *argv[])
 
 	std::atomic_int      sleep_us       = 0;
 	size_t               prev_pat_index = size_t(-1);
-	std::atomic_bool     paused         = true;
 	std::atomic_bool     force_trigger  = false;
 	bool                 shift          = false;
 	bool                 ctrl           = false;
