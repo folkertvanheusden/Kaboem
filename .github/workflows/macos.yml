@@ -11,11 +11,7 @@ jobs:
     - name: install sdl3 etc
       run: |
         brew install sdl3 sdl3_ttf libsndfile nlohmann-json fftw fontconfig rtmidi
-        pkg-config --libs sdl3
-        pkg-config --cflags sdl3
-        which -a pkg-config
-        ls -l /opt/homebrew/lib
-        find /opt -name libSDL3.dylib -ls
+        file -L /opt/homebrew/lib/*SDL3*
         exit 1
     - name: cmake
       run: LD_LIBRARY_PATH=/opt/homebrew/lib cmake -S . -B build
