@@ -107,10 +107,8 @@ target_compile_options(kaboem PUBLIC ${NLOHMANN_JSON_CFLAGS_OTHER})
 find_package(Fontconfig)
 target_link_libraries(kaboem PRIVATE Fontconfig::Fontconfig)
 
-pkg_check_modules(RTMIDI rtmidi)
-target_link_libraries(kaboem PRIVATE ${RTMIDI_LIBRARIES})
-target_include_directories(kaboem PUBLIC ${RTMIDI_INCLUDE_DIRS})
-target_compile_options(kaboem PUBLIC ${RTMIDI_CFLAGS_OTHER})
+find_package(RtMidi)
+target_link_libraries(kaboem PRIVATE RtMidi::rtmidi)
 
 pkg_search_module(FFTW REQUIRED fftw3 IMPORTED_TARGET)
 include_directories(PkgConfig::FFTW)
