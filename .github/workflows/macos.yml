@@ -5,12 +5,15 @@ on: [push]
 jobs:
   build:
 
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
     - uses: actions/checkout@v4
     - name: install sdl3 etc
       run: |
         brew install sdl3 sdl3_ttf libsndfile nlohmann-json fftw fontconfig rtmidi
+        pkg-config --libs sdl3
+        pkg-config --cflags sdl3
+        ls /opt/homebrew/Cellar/sdl3/3.2.18
     - name: cmake
       run: cmake -S . -B build
     - name: make
