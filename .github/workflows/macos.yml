@@ -1,0 +1,23 @@
+name: macos
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: install sdl3 etc
+      run: |
+        brew install sdl3 sdl3_ttf libsndfile nlohmann-json fftw fontconfig rtmidi
+    - name: cmake
+      run: cmake -S . -B build
+    - name: make
+      run: make -C build VERBOSE=1
+    - name: store artifact in GitHub
+      uses: actions/upload-artifact@v4
+      with:
+        name: my-artifact
+        path: build/kaboem
+        retention-days: 2
