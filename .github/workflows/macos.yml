@@ -10,7 +10,7 @@ jobs:
     - uses: actions/checkout@v4
     - name: install sdl3 etc
       run: |
-        brew install sdl3 sdl3-ttf libsndfile nlohmann-json fftw fontconfig rtmidi
+        brew install sdl3 sdl3_ttf libsndfile nlohmann-json fftw fontconfig rtmidi
     - name: cmake
       run: cmake -B build
     - name: make
