@@ -12,9 +12,9 @@ jobs:
       run: |
         brew install sdl3 sdl3_ttf libsndfile nlohmann-json fftw fontconfig rtmidi
     - name: cmake
-      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+      run: cmake -S . -B build
     - name: make
-      run: make -C build
+      run: make -C build VERBOSE=1
     - name: store artifact in GitHub
       uses: actions/upload-artifact@v4
       with:
