@@ -15,6 +15,8 @@ jobs:
         pkg-config --cflags sdl3
         which -a pkg-config
         ls -l /opt/homebrew/lib
+        find /opt -name libSDL3.dylib -ls
+        exit 1
     - name: cmake
       run: LD_LIBRARY_PATH=/opt/homebrew/lib cmake -S . -B build
     - name: make
