@@ -397,7 +397,7 @@ std::vector<clickable> generate_sample_buttons(const int w, const int h,
 		size_t *const sample_load_idx, up_down_widget *const vol_widget_left_pars, up_down_widget *const vol_widget_right_pars,
 		up_down_widget *const midi_note_widget_pars, up_down_widget *const n_steps_pars, up_down_widget *const pitch_pars,
 		size_t *const sample_unload_idx, size_t *const mute_idx, up_down_widget *const echo_t_pars,
-		up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars)
+		up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars, size_t *const serial_notes_idx)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -429,6 +429,14 @@ std::vector<clickable> generate_sample_buttons(const int w, const int h,
 		c.where          = { x, y, menu_button_width, menu_button_height };
 		c.text           = "mute";
 		*mute_idx = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
+	{
+		clickable c { };
+		c.where           = { x, y, menu_button_width, menu_button_height };
+		c.text            = "serial";
+		*serial_notes_idx = clickables.size();
 		clickables.push_back(c);
 		x += menu_button_width;
 	}
@@ -950,12 +958,14 @@ void clear_everything(std::array<pattern, pattern_groups> & pat_clickables, std:
 	}
 }
 
-void set_samples_mute_button(sound_parameters & sound_pars, std::array<sample, pattern_groups> & samples, std::vector<clickable> & sample_buttons_clickables, const size_t idx, const size_t mute_idx)
+void set_samples_buttons(sound_parameters & sound_pars, std::array<sample, pattern_groups> & samples, std::vector<clickable> & sample_buttons_clickables, const size_t idx, const size_t mute_idx, const size_t serial_note_idx, const bool serial_state)
 {
 	std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 	sound_sample *const s = samples[idx].s;
 	if (s)
 		sample_buttons_clickables[mute_idx].selected = s->get_mute();
+
+	sample_buttons_clickables[serial_note_idx].selected = serial_state;
 }
 
 void set_bpm_sleep(std::atomic_int *const sleep_us, const int bpm)
@@ -1168,6 +1178,7 @@ int main(int argc, char *argv[])
 	size_t         sample_load_idx        = 0;
 	size_t         sample_unload_idx      = 0;
 	size_t         mute_idx               = 0;
+	size_t         serial_notes_idx       = 0;
 	up_down_widget sample_vol_widget_left   { };
 	up_down_widget sample_vol_widget_right  { };
 	up_down_widget midi_note_widget_pars    { };
@@ -1178,8 +1189,8 @@ int main(int argc, char *argv[])
 	up_down_widget hp_filter_widget         { };
 	std::vector<clickable> sample_buttons_clickables = generate_sample_buttons(win_width, win_height,
 			&sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right, &midi_note_widget_pars,
-			&n_steps_pars, &pitch_pars, &sample_unload_idx, &mute_idx, &echo_t_pars, &
-			lp_filter_widget, &hp_filter_widget);
+			&n_steps_pars, &pitch_pars, &sample_unload_idx, &mute_idx, &echo_t_pars,
+			&lp_filter_widget, &hp_filter_widget, &serial_notes_idx);
 
 	size_t         p_pause_idx            = 0;
 	size_t         restart_idx            = 0;
@@ -1767,7 +1778,7 @@ int main(int argc, char *argv[])
 						fs_action_sample_index = sample_clicked.value();
 						channel_clickables[fs_action_sample_index].selected = true;
 						fs_data.finished = false;
-						set_samples_mute_button(sound_pars, samples, sample_buttons_clickables, fs_action_sample_index, mute_idx);
+						set_samples_buttons(sound_pars, samples, sample_buttons_clickables, fs_action_sample_index, mute_idx, serial_notes_idx, pat_clickables[fs_action_sample_index].serial_notes);
 					}
 				}
 				else if (mode == m_sample) {
@@ -1784,7 +1795,7 @@ int main(int argc, char *argv[])
 						channel_clickables[fs_action_sample_index].selected = true;
 						fs_data.finished = false;
 
-						set_samples_mute_button(sound_pars, samples, sample_buttons_clickables, fs_action_sample_index, mute_idx);
+						set_samples_buttons(sound_pars, samples, sample_buttons_clickables, fs_action_sample_index, mute_idx, serial_notes_idx, pat_clickables[fs_action_sample_index].serial_notes);
 					}
 					else if (menus_clicked.has_value()) {
 						size_t idx = menus_clicked.value();
@@ -1829,6 +1840,14 @@ int main(int argc, char *argv[])
 							else {
 								sample_buttons_clickables[mute_idx].selected = false;
 							}
+						}
+						else if (idx == serial_notes_idx) {
+							{
+								std::lock_guard<std::shared_mutex> lck(pat_clickables_lock);
+								pat_clickables[fs_action_sample_index].serial_notes = !pat_clickables[fs_action_sample_index].serial_notes;
+							}
+
+							set_samples_buttons(sound_pars, samples, sample_buttons_clickables, fs_action_sample_index, mute_idx, serial_notes_idx, pat_clickables[fs_action_sample_index].serial_notes);
 						}
 						else {
 							std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);

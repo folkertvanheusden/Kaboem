@@ -23,9 +23,10 @@ struct pattern
 	std::vector<int>       note_delta;
 	std::vector<double>    volume_left;
 	std::vector<double>    volume_right;
-	size_t                 dim       { 0       };
+	size_t                 dim          { 0    };
 	std::optional<double>  lp_cutoff;
 	std::optional<double>  hp_cutoff;
+	bool                   serial_notes { true };
 };
 
 struct sample

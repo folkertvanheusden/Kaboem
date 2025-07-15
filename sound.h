@@ -202,6 +202,7 @@ public:
 
 	std::shared_mutex    sounds_lock;  ///
 	struct queued_sound {
+		size_t       pattern_idx;
 		const sound *s                             { nullptr };
 		int          t;
 		double       pitch;

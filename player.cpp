@@ -21,7 +21,7 @@ ssize_t determine_pattern_index(const uint64_t now, std::atomic_bool *const poly
 	return size_t((now - swing) / double(*sleep_us) * current_dim / double(max_steps)) % current_dim;
 }
 
-void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, const sample *const s, const pattern *const pat, RtMidiOut *const midi_port)
+void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, const sample *const s, const pattern *const pat, const size_t pat_nr, RtMidiOut *const midi_port)
 {
 	if (!s->s)
 		return;
@@ -36,6 +36,7 @@ void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, c
 	int    adjusted_note_f = midi_note_to_frequency(adjusted_note);
 
 	double pitch           = base_note_f ? adjusted_note_f / base_note_f : 1.;
+	qs.pattern_idx  = pat_nr;
 	qs.pitch        = pitch;
 	qs.volume_left  = pat->volume_left [pat_index];
 	qs.volume_right = pat->volume_right[pat_index];
@@ -53,7 +54,21 @@ void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, c
 	}
 
 	std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
-	sound_pars->sounds.push_back(qs);
+	bool hit = false;
+	if (pat->serial_notes) {
+		for(auto & sound: sound_pars->sounds) {
+			if (sound.pattern_idx == qs.pattern_idx) {
+				delete sound.filter_lp;
+				delete sound.filter_hp;
+				sound = qs;
+				hit = true;
+				break;
+			}
+		}
+	}
+
+	if (!hit)
+		sound_pars->sounds.push_back(qs);
 
 	// TODO move this to sdl3-audio code? or the mixer?
 	if (s->midi_note.has_value()) {
@@ -131,7 +146,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 					prev_pat_index1[i] = pat_index;
 
 					if ((*pat_clickables)[i].pattern[pat_index].selected)
-						queue_sample(sound_pars, pat_index, &(*samples)[i], &(*pat_clickables)[i], midi_port);
+						queue_sample(sound_pars, pat_index, &(*samples)[i], &(*pat_clickables)[i], i, midi_port);
 				}
 			}
 		}
