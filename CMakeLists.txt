@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.15)
 
 project(kaboem)
 
@@ -44,8 +44,15 @@ include(FindPkgConfig)
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
 target_link_libraries(kaboem PRIVATE SDL3::SDL3)
 
+if (MSYS)
+pkg_check_modules(SDL_TTF REQUIRED sdl3-ttf)
+target_link_libraries(kaboem PRIVATE ${SDL_TTF_LIBRARIES})
+target_include_directories(kaboem PUBLIC ${SDL_TTF_INCLUDE_DIRS})
+target_compile_options(kaboem PUBLIC ${SDL_TTF_CFLAGS_OTHER})
+else ()
 find_package(SDL3_ttf REQUIRED CONFIG)
 target_link_libraries(kaboem PRIVATE SDL3_ttf::SDL3_ttf)
+endif ()
 
 pkg_check_modules(SMF smf)
 target_link_libraries(kaboem PRIVATE ${SMF_LIBRARIES})
