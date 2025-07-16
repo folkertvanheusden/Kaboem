@@ -44,4 +44,8 @@ Pressing the menu-button again brings you back the main-settings screen.
 
 ![settings of a channel](images/kaboem-channel-settings.png)
 
+With a "right click" on a cell, a menu pops up where you can do a few settings specific for that cell.
+
+![settings of one cell](images/kaboem-one-cell-settings.png)
+
 This software was written by Folkert van Heusden. License: MIT.
