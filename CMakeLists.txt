@@ -111,7 +111,7 @@ target_link_libraries(kaboem PRIVATE Fontconfig::Fontconfig)
 #target_link_libraries(kaboem PRIVATE RtMidi)
 #pkg_check_modules(RTMIDI REQUIRED rtmidi)
 if (APPLE)
-	find_path(RTMIDI_INCLUDE_DIR RtMidi.h PATHS /opt/homebrew/include )
+	find_path(RTMIDI_INCLUDE_DIR rtmidi/RtMidi.h PATHS /opt/homebrew/include)
 	find_library(RTMIDI_LIBRARY rtmidi PATHS /opt/homebrew/lib)
 
 	include_directories(${RTMIDI_INCLUDE_DIR})
