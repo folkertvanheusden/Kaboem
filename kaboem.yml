@@ -15,7 +15,7 @@ ingredients:
   sources:
     - deb http://deb.debian.org/debian trixie main contrib non-free
   debs:
-    - /home/folkert/kaboem_0.0010-0_amd64.deb
+    - /home/folkert/kaboem_0.0012-0_amd64.deb
 
 script:
   - pwd > /tmp/bla.dat
