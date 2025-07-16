@@ -242,7 +242,7 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 		size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx,
 		up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars,
 		up_down_widget *const sound_saturation_pars, size_t *const polyrythmic_idx,
-		up_down_widget *const swing_widget_pars, size_t *const agc_idx, size_t *const clipping_idx, size_t *const scope_idx,
+		up_down_widget *const humanize_widget_pars, size_t *const agc_idx, size_t *const clipping_idx, size_t *const scope_idx,
 		size_t *const busyness_idx, size_t *const record_time_idx)
 {
 	int menu_button_width  = w * 15 / 100;
@@ -317,8 +317,8 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 	x = 0;
 	y += up_down_height;
 
-	std::vector<clickable> swing_widget = generate_up_down_widget(w, h, x, y, "swing", clickables.size(), swing_widget_pars);
-	std::copy(swing_widget.begin(), swing_widget.end(), std::back_inserter(clickables));
+	std::vector<clickable> humanize_widget = generate_up_down_widget(w, h, x, y, "humanize", clickables.size(), humanize_widget_pars);
+	std::copy(humanize_widget.begin(), humanize_widget.end(), std::back_inserter(clickables));
 	x += menu_button_width;
 
 	y += menu_button_height + up_down_height;
@@ -1154,8 +1154,8 @@ int main(int argc, char *argv[])
 	std::optional<int> selected_midi_channel;
 	size_t         polyrythmic_idx  = 0;
 	std::atomic_bool polyrythmic    = false;
-	up_down_widget swing_widget       { };
-	int            swing_amount     = 0;
+	up_down_widget humanize_widget    { };
+	int            humanize_amount     = 0;
 	size_t         clipping_idx     = 0;
 	size_t         busyness_idx     = 0;
 	size_t         agc_idx          = 0;
@@ -1165,7 +1165,7 @@ int main(int argc, char *argv[])
 	std::vector<clickable> settings_menu_buttons = generate_settings_menu_buttons(win_width, win_height,
 			&pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget,
 			&pause_idx, &midi_ch_widget, &sound_saturation_widget,
-			&polyrythmic_idx, &swing_widget, &agc_idx, &clipping_idx, &scope_idx, &busyness_idx,
+			&polyrythmic_idx, &humanize_widget, &agc_idx, &clipping_idx, &scope_idx, &busyness_idx,
 			&record_time_idx);
 	std::string    menu_status;
 
@@ -1209,12 +1209,12 @@ int main(int argc, char *argv[])
 		{ "volume",       file_parameter::T_INT,    &vol,              nullptr,                nullptr, nullptr,      nullptr, nullptr      },
 		{ "saturation",   file_parameter::T_INT,    &sound_saturation, nullptr,                nullptr, nullptr,      nullptr, nullptr      },
 		{ "midi-channel", file_parameter::T_INT,    nullptr,           &selected_midi_channel, nullptr, nullptr,      nullptr, nullptr      },
-		{ "swing-factor", file_parameter::T_INT,    &swing_amount,     nullptr,                nullptr, nullptr,      nullptr, nullptr      },
+		{ "humanize-factor", file_parameter::T_INT, &humanize_amount,  nullptr,                nullptr, nullptr,      nullptr, nullptr      },
 		{ "polyrythmic",  file_parameter::T_ABOOL,  nullptr,           nullptr,                nullptr, nullptr,      nullptr, &polyrythmic },
 		{ "agc",          file_parameter::T_BOOL,   nullptr,           nullptr,                nullptr, nullptr,      &agc,    nullptr      }
 	};
 
-	std::atomic_int      swing_amount_parameter { swing_amount };
+	std::atomic_int humanize_amount_parameter { humanize_amount };
 
 	if (kaboem_file.empty() == false && read_file(kaboem_file, &pat_clickables, &samples, &file_parameters)) {
 		for(size_t i=0; i<pattern_groups; i++) {
@@ -1227,7 +1227,7 @@ int main(int argc, char *argv[])
 		sound_pars.agc_enabled                          = agc;
 		settings_menu_buttons[agc_idx].selected         = agc;
 		settings_menu_buttons[polyrythmic_idx].selected = polyrythmic;
-		swing_amount_parameter                          = swing_amount;
+		humanize_amount_parameter                       = humanize_amount;
 
 		regenerate_pattern_grid(win_width, win_height, &pat_clickables[pattern_group]);
 
@@ -1248,9 +1248,9 @@ int main(int argc, char *argv[])
 	pattern_menu         [p_pause_idx].selected = paused;
 	settings_menu_buttons[pause_idx]  .selected = paused;
 
-	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &force_trigger, &polyrythmic, &swing_amount_parameter, &start_t] {
+	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &force_trigger, &polyrythmic, &humanize_amount_parameter, &start_t] {
 			set_thread_name("KAB-player");
-			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &swing_amount_parameter, &start_t);
+			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &humanize_amount_parameter, &start_t);
 			});
 
 	std::thread mixer_thread([&sound_pars] {
@@ -1317,7 +1317,7 @@ int main(int argc, char *argv[])
 							sound_pars.agc_enabled                          = agc;
 							settings_menu_buttons[agc_idx].selected         = agc;
 							settings_menu_buttons[polyrythmic_idx].selected = polyrythmic;
-							swing_amount_parameter                          = swing_amount;
+							humanize_amount_parameter                       = humanize_amount;
 							set_bpm_sleep(&sleep_us, bpm);
 
 							for(size_t i=0; i<pattern_groups; i++) {
@@ -1507,7 +1507,7 @@ int main(int argc, char *argv[])
 						{ { midi_ch_widget.text_w, midi_ch_widget.text_h } });
 				}
 				draw_text(font, screen, sound_saturation_widget.x, sound_saturation_widget.y, std::to_string(sound_saturation), { { sound_saturation_widget.text_w, sound_saturation_widget.text_h } });
-				draw_text(font, screen, swing_widget.x, swing_widget.y, std::to_string(swing_amount), { { swing_widget.text_w, swing_widget.text_h } });
+				draw_text(font, screen, humanize_widget.x, humanize_widget.y, std::to_string(humanize_amount), { { humanize_widget.text_w, humanize_widget.text_h } });
 
 				clickable & cc = settings_menu_buttons[clipping_idx];
 				cc.text = std::to_string(int(ceil(current_clip_factor * 100))) + "%";
@@ -1707,8 +1707,8 @@ int main(int argc, char *argv[])
 							if (are_you_sure(font, screen, win_width, win_height, font_height, "Quit"))
 								do_exit = true;
 						}
-						else if (set_up_down_value(idx, swing_widget, 0, 200, &swing_amount, shift)) {
-							swing_amount_parameter = swing_amount;
+						else if (set_up_down_value(idx, humanize_widget, 0, 200, &humanize_amount, shift)) {
+							humanize_amount_parameter = humanize_amount;
 						}
 						else if (set_up_down_value(idx, bpm_widget, 1, 999, &bpm, shift)) {
 						}

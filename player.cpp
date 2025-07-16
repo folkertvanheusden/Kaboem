@@ -13,12 +13,12 @@
 #include "time.h"
 
 
-ssize_t determine_pattern_index(const uint64_t now, std::atomic_bool *const polyrythmic, std::atomic_int *const sleep_us, const int swing, const ssize_t current_dim, const size_t max_steps)
+ssize_t determine_pattern_index(const uint64_t now, std::atomic_bool *const polyrythmic, std::atomic_int *const sleep_us, const int humanize, const ssize_t current_dim, const size_t max_steps)
 {
 	if (*polyrythmic)
-		return (now - swing) / *sleep_us % current_dim;
+		return (now - humanize) / *sleep_us % current_dim;
 
-	return size_t((now - swing) / double(*sleep_us) * current_dim / double(max_steps)) % current_dim;
+	return size_t((now - humanize) / double(*sleep_us) * current_dim / double(max_steps)) % current_dim;
 }
 
 void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, const sample *const s, const pattern *const pat, const size_t pat_nr, RtMidiOut *const midi_port)
@@ -88,7 +88,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		std::atomic_bool *const pause,    std::atomic_bool *const do_exit,
 		std::atomic_bool *const force_trigger,
 		std::atomic_bool *const polyrythmic,
-		std::atomic_int  *const swing_factor,
+		std::atomic_int  *const humanize_factor,
 		std::atomic_uint64_t *const t_start)
 {
 	auto                                midi_port      = allocate_midi_output_port();
@@ -100,7 +100,7 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		prev_pat_index2[i] = size_t(-1);
 	}
 
-	std::array<int, pattern_groups> swing { };
+	std::array<int, pattern_groups> humanize { };
 
 	while(!*do_exit) {
 		uint64_t start = get_us();
@@ -127,13 +127,13 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 			for(size_t i=0; i<pattern_groups; i++) {
 				ssize_t current_dim = (*pat_clickables)[i].dim;
 
-				int sw_fac = *swing_factor * 1000;  // microseconds
+				int sw_fac = *humanize_factor * 1000;  // microseconds
 				if (sw_fac)
-					swing[i] = (rand() % sw_fac) - sw_fac / 2;
+					humanize[i] = (rand() % sw_fac) - sw_fac / 2;
 				else
-					swing[i] = 0;
+					humanize[i] = 0;
 
-				ssize_t pat_index = determine_pattern_index(now, polyrythmic, sleep_us, swing[i], current_dim, max_steps);
+				ssize_t pat_index = determine_pattern_index(now, polyrythmic, sleep_us, humanize[i], current_dim, max_steps);
 
 				if ((pat_index != prev_pat_index1[i] && pat_index != prev_pat_index2[i]) || force_trigger->exchange(false)) {
 					prev_pat_index2[i] = prev_pat_index1[i];
