@@ -1,5 +1,5 @@
 - auto adjust tempo by what is entered
-- swirl channel through left/right
+- swirl channel through left/right -> 'autopan'
 - shorten filenames (with '...') when they don't fit on screen
 - adjust fontsizes so that text fits
 - delay per channel
