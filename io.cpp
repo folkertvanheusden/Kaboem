@@ -48,6 +48,7 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 		pattern_data["note-delta"]   = group_note_delta;
 		pattern_data["volume-left"]  = group_volume_left;
 		pattern_data["volume-right"] = group_volume_right;
+		pattern_data["swing"]        = group.swing;
 
 		patterns.push_back(pattern_data);
 	}
@@ -165,8 +166,10 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 		}
 
 		for(size_t group=0; group<pattern_groups; group++) {
-			(*data)[group].dim   = j["patterns"][group]["dim"];
 			auto & group_data    = (*data)[group];
+
+			group_data.dim     = j["patterns"][group]["dim"];
+			group_data.swing   = j["patterns"][group]["swing"];
 
 			group_data.note_delta.resize(max_pattern_dim);
 			size_t index_note_delta = 0;
