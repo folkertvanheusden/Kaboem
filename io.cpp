@@ -169,7 +169,8 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 			auto & group_data    = (*data)[group];
 
 			group_data.dim     = j["patterns"][group]["dim"];
-			group_data.swing   = j["patterns"][group]["swing"];
+			if (j["patterns"][group].contains("swing"))
+				group_data.swing = j["patterns"][group]["swing"];
 
 			group_data.note_delta.resize(max_pattern_dim);
 			size_t index_note_delta = 0;
