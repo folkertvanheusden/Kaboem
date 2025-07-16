@@ -13,12 +13,12 @@
 #include "time.h"
 
 
-ssize_t determine_pattern_index(const uint64_t now, std::atomic_bool *const polyrythmic, std::atomic_int *const sleep_us, const int humanize, const ssize_t current_dim, const size_t max_steps)
+ssize_t determine_pattern_index(const uint64_t now, std::atomic_bool *const polyrythmic, std::atomic_int *const sleep_us, const int t_adjustment, const ssize_t current_dim, const size_t max_steps)
 {
 	if (*polyrythmic)
-		return (now - humanize) / *sleep_us % current_dim;
+		return (now - t_adjustment) / *sleep_us % current_dim;
 
-	return size_t((now - humanize) / double(*sleep_us) * current_dim / double(max_steps)) % current_dim;
+	return size_t((now - t_adjustment) / double(*sleep_us) * current_dim / double(max_steps)) % current_dim;
 }
 
 void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, const sample *const s, const pattern *const pat, const size_t pat_nr, RtMidiOut *const midi_port)
@@ -136,7 +136,6 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 
 				ssize_t real_pat_index = determine_pattern_index(now, polyrythmic, sleep_us, 0, current_dim, max_steps);
 				int     current_swing  = real_pat_index & 1 ? swing * 1000: 0;
-
 				ssize_t pat_index      = determine_pattern_index(now, polyrythmic, sleep_us,
 						humanize[i] + current_swing, current_dim, max_steps);
 
