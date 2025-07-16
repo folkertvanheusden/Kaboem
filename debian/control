@@ -11,6 +11,6 @@ Homepage: https://github.com/folkertvanheusden/kaboem
 Package: kaboem
 Architecture: linux-any
 Depends: ${shlibs:Depends}, ${misc:Depends}, libsdl3-0, libsdl3-ttf0,
-	libsndfile1, libfftw3-double3, libfontconfig1, fonts-freefont-ttf
+	libsndfile1, libfftw3-double3, libfontconfig1, fonts-freefont-ttf,
 	librtmidi7, libsmf0t64 | libsmf0
 Description: Kaboem is a simple midi enabled audio sequencer.
