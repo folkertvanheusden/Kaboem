@@ -127,8 +127,8 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 		{
 			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
 
-			auto abs_now = get_us();
-			auto now     = abs_now - *t_start;
+			auto   abs_now   = get_us();
+			auto   now       = abs_now - *t_start;
 
 			size_t max_steps = 0;
 			if (!*polyrythmic) {
@@ -142,11 +142,14 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 				ssize_t current_dim = (*pat_clickables)[i].dim;
 				int     swing       = (*pat_clickables)[i].swing;
 
-				int sw_fac = *humanize_factor * 1000;  // microseconds
-				if (sw_fac)
+				int sw_fac = *humanize_factor;
+				if (sw_fac) {
+					sw_fac *= 1000;  // microseconds
 					humanize[i] = (rand() % sw_fac) - sw_fac / 2;
-				else
+				}
+				else {
 					humanize[i] = 0;
+				}
 
 				ssize_t real_pat_index = determine_pattern_index(now, polyrythmic, sleep_us, humanize[i], current_dim, max_steps);
 				int     current_swing  = real_pat_index & 1 ? swing * 1000: 0;
