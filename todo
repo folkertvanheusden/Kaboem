@@ -6,5 +6,4 @@
 - %zu / %zd -> size_t / ssize_t for uint64_t / int64_t verify
 
 - timing toepassen op 1 cell, dat-ie iets eerder of later begint
-- "normaal is swing/shuffle (zelfde dacht ik) dat elke 2e en 4e noot wordt gedelayed, met een positieve dan wel negatieve offset" -> humanize in de huidige vorm
 - external sync (via midi?)
