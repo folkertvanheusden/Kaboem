@@ -1714,7 +1714,7 @@ int main(int argc, char *argv[])
 							if (are_you_sure(font, screen, win_width, win_height, font_height, "Quit"))
 								do_exit = true;
 						}
-						else if (set_up_down_value(idx, humanize_widget, 0, 200, &humanize_amount, shift)) {
+						else if (set_up_down_value(idx, humanize_widget, 0, 1000, &humanize_amount, shift)) {
 							humanize_amount_parameter = humanize_amount;
 						}
 						else if (set_up_down_value(idx, bpm_widget, 1, 999, &bpm, shift)) {
