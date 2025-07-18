@@ -4,6 +4,7 @@
 - adjust fontsizes so that text fits
 - delay per channel
 - %zu / %zd -> size_t / ssize_t for uint64_t / int64_t verify
+- skips a beat after un-pause
 
 - timing toepassen op 1 cell, dat-ie iets eerder of later begint
 - external sync (via midi?)
