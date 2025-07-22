@@ -922,7 +922,9 @@ bool are_you_sure(TTF_Font *const font, SDL_Renderer *const screen, int win_widt
 	return false;
 }
 
-void clear_everything(std::array<pattern, pattern_groups> & pat_clickables, std::shared_mutex *const pat_clickables_lock, sound_parameters & sound_pars, std::string *const menu_status, const std::string & path, std::array<sample, pattern_groups> & samples, const std::vector<file_parameter> & file_parameters, std::vector<clickable> & channel_clickables)
+void clear_everything(std::array<pattern, pattern_groups> & pat_clickables, std::shared_mutex *const pat_clickables_lock, sound_parameters & sound_pars,
+		std::string *const menu_status, const std::string & path, std::array<sample, pattern_groups> & samples,
+		const std::vector<file_parameter> & file_parameters, std::vector<clickable> & channel_clickables, std::string *const kaboem_file)
 {
 	{
 		const std::string file_name = path + "/before_clear." PROG_EXT;
@@ -960,6 +962,8 @@ void clear_everything(std::array<pattern, pattern_groups> & pat_clickables, std:
 			channel_clickables[i].text.clear();
 		}
 	}
+
+	kaboem_file->clear();
 }
 
 void set_samples_buttons(sound_parameters & sound_pars, std::array<sample, pattern_groups> & samples, std::vector<clickable> & channel_buttons_clickables, const size_t idx, const size_t mute_idx, const size_t serial_note_idx, const bool serial_state)
@@ -1311,7 +1315,7 @@ int main(int argc, char *argv[])
 						draw_please_wait(font, screen, win_width, win_height);
 
 						clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, work_path, samples,
-								file_parameters, channel_clickables);
+								file_parameters, channel_clickables, &kaboem_file);
 
 						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock   );
 						std::unique_lock<std::shared_mutex> lck    (sound_pars.sounds_lock);
@@ -1692,7 +1696,8 @@ int main(int argc, char *argv[])
 							bool choice = are_you_sure(font, screen, win_width, win_height, font_height, "Clear everything");
 							if (choice) {
 								draw_please_wait(font, screen, win_width, win_height);
-								clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, work_path, samples, file_parameters, channel_clickables);
+								clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, work_path,
+										samples, file_parameters, channel_clickables, &kaboem_file);
 								menu_status = "cleared";
 							}
 
