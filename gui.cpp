@@ -398,7 +398,7 @@ std::vector<clickable> generate_channel_buttons(const int w, const int h,
 		up_down_widget *const midi_note_widget_pars, up_down_widget *const n_steps_pars, up_down_widget *const pitch_pars,
 		size_t *const sample_unload_idx, size_t *const mute_idx, up_down_widget *const echo_t_pars,
 		up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars, size_t *const serial_notes_idx,
-		up_down_widget *const swing_factor_pars)
+		up_down_widget *const swing_factor_pars, up_down_widget *const delay_factor_pars)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -471,6 +471,9 @@ std::vector<clickable> generate_channel_buttons(const int w, const int h,
 
 	std::vector<clickable> swing_pars_widget = generate_up_down_widget(w, h, menu_button_width * 2, y, "swing", clickables.size(), swing_factor_pars);
 	std::copy(swing_pars_widget.begin(), swing_pars_widget.end(), std::back_inserter(clickables));
+
+	std::vector<clickable> delay_widget = generate_up_down_widget(w, h, menu_button_width * 3, y, "delay", clickables.size(), delay_factor_pars);
+	std::copy(delay_widget.begin(), delay_widget.end(), std::back_inserter(clickables));
 
 	return clickables;
 }
@@ -578,8 +581,6 @@ void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, co
 			dest.y = y + in.value().second / 2 - surface->h / 2;
 		else if (v_alignment == text_alignment::bottom)
 			dest.y = y + in.value().second - surface->h;
-
-		// printf("Render [%d | %d] at %d,%d (%dx%d in %dx%d, relative to %d,%d): \"%s\"\n", h_alignment, v_alignment, int(dest.x), int(dest.y), int(dest.w), int(dest.h), in.value().first, in.value().second, x, y, text.c_str());
 	}
 	SDL_RenderTexture(screen, texture, nullptr, &dest);
 
@@ -1196,10 +1197,11 @@ int main(int argc, char *argv[])
 	up_down_widget lp_filter_widget         { };
 	up_down_widget hp_filter_widget         { };
 	up_down_widget swing_factor_widget      { };
+	up_down_widget delay_factor_widget      { };
 	std::vector<clickable> channel_buttons_clickables = generate_channel_buttons(win_width, win_height,
 			&sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right, &midi_note_widget_pars,
 			&n_steps_pars, &pitch_pars, &sample_unload_idx, &mute_idx, &echo_t_pars,
-			&lp_filter_widget, &hp_filter_widget, &serial_notes_idx, &swing_factor_widget);
+			&lp_filter_widget, &hp_filter_widget, &serial_notes_idx, &swing_factor_widget, &delay_factor_widget);
 
 	size_t         p_pause_idx            = 0;
 	size_t         restart_idx            = 0;
@@ -1596,6 +1598,7 @@ int main(int argc, char *argv[])
 				auto      lp_cutoff = pat.lp_cutoff;
 				auto      hp_cutoff = pat.hp_cutoff;
 				auto      swing     = pat.swing;
+				auto      delay     = pat.delay;
 				pat_lck.unlock();
 
 				draw_text(font, screen, n_steps_pars.x, n_steps_pars.y, std::to_string(dim),
@@ -1605,6 +1608,7 @@ int main(int argc, char *argv[])
 				if (hp_cutoff.has_value())
 					draw_text(font, screen, hp_filter_widget.x, hp_filter_widget.y, std::to_string(int(hp_cutoff.value())), { { hp_filter_widget.text_w, hp_filter_widget.text_h } });
 				draw_text(font, screen, swing_factor_widget.x, swing_factor_widget.y, std::to_string(swing), { { swing_factor_widget.text_w, swing_factor_widget.text_h } });
+				draw_text(font, screen, delay_factor_widget.x, delay_factor_widget.y, std::to_string(delay), { { delay_factor_widget.text_w, delay_factor_widget.text_h } });
 			}
 			else if (mode == m_cell) {
 				std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
@@ -1900,6 +1904,9 @@ int main(int argc, char *argv[])
 
 								int max_swing = sleep_us * 4;
 								if (set_up_down_value(idx, swing_factor_widget, 0, max_swing, &pat_clickables[fs_action_sample_index].swing, shift)) {
+									// ok
+								}
+								else if (set_up_down_value(idx, delay_factor_widget, -1000, 1000, &pat_clickables[fs_action_sample_index].delay, shift)) {
 									// ok
 								}
 							}

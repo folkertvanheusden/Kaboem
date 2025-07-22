@@ -140,7 +140,8 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 
 			for(size_t i=0; i<pattern_groups; i++) {
 				ssize_t current_dim = (*pat_clickables)[i].dim;
-				int     swing       = (*pat_clickables)[i].swing;
+				int     swing       = (*pat_clickables)[i].swing * 1000;
+				int     delay       = (*pat_clickables)[i].delay * 1000;
 
 				int sw_fac = *humanize_factor;
 				if (sw_fac) {
@@ -151,10 +152,10 @@ void player(const std::array<pattern, pattern_groups> *const pat_clickables, std
 					humanize[i] = 0;
 				}
 
-				ssize_t real_pat_index = determine_pattern_index(now, polyrythmic, sleep_us, humanize[i], current_dim, max_steps);
-				int     current_swing  = real_pat_index & 1 ? swing * 1000: 0;
+				ssize_t real_pat_index = determine_pattern_index(now, polyrythmic, sleep_us, humanize[i] + delay, current_dim, max_steps);
+				int     current_swing  = real_pat_index & 1 ? swing: 0;
 				ssize_t pat_index      = determine_pattern_index(now, polyrythmic, sleep_us,
-						humanize[i] + current_swing, current_dim, max_steps);
+						humanize[i] + delay + current_swing, current_dim, max_steps);
 
 				if ((pat_index != prev_pat_index1[i] && pat_index != prev_pat_index2[i]) || force_trigger->exchange(false)) {
 					prev_pat_index2[i] = prev_pat_index1[i];

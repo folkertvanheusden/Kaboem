@@ -28,6 +28,7 @@ struct pattern
 	std::optional<double>  hp_cutoff;
 	bool                   serial_notes { true };
 	int                    swing        { 0    };
+	int                    delay        { 0    };
 };
 
 struct sample
