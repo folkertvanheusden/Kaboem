@@ -2,9 +2,8 @@
 - swirl channel through left/right -> 'autopan'
 - shorten filenames (with '...') when they don't fit on screen
 - adjust fontsizes so that text fits
-- delay per channel
+- delay/undelay per channel
 - %zu / %zd -> size_t / ssize_t for uint64_t / int64_t verify
 - skips a beat after un-pause
 
-- timing toepassen op 1 cell, dat-ie iets eerder of later begint
 - external sync (via midi?)
