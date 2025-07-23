@@ -4,5 +4,5 @@
 - adjust fontsizes so that text fits
 - %zu / %zd -> size_t / ssize_t for uint64_t / int64_t verify
 - skips a beat after un-pause
-
+- synquencer
 - external sync (via midi?)
