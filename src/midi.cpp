@@ -20,8 +20,8 @@ void deinit_midi()
 RtMidiOut * allocate_midi_output_port()
 {
 #if HAVE_RTMIDI == 1
-	auto *p = new RtMidiOut();
-	p->openVirtualPort(PROG_NAME " output");
+	auto *p = new RtMidiOut(RtMidi::Api::UNSPECIFIED, PROG_NAME);
+	p->openVirtualPort("output");
 	return p;
 #else
 	return nullptr;
@@ -39,8 +39,8 @@ void send_midi_note(RtMidiOut *const p, const int note, const int velocity)
 RtMidiIn * allocate_midi_input_port()
 {
 #if HAVE_RTMIDI == 1
-	auto *p = new RtMidiIn();
-	p->openVirtualPort(PROG_NAME " input");
+	auto *p = new RtMidiIn(RtMidi::Api::UNSPECIFIED, PROG_NAME);
+	p->openVirtualPort("input");
 	p->ignoreTypes(true, true, true);  // ignore sysex, timing, and active sensing messages
 	return p;
 #else
