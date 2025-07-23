@@ -36,6 +36,14 @@ void send_midi_note(RtMidiOut *const p, const int note, const int velocity)
 #endif
 }
 
+void send_pitch_bend(RtMidiOut *const p, const uint16_t pb)
+{
+#if HAVE_RTMIDI == 1
+	std::vector<unsigned char> message { 0xe9, (unsigned char)(pb & 127), (unsigned char)((pb >> 7) & 127) };
+	p->sendMessage(&message);
+#endif
+}
+
 RtMidiIn * allocate_midi_input_port()
 {
 #if HAVE_RTMIDI == 1

@@ -80,19 +80,32 @@ void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, c
 
 	// TODO move this to sdl3-audio code? or the mixer?
 	if (s->midi_note.has_value()) {
+		uint16_t pb = 0x2000 * qs.pitch;
+
 #if HAVE_SMF == 1
 		{
 			std::unique_lock<std::mutex> lck(sound_pars->smf_lock);
 			if (sound_pars->smf_track) {
+				double when = (get_us() - sound_pars->smf_start) / 1000000.;
+
+				if (pb != 0x2000) {
+					uint8_t pb_msg[3] = { 0xe9, uint8_t(pb & 127), uint8_t((pb >> 7) & 127) };
+					smf_event_t *event = smf_event_new_from_pointer(pb_msg, sizeof pb_msg);
+					smf_track_add_event_seconds(sound_pars->smf_track, event, when);
+				}
+
 				uint8_t msg[3] = { 0x99, uint8_t(s->midi_note.value()), 127 };
 				smf_event_t *event = smf_event_new_from_pointer(msg, sizeof msg);
-				smf_track_add_event_seconds(sound_pars->smf_track, event, (get_us() - sound_pars->smf_start) / 1000000.);
+				smf_track_add_event_seconds(sound_pars->smf_track, event, when);
 			}
 		}
 #endif
 
-		if (midi_port)
+		if (midi_port) {
+			if (pb != 0x2000)
+				send_pitch_bend(midi_port, pb);
 			send_midi_note(midi_port, s->midi_note.value(), 127);
+		}
 	}
 }
 
