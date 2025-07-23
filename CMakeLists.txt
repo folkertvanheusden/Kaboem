@@ -18,20 +18,20 @@ set(CMAKE_BUILD_TYPE RelWithDebInfo)
 
 add_executable(
   kaboem
-  agc.cpp
-  bp-filter.cpp
-  font.cpp
-  frequencies.cpp
-  gui.cpp
-  io.cpp
-  midi.cpp
-  mixer.cpp
-  player.cpp
-  sample.cpp
-  sdl3-audio.cpp
-  sound.cpp
-  time.cpp
-  utils.cpp
+  src/agc.cpp
+  src/bp-filter.cpp
+  src/font.cpp
+  src/frequencies.cpp
+  src/gui.cpp
+  src/io.cpp
+  src/midi.cpp
+  src/mixer.cpp
+  src/player.cpp
+  src/sample.cpp
+  src/sdl3-audio.cpp
+  src/sound.cpp
+  src/time.cpp
+  src/utils.cpp
 )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
@@ -154,7 +154,7 @@ install(FILES README.md LICENSE DESTINATION share/kaboem)
 install(FILES kaboem.desktop DESTINATION share/applications/)
 install(FILES images/icon.png DESTINATION share/icons/hicolor/256x256/ RENAME kaboem.png)
 
-configure_file(config.h.in config.h)
+configure_file(src/config.h.in config.h)
 target_include_directories(kaboem PUBLIC "${PROJECT_BINARY_DIR}")
 
 if (RTMIDI_FOUND)
