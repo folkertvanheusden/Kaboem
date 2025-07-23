@@ -35,8 +35,7 @@
 
 using json = nlohmann::json;
 
-const std::string cfg_file = SDL_GetPrefPath("vanheusden", "Kaboem") + std::string("settings.json");
-
+std::string      cfg_file;
 std::atomic_bool do_exit { false };
 
 void sigh(int s)
@@ -1046,6 +1045,19 @@ int main(int argc, char *argv[])
 {
 	bool             full_screen = true;
 	std::atomic_bool paused      = true;
+
+	auto pref_path = SDL_GetPrefPath("vanheusden", "Kaboem");
+	if (pref_path)
+		cfg_file = pref_path + std::string("settings.json");
+	else {
+		const char *home = getenv("HOME");
+		if (home)
+			cfg_file = home + std::string("/.kaboem.json");
+		else
+			cfg_file = ".kaboem.json";
+	}
+
+	printf("Using configuration file: %s\n", cfg_file.c_str());
 
 	int c = -1;
 	while((c = getopt(argc, argv, "wu")) != -1) {
