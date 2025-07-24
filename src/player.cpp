@@ -35,7 +35,8 @@ int64_t us_to_next_pattern(const uint64_t now, std::atomic_bool *const polyrythm
 	return us_per_interval - (now - t_adjustment - prev_t);
 }
 
-void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, const sample *const s, const pattern *const pat, const size_t pat_nr, RtMidiOut *const midi_port)
+void queue_sample(sound_parameters *const sound_pars, const int note_delta, const double volume_left, const double volume_right,
+		const sample *const s, const pattern *const pat, const std::optional<size_t> pat_nr, RtMidiOut *const midi_port)
 {
 	if (!s->s)
 		return;
@@ -46,26 +47,28 @@ void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, c
 
 	int    base_note       = qs.s->get_base_midi_note();
 	double base_note_f     = midi_note_to_frequency(base_note);
-	int    adjusted_note   = base_note + pat->note_delta[pat_index];
+	int    adjusted_note   = base_note + note_delta;
 	int    adjusted_note_f = midi_note_to_frequency(adjusted_note);
 
 	double pitch           = base_note_f ? adjusted_note_f / base_note_f : 1.;
-	qs.pattern_idx  = pat_nr;
-	qs.pitch        = pitch;
-	qs.volume_left  = pat->volume_left [pat_index];
-	qs.volume_right = pat->volume_right[pat_index];
-	qs.echo_t       = s->echo_t;
+	qs.pattern_idx         = pat_nr;
+	qs.pitch               = pitch;
+	qs.volume_left         = volume_left;
+	qs.volume_right        = volume_right;
+	qs.echo_t              = s->echo_t;
 	qs.history.reserve(s->s->get_sample_count() + s->echo_t);
 
-	float lp_cutoff = pat->lp_cutoff.has_value() ? pat->lp_cutoff.value() : 0;
-	float hp_cutoff = pat->hp_cutoff.has_value() ? pat->hp_cutoff.value() : sample_rate / 2;
+	float  lp_cutoff       = pat->lp_cutoff.has_value() ? pat->lp_cutoff.value() : 0;
+	float  hp_cutoff       = pat->hp_cutoff.has_value() ? pat->hp_cutoff.value() : sample_rate / 2;
 	if (pat->lp_cutoff.has_value() || pat->hp_cutoff.has_value())
 		qs.bp_filter = design_bandpass(sample_rate, lp_cutoff, hp_cutoff);
 
 	std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
 	bool hit = false;
-	if (pat->serial_notes) {
+	if (pat->serial_notes && pat_nr.has_value()) {
 		for(auto & sound: sound_pars->sounds) {
+			if (sound.pattern_idx.has_value() == false)
+				continue;
 			if (sound.pattern_idx == qs.pattern_idx) {
 				delete sound.bp_filter;
 				sound = qs;
@@ -107,6 +110,11 @@ void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, c
 			send_midi_note(midi_port, s->midi_note.value(), 127);
 		}
 	}
+}
+
+void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, const sample *const s, const pattern *const pat, const size_t pat_nr, RtMidiOut *const midi_port)
+{
+	queue_sample(sound_pars, pat->note_delta[pat_index], pat->volume_left[pat_index], pat->volume_right[pat_index], s, pat, pat_nr, midi_port);
 }
 
 void player(const std::array<pattern, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock,

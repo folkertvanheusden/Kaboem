@@ -176,7 +176,7 @@ std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, 
 
 	std::vector<clickable> clickables;
 
-	y += menu_button_height;
+	y += menu_button_height;  // FIXME
 	clickable cbpm { };
 	cbpm.where    = { x, y, menu_button_width, menu_button_height / 3 };
 	cbpm.text     = name;
@@ -239,7 +239,7 @@ std::vector<clickable> generate_cell_settings_menu_buttons(const int w, const in
 
 std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, size_t *const pattern_load_idx, size_t *const save_idx,
 		size_t *const clear_idx, size_t *const quit_idx, up_down_widget *const bpm_widget_pars, size_t *const record_idx,
-		up_down_widget *const volume_widget_pars, size_t *const pause_idx, up_down_widget *const midi_ch_widget_pars,
+		up_down_widget *const volume_widget_pars, size_t *const pause_idx, size_t *const midi_idx,
 		up_down_widget *const sound_saturation_pars, size_t *const polyrythmic_idx,
 		up_down_widget *const humanize_widget_pars, size_t *const agc_idx, size_t *const clipping_idx, size_t *const scope_idx,
 		size_t *const busyness_idx, size_t *const record_time_idx)
@@ -291,6 +291,7 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 		clickables.push_back(c);
 		x += menu_button_width;
 	}
+	int quit_x = x;
 	{
 		clickable c { };
 		c.where    = { x, y, menu_button_width, menu_button_height };
@@ -306,10 +307,7 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 	std::vector<clickable> volume_widget = generate_up_down_widget(w, h, menu_button_width, y, "volume", clickables.size(), volume_widget_pars);
 	std::copy(volume_widget.begin(), volume_widget.end(), std::back_inserter(clickables));
 
-	std::vector<clickable> midi_ch_widget = generate_up_down_widget(w, h, menu_button_width * 2, y, "midi ch.", clickables.size(), midi_ch_widget_pars);
-	std::copy(midi_ch_widget.begin(), midi_ch_widget.end(), std::back_inserter(clickables));
-
-	std::vector<clickable> sound_saturation_pars_widget = generate_up_down_widget(w, h, menu_button_width * 3, y, "saturation", clickables.size(), sound_saturation_pars);
+	std::vector<clickable> sound_saturation_pars_widget = generate_up_down_widget(w, h, menu_button_width * 2, y, "saturation", clickables.size(), sound_saturation_pars);
 	std::copy(sound_saturation_pars_widget.begin(), sound_saturation_pars_widget.end(), std::back_inserter(clickables));
 
 	int up_down_height = menu_button_height / 3 * 6;
@@ -341,9 +339,19 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 		x += menu_button_width;
 	}
 
-	int half_height = menu_button_height / 2;
 	{
-		int temp_y = y;
+		clickable c { };
+		c.where          = { x, y, menu_button_width, menu_button_height };
+		c.text           = "MIDI";
+		*midi_idx         = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
+
+	int half_height = menu_button_height / 2;
+	x = quit_x;
+	{
+		int temp_y = menu_button_height;
 		clickable c1 { };
 		c1.where          = { x, temp_y, menu_button_width, half_height};
 		c1.text           = "clipping";
@@ -354,11 +362,10 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 		c2.text           = "0%";
 		*clipping_idx = clickables.size();
 		clickables.push_back(c2);
-		x += menu_button_width;
+		y += menu_button_height;
 	}
-
 	{
-		int temp_y = y;
+		int temp_y = menu_button_height * 2;
 		clickable c1 { };
 		c1.where          = { x, temp_y, menu_button_width, half_height};
 		c1.text           = "busyness";
@@ -473,6 +480,30 @@ std::vector<clickable> generate_channel_buttons(const int w, const int h,
 
 	std::vector<clickable> delay_widget = generate_up_down_widget(w, h, menu_button_width * 3, y, "delay", clickables.size(), delay_factor_pars);
 	std::copy(delay_widget.begin(), delay_widget.end(), std::back_inserter(clickables));
+
+	return clickables;
+}
+
+std::vector<clickable> generate_midi_menu(const int w, const int h, size_t *const load_midi_sample_idx, up_down_widget *const midi_ch_widget_pars)
+{
+	int menu_button_width  = w * 15 / 100;
+	int menu_button_height = h * 15 / 100;
+
+	std::vector<clickable> clickables;
+
+	int x = 0;
+	int y = 0;
+	{
+		clickable c { };
+		c.where               = { x, y, menu_button_width, menu_button_height };
+		c.text                = "load";
+		*load_midi_sample_idx = clickables.size();
+		clickables.push_back(c);
+		x += menu_button_width;
+	}
+
+	std::vector<clickable> midi_ch_widget = generate_up_down_widget(w, h, 0, y, "midi ch.", clickables.size(), midi_ch_widget_pars);
+	std::copy(midi_ch_widget.begin(), midi_ch_widget.end(), std::back_inserter(clickables));
 
 	return clickables;
 }
@@ -1147,8 +1178,8 @@ int main(int argc, char *argv[])
 	int  bpm    = 135;
 	int  vol    = 100;
 
-	enum { m_pattern, m_settings, m_sample, m_cell } mode = m_pattern;
-	enum { fs_load, fs_save, fs_none, fs_load_sample, fs_record } fs_action = fs_none;
+	enum { m_pattern, m_settings, m_sample, m_cell, m_midi } mode = m_pattern;
+	enum { fs_load, fs_save, fs_none, fs_load_sample, fs_record, fs_load_midi_sample } fs_action = fs_none;
 	size_t fs_action_sample_index        = 0;
 	fileselector_data      fs_data { };
 	std::shared_mutex      pat_clickables_lock;
@@ -1169,10 +1200,10 @@ int main(int argc, char *argv[])
 	size_t         record_idx       = 0;
 	size_t         pause_idx        = 0;
 	up_down_widget vol_widget         { };
-	up_down_widget midi_ch_widget     { };
+	size_t         midi_idx         = 0;
 	up_down_widget sound_saturation_widget { };
 	int            sound_saturation = 0;
-	std::optional<int> selected_midi_channel;
+	std::optional<int> selected_percussion_midi_channel;
 	size_t         polyrythmic_idx  = 0;
 	std::atomic_bool polyrythmic    = false;
 	up_down_widget humanize_widget    { };
@@ -1185,7 +1216,7 @@ int main(int argc, char *argv[])
 	size_t         record_time_idx  = 0;
 	std::vector<clickable> settings_menu_buttons = generate_settings_menu_buttons(win_width, win_height,
 			&pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget,
-			&pause_idx, &midi_ch_widget, &sound_saturation_widget,
+			&pause_idx, &midi_idx, &sound_saturation_widget,
 			&polyrythmic_idx, &humanize_widget, &agc_idx, &clipping_idx, &scope_idx, &busyness_idx,
 			&record_time_idx);
 	std::string    menu_status;
@@ -1215,6 +1246,10 @@ int main(int argc, char *argv[])
 			&n_steps_pars, &pitch_pars, &sample_unload_idx, &mute_idx, &echo_t_pars,
 			&lp_filter_widget, &hp_filter_widget, &serial_notes_idx, &swing_factor_widget, &delay_factor_widget);
 
+	size_t         load_midi_sample_idx   = 0;
+	up_down_widget midi_ch_widget     { };
+	std::vector<clickable> midi_menu_buttons = generate_midi_menu(win_width, win_height, &load_midi_sample_idx, &midi_ch_widget);
+
 	size_t         p_pause_idx            = 0;
 	size_t         restart_idx            = 0;
 	std::vector<clickable> pattern_menu = generate_pattern_menu(win_width, win_height, &p_pause_idx, &restart_idx);
@@ -1228,13 +1263,13 @@ int main(int argc, char *argv[])
 	SDL_DialogFileFilter sf_filters_record[] { { "Record",       "wav;mid" } };
 
 	const std::vector<file_parameter> file_parameters {
-		{ "bpm",          file_parameter::T_INT,    &bpm,              nullptr,                nullptr, nullptr,      nullptr, nullptr      },
-		{ "volume",       file_parameter::T_INT,    &vol,              nullptr,                nullptr, nullptr,      nullptr, nullptr      },
-		{ "saturation",   file_parameter::T_INT,    &sound_saturation, nullptr,                nullptr, nullptr,      nullptr, nullptr      },
-		{ "midi-channel", file_parameter::T_INT,    nullptr,           &selected_midi_channel, nullptr, nullptr,      nullptr, nullptr      },
-		{ "humanize-factor", file_parameter::T_INT, &humanize_amount,  nullptr,                nullptr, nullptr,      nullptr, nullptr      },
-		{ "polyrythmic",  file_parameter::T_ABOOL,  nullptr,           nullptr,                nullptr, nullptr,      nullptr, &polyrythmic },
-		{ "agc",          file_parameter::T_BOOL,   nullptr,           nullptr,                nullptr, nullptr,      &agc,    nullptr      }
+		{ "bpm",          file_parameter::T_INT,    &bpm,              nullptr,                           nullptr, nullptr,      nullptr, nullptr      },
+		{ "volume",       file_parameter::T_INT,    &vol,              nullptr,                           nullptr, nullptr,      nullptr, nullptr      },
+		{ "saturation",   file_parameter::T_INT,    &sound_saturation, nullptr,                           nullptr, nullptr,      nullptr, nullptr      },
+		{ "midi-channel", file_parameter::T_INT,    nullptr,           &selected_percussion_midi_channel, nullptr, nullptr,      nullptr, nullptr      },
+		{ "humanize-factor", file_parameter::T_INT, &humanize_amount,  nullptr,                           nullptr, nullptr,      nullptr, nullptr      },
+		{ "polyrythmic",  file_parameter::T_ABOOL,  nullptr,           nullptr,                           nullptr, nullptr,      nullptr, &polyrythmic },
+		{ "agc",          file_parameter::T_BOOL,   nullptr,           nullptr,                           nullptr, nullptr,      &agc,    nullptr      }
 	};
 
 	std::atomic_int humanize_amount_parameter { humanize_amount };
@@ -1311,12 +1346,15 @@ int main(int argc, char *argv[])
 		}
 
 		// check for midi events
-		if (midi_in && selected_midi_channel.has_value()) {
+		if (midi_in && selected_percussion_midi_channel.has_value()) {
 			auto msg = receive_midi_note(midi_in);
-			if (msg.size() == 3 && msg.at(0) == 0x90 + selected_midi_channel.value()) {
+			if (msg.size() == 3 && msg.at(0) == 0x90 + selected_percussion_midi_channel.value()) {
 				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
 				pat_clickables[pattern_group].pattern[pat_index].selected = true;
 				redraw = true;
+			}
+			else {
+				// TODO midi_processor(&sound_pars, msg);
 			}
 		}
 
@@ -1461,6 +1499,27 @@ int main(int argc, char *argv[])
 					redraw    = true;
 				}
 			}
+			else if (fs_action == fs_load_midi_sample) {
+				if (fs_data.finished) {
+					std::unique_lock<std::mutex> lck(sound_pars.midi_sample_lock);
+					delete sound_pars.midi_sample;
+
+					sound_pars.midi_sample = new sound_sample(sample_rate, fs_data.file);
+					if (sound_pars.midi_sample->begin() == false) {
+						delete sound_pars.midi_sample;
+						sound_pars.midi_sample = nullptr;
+
+						menu_status            = "file " + get_filename(fs_data.file) + " INVALID/NOT FOUND";
+						do_error_message(font, screen, win_width, win_height, get_filename(fs_data.file) + " invalid/not found");
+					}
+					else {
+						menu_status = "file " + get_filename(fs_data.file) + " read";
+					}
+
+					fs_action = fs_none;
+					redraw    = true;
+				}
+			}
 
 			if (fs_data.finished && fs_data.file.empty() == false) {
 				auto slash = fs_data.file.find_last_of('/');
@@ -1525,10 +1584,6 @@ int main(int argc, char *argv[])
 				draw_clickables(font, screen, settings_menu_buttons, { }, { });
 				draw_text(font, screen, bpm_widget.x, bpm_widget.y, std::to_string(bpm), { { bpm_widget.text_w, bpm_widget.text_h } });
 				draw_text(font, screen, vol_widget.x, vol_widget.y, std::to_string(vol), { { vol_widget.text_w, vol_widget.text_h } });
-				if (selected_midi_channel.has_value()) {
-					draw_text(font, screen, midi_ch_widget.x, midi_ch_widget.y,  std::to_string(selected_midi_channel.value() + 1),
-						{ { midi_ch_widget.text_w, midi_ch_widget.text_h } });
-				}
 				draw_text(font, screen, sound_saturation_widget.x, sound_saturation_widget.y, std::to_string(sound_saturation), { { sound_saturation_widget.text_w, sound_saturation_widget.text_h } });
 				draw_text(font, screen, humanize_widget.x, humanize_widget.y, std::to_string(humanize_amount), { { humanize_widget.text_w, humanize_widget.text_h } });
 
@@ -1634,6 +1689,24 @@ int main(int argc, char *argv[])
 				draw_text(font, screen, cell_volume_right_widget.x, cell_volume_right_widget.y, std::to_string(pattern.volume_right[selected_cell]),
 					{ { cell_volume_right_widget.text_w, cell_volume_right_widget.text_h } });
 			}
+			else if (mode == m_midi) {
+				{
+					std::unique_lock<std::mutex> lck(sound_pars.midi_sample_lock);
+					if (sound_pars.midi_sample)
+						menu_status = sound_pars.midi_sample->get_name();
+					if (menu_status.empty())
+						menu_status = PROG_NAME " " KABOEM_VERSION;
+				}
+				draw_text(font, screen, 0, 0, menu_status, { { win_width, win_height } }, false, text_alignment::left, text_alignment::bottom);
+
+				if (selected_percussion_midi_channel.has_value()) {
+					draw_text(font, screen, midi_ch_widget.x, midi_ch_widget.y,  std::to_string(selected_percussion_midi_channel.value() + 1),
+						{ { midi_ch_widget.text_w, midi_ch_widget.text_h } });
+				}
+
+				draw_clickables(font, screen, menu_button_clickables, { }, { });
+				draw_clickables(font, screen, midi_menu_buttons,      { }, { });
+			}
 			else {
 				fprintf(stderr, "Internal error: %d\n", mode);
 				break;
@@ -1722,7 +1795,7 @@ int main(int argc, char *argv[])
 						else if (idx == pattern_load_idx) {
 							if (kaboem_file.empty() || are_you_sure(font, screen, win_width, win_height, font_height, "Load")) {
 								fs_data.finished = false;
-								fs_action = fs_load;
+								fs_action        = fs_load;
 								SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, work_path.c_str(), false);
 							}
 						}
@@ -1730,6 +1803,9 @@ int main(int argc, char *argv[])
 							fs_data.finished = false;
 							fs_action = fs_save;
 							SDL_ShowSaveFileDialog(fs_callback, &fs_data, win, sf_filters, 1, work_path.c_str());
+						}
+						else if (idx == midi_idx) {
+							mode = m_midi;
 						}
 						else if (idx == quit_idx) {
 							if (are_you_sure(font, screen, win_width, win_height, font_height, "Quit"))
@@ -1745,9 +1821,6 @@ int main(int argc, char *argv[])
 						else if (set_up_down_value(idx, sound_saturation_widget, 0, 1000, &sound_saturation, shift)) {
 							std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
 							sound_pars.sound_saturation = 1. - sound_saturation / 1000.;
-						}
-						else if (set_up_down_value(idx, midi_ch_widget, 0, 15, &selected_midi_channel, shift)) {
-							// taken
 						}
 						else if (idx == record_idx) {
 							bool was_writing = false;
@@ -1829,7 +1902,7 @@ int main(int argc, char *argv[])
 						size_t idx = menus_clicked.value();
 						if (idx == sample_load_idx) {
 							fs_data.finished = false;
-							fs_action = fs_load_sample;
+							fs_action        = fs_load_sample;
 							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters_sample, 1, work_path.c_str(), false);
 						}
 						else if (configure_filter(&pat_clickables[fs_action_sample_index], &pat_clickables_lock, lp_filter_widget,
@@ -1947,6 +2020,26 @@ int main(int argc, char *argv[])
 							// ok
 						}
 						else {
+						}
+					}
+				}
+				else if (mode == m_midi) {
+					auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
+					auto midi_clicked = find_clickable(midi_menu_buttons,      event.button.x, event.button.y);
+					if (menu_clicked.has_value())
+						mode = m_settings;
+					else if (midi_clicked.has_value()) {
+						size_t idx = midi_clicked.value();
+						if (set_up_down_value(idx, midi_ch_widget, 0, 15, &selected_percussion_midi_channel, shift)) {
+							// taken
+						}
+						else if (idx == load_midi_sample_idx) {
+							fs_data.finished = false;
+							fs_action        = fs_load_midi_sample;
+							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters_sample, 1, work_path.c_str(), false);
+						}
+						else {
+							// TODO
 						}
 					}
 				}

@@ -197,20 +197,23 @@ public:
 
 	sdl3_data_audio      pw;
 
+	std::mutex           midi_sample_lock;
+	sound_sample        *midi_sample     { nullptr };
+
 	std::shared_mutex               stream_lock;
 	std::queue<std::vector<float> > stream;
 
 	std::shared_mutex    sounds_lock;  ///
 	struct queued_sound {
-		size_t         pattern_idx;
 		const sound   *s            { nullptr };
 		int            t;
 		double         pitch;
 		double         volume_left;
 		double         volume_right;
 		int            echo_t;
-		std::vector<std::vector<float> > history;
 		biquad_filter *bp_filter    { nullptr };
+		std::optional<size_t>            pattern_idx;
+		std::vector<std::vector<float> > history;
 	};
 	std::vector<queued_sound> sounds;
 	double               global_volume    { 1.      };

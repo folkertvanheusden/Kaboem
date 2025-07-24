@@ -4,6 +4,9 @@
 #include "gui.h"
 
 
+void queue_sample(sound_parameters *const sound_pars, const int note_delta, const double volume_left, const double volume_right,
+		const sample *const s, const pattern *const pat, const std::optional<size_t> pat_nr, RtMidiOut *const midi_port);
+
 void player(const std::array<pattern, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock,
 		const std::array<sample, pattern_groups> *const samples,
 		std::atomic_int  *const sleep_ms, sound_parameters *const sound_pars,
