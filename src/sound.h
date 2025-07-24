@@ -24,21 +24,6 @@
 
 double f_to_delta_t(const double frequency, const int sample_rate);
 
-class sound_control
-{
-public:
-	// name
-	enum { cm_continuous_controller } cm_mode;
-	uint8_t cm_index;  // midi index (for 0xb0: data-1)
-	int index;  // internal index
-	std::string name;
-	// how to transform a value
-	double divide_by;
-	double add;
-	// last transformed value
-	double current_setting;
-};
-
 class sound
 {
 protected:
@@ -55,8 +40,6 @@ protected:
 	// input channel, { output channel, volume }
 	std::vector<float> volumes;
 
-	std::vector<sound_control> controls;
-
 public:
 	sound(const int sample_rate, const double frequency) :
 		sample_rate(sample_rate),
@@ -64,19 +47,7 @@ public:
 	{
 	}
 
-	virtual std::vector<sound_control> get_controls()
-	{
-		return controls;
-	}
-
 	virtual size_t get_sample_count() const = 0;
-
-	virtual void set_control(const int nr, const int value)
-	{
-		printf("set control %d to %d: ", nr, value);
-		controls.at(nr).current_setting = value / controls.at(nr).divide_by + controls.at(nr).add;
-		printf("%f\n", controls.at(nr).current_setting);
-	}
 
 	void add_mapping(const int to, const float volume)
 	{

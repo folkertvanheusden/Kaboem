@@ -35,9 +35,9 @@ bool sound_sample::begin()
 			printf("Cannot access sample \"%s\" in cache\n", file_name.c_str());
 			return false;
 		}
-		samples            = *std::get<0>(rc.value());
-		sample_sample_rate =  std::get<1>(rc.value());
-		base_frequency     =  ceil(std::get<2>(rc.value()));
+		samples            = std::move(rc.value().samples);
+		sample_sample_rate = rc.value().sample_rate;
+		base_frequency     = rc.value().loudest_frequency;
 	}
 	else {
 		base_frequency     = find_loudest_frequency(samples, sample_sample_rate);

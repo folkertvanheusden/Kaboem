@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "frequencies.h"
+#include "sample.h"
 
 
 float find_loudest_frequency(const std::vector<std::vector<float> > & samples, const unsigned sample_sample_rate)
@@ -24,14 +25,15 @@ float find_loudest_frequency(const std::vector<std::vector<float> > & samples, c
 	return loudest_frequency;
 }
 
-std::optional<std::tuple<std::vector<std::vector<float> > *, unsigned int, float> > load_sample(const std::string & filename)
+std::optional<sample_t> load_sample(const std::string & filename)
 {
         SF_INFO si = { 0 };
         SNDFILE *sh = sf_open(filename.c_str(), SFM_READ, &si);
 	if (!sh)
 		return { };
 
-	auto *samples = new std::vector<std::vector<float> >();
+	std::vector<std::vector<float> > samples;
+	samples.resize(si.channels);
 
 	constexpr int load_buffer_size = 4096;
 	float *buffer = new float[load_buffer_size * si.channels];
@@ -43,19 +45,18 @@ std::optional<std::tuple<std::vector<std::vector<float> > *, unsigned int, float
 
 		for(sf_count_t i=0; i<cur_n; i++) {
 			int offset = i * si.channels;
-
-			std::vector<float> row;
-			for(int j=offset; j<offset + si.channels; j++)
-				row.push_back(buffer[j]);
-			samples->push_back(row);
+			for(int ch=0; ch<si.channels; ch++)
+				samples[ch].push_back(buffer[offset + ch]);
 		}
 	}
 
 	sf_close(sh);
 	delete [] buffer;
 
-	float loudest_frequency = find_loudest_frequency(*samples, si.samplerate);
+	float loudest_frequency = find_loudest_frequency(samples, si.samplerate);
 	printf("loudest_frequency of \"%s\": %.1f Hz\n", filename.c_str(), loudest_frequency);
 
-	return { { samples, si.samplerate, loudest_frequency } };
+	sample_t out { std::move(samples), si.samplerate, loudest_frequency };
+
+	return out;
 }
