@@ -102,7 +102,7 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 	out["midi-notes"] = midi_notes;
 	out["echo-t"]     = echo_t;
 
-	if (midi_sample)
+	if (midi_sample->s)
 		out["midi-sample"] = generate_sample_json(*midi_sample);
 
 	for(auto & element: parameters) {

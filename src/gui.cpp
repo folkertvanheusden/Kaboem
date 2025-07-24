@@ -1369,8 +1369,9 @@ int main(int argc, char *argv[])
 						clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, work_path, samples,
 								file_parameters, channel_clickables, &kaboem_file);
 
-						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock   );
-						std::unique_lock<std::shared_mutex> lck    (sound_pars.sounds_lock);
+						std::unique_lock<std::shared_mutex> pat_lck (pat_clickables_lock        );
+						std::unique_lock<std::shared_mutex> lck     (sound_pars.sounds_lock     );
+						std::unique_lock<std::mutex       > midi_lck(sound_pars.midi_sample_lock);
 						if (read_file(fs_data.file, &pat_clickables, &samples, &file_parameters, &sound_pars.midi_sample)) {
 							kaboem_file                                     = fs_data.file;
 							sound_pars.global_volume                        = vol / 100.;
@@ -2039,9 +2040,6 @@ int main(int argc, char *argv[])
 							fs_data.finished = false;
 							fs_action        = fs_load_midi_sample;
 							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters_sample, 1, work_path.c_str(), false);
-						}
-						else {
-							// TODO
 						}
 					}
 				}
