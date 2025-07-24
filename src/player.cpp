@@ -70,10 +70,14 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 			if (sound.pattern_idx.has_value() == false)
 				continue;
 			if (sound.pattern_idx == qs.pattern_idx) {
-				delete sound.bp_filter;
-				sound = qs;
-				hit = true;
-				break;
+				if (sound.s->can_repeat())
+					sound.end_requested = true;
+				else {
+					delete sound.bp_filter;
+					sound = qs;
+					hit = true;
+					break;
+				}
 			}
 		}
 	}

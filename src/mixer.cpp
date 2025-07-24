@@ -73,7 +73,10 @@ float * mix(sound_parameters *const sound_pars, const int period_size)
 				sound_pars->sounds.erase(sound_pars->sounds.begin() + s_idx);
 			}
 			else {
-				item.t++;
+				if (item.end_requested)
+					item.t++;
+				else
+					item.s->get_new_t(&item.t);
 				s_idx++;
 			}
 		}

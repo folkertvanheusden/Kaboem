@@ -130,6 +130,8 @@ public:
 
 	// sample, output-channels
 	virtual std::optional<std::pair<float, float> > get_sample(const double t, const size_t channel_nr) const = 0;
+	virtual void        get_new_t(int *const t) const = 0;
+	virtual bool        can_repeat()            const = 0;
 
 	virtual std::string get_name()           const = 0;
 	virtual double      get_base_frequency() const = 0;
@@ -156,6 +158,12 @@ private:
 	int                              base_midi_note     { 0  };
 	std::string                      name;
 
+	struct restart_t {
+		size_t go_back_to;
+		size_t go_back_from;
+	};
+	std::optional<restart_t>         restart;
+
 public:
 	sound_sample(const int sample_rate, const std::string & file_name);
 	sound_sample(const int sample_rate, const std::string & file_name, const std::vector<std::vector<float> > & sample_data, const unsigned sample_sample_rate);
@@ -169,6 +177,8 @@ public:
 	unsigned get_sample_rate() const { return sample_sample_rate; }
 
 	std::optional<std::pair<float, float> > get_sample(const double t, const size_t channel_nr) const override;
+	void        get_new_t(int *const t) const;
+	bool        can_repeat() const { return restart.has_value(); }
 
 	std::string get_name() const override;
 	double      get_base_frequency() const override { return base_frequency; }
@@ -220,6 +230,7 @@ public:
 		double         volume_left;
 		double         volume_right;
 		int            echo_t;
+		bool           end_requested;
 		biquad_filter *bp_filter    { nullptr };
 		std::optional<size_t>            pattern_idx;
 		std::vector<std::vector<float> > history;

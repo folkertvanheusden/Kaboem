@@ -78,3 +78,11 @@ std::optional<std::pair<float, float> > sound_sample::get_sample(const double t,
 
 	return { { samples.at(offset).at(sample_channel), volumes[volume_channel] } };
 }
+
+void sound_sample::get_new_t(int *const t) const
+{
+	if (restart.has_value() == true && *t >= int(restart.value().go_back_from))
+		*t = restart.value().go_back_to;
+
+	(*t)++;
+}
