@@ -31,14 +31,6 @@ struct pattern
 	int                    delay        { 0    };
 };
 
-struct sample
-{
-	sound_sample      *s;
-	std::string        name;
-	std::optional<int> midi_note;
-	int                echo_t;
-};
-
 constexpr const int    sample_rate     = 48000;
 constexpr const size_t pattern_groups  = 8;
 constexpr const size_t max_pattern_dim = 32;

@@ -24,8 +24,36 @@ std::string get_filename(const std::string & path)
 	return path.substr(slash + 1);
 }
 
+json generate_sample_json(const sample & sample_file)
+{
+	json sample;
+	sample["file-name"] = sample_file.name;
+
+	if (sample_file.s) {
+		sample["vol-left"]    = sample_file.s->get_volume(0);
+		if (sample_file.s->get_n_channels() >= 2)
+			sample["vol-right"] = sample_file.s->get_volume(1);
+		else
+			sample["vol-right"] = sample_file.s->get_volume(0);
+		sample["pitch"]       = sample_file.s->get_pitch_bend();
+		sample["mute"]        = sample_file.s->get_mute();
+
+		const std::vector<std::vector<float> > & sample_data = sample_file.s->get_raw();
+		sample["data"]        = sample_data;
+		sample["sample-rate"] = sample_file.s->get_sample_rate();
+	}
+	else {
+		sample["vol-left"]    = 0.;
+		sample["vol-right"]   = 0.;
+		sample["pitch"]       = 1.;
+		sample["mute"]        = false;
+	}
+
+	return sample;
+}
+
 bool write_file(const std::string & file_name, const std::array<pattern, pattern_groups> & data, const std::array<sample, pattern_groups> & sample_files,
-		const std::vector<file_parameter> & parameters)
+		const std::vector<file_parameter> & parameters, sample *const midi_sample)
 {
 	json patterns = json::array();
 	for(auto & group: data) {
@@ -58,30 +86,7 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 	json midi_notes = json::array();
 	json echo_t     = json::array();
 	for(auto & sample_file : sample_files) {
-		json sample;
-		sample["file-name"] = sample_file.name;
-
-		if (sample_file.s) {
-			sample["vol-left"]    = sample_file.s->get_volume(0);
-			if (sample_file.s->get_n_channels() >= 2)
-				sample["vol-right"] = sample_file.s->get_volume(1);
-			else
-				sample["vol-right"] = sample_file.s->get_volume(0);
-			sample["pitch"]       = sample_file.s->get_pitch_bend();
-			sample["mute"]        = sample_file.s->get_mute();
-
-			const std::vector<std::vector<float> > & sample_data = sample_file.s->get_raw();
-			sample["data"]        = sample_data;
-			sample["sample-rate"] = sample_file.s->get_sample_rate();
-		}
-		else {
-			sample["vol-left"]    = 0.;
-			sample["vol-right"]   = 0.;
-			sample["pitch"]       = 1.;
-			sample["mute"]        = false;
-		}
-
-		samples.push_back(sample);
+		samples.push_back(generate_sample_json(sample_file));
 
 		if (sample_file.midi_note.has_value())
 			midi_notes.push_back(sample_file.midi_note.value());
@@ -96,6 +101,9 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 	out["samples"]    = samples;
 	out["midi-notes"] = midi_notes;
 	out["echo-t"]     = echo_t;
+
+	if (midi_sample)
+		out["midi-sample"] = generate_sample_json(*midi_sample);
 
 	for(auto & element: parameters) {
 		if (element.type == file_parameter::T_FLOAT) {
@@ -131,8 +139,35 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 	return false;
 }
 
+void load_sample_from_json(const json & j, sample *const s)
+{
+	std::string file_name = j["file-name"];
+	printf("Loading \"%s\"...\n", file_name.c_str());
+
+	const std::vector<std::vector<float> > sample_data = j["data"];
+	s->s = new sound_sample(sample_rate, file_name, sample_data, j["sample-rate"]);
+	if (s->s->begin() == false) {
+		delete s->s;
+		s->s = nullptr;
+		printf("Cannot init sample \"%s\"\n", file_name.c_str());
+	}
+	else {
+		bool is_stereo = s->s->get_n_channels() >= 2;
+		s->s->set_volume(0, j["vol-left"]);
+		if (is_stereo)
+			s->s->set_volume(1, j["vol-right"]);
+		else
+			s->s->set_volume(1, s->s->get_volume(0));
+		s->s->set_pitch_bend(j["pitch"]);
+		if (j.contains("mute"))
+			s->s->set_mute(j["mute"]);
+		else
+			s->s->set_mute(false);
+	}
+}
+
 bool read_file(const std::string & file_name, std::array<pattern, pattern_groups> *const data, std::array<sample, pattern_groups> *const sample_files,
-		const std::vector<file_parameter> *const parameters)
+		const std::vector<file_parameter> *const parameters, sample *const midi_sample)
 {
 	try {
 		std::ifstream ifs(file_name);
@@ -225,31 +260,15 @@ bool read_file(const std::string & file_name, std::array<pattern, pattern_groups
 			if (j.contains("echo-t"))
 				s.echo_t = j["echo-t"][group];
 
-			if (s.name.empty() == false) {
-				printf("Loading \"%s\"...\n", s.name.c_str());
-				const std::vector<std::vector<float> > sample_data = j["samples"][group]["data"];
-				s.s = new sound_sample(sample_rate, s.name, sample_data, j["samples"][group]["sample-rate"]);
-				if (s.s->begin() == false) {
-					delete s.s;
-					s.s = nullptr;
-					s.name.clear();
-					printf("Cannot init sample %s\n", s.name.c_str());
-				}
-				if (!s.s)
-					return false;
-				bool is_stereo = s.s->get_n_channels() >= 2;
-				s.s->set_volume(0, j["samples"][group]["vol-left"]);
-				if (is_stereo)
-					s.s->set_volume(1, j["samples"][group]["vol-right"]);
-				else
-					s.s->set_volume(1, s.s->get_volume(0));
-				s.s->set_pitch_bend(j["samples"][group]["pitch"]);
-				if (j["samples"][group].contains("mute"))
-					s.s->set_mute(j["samples"][group]["mute"]);
-				else
-					s.s->set_mute(false);
-			}
+			if (s.name.empty() == false)
+				load_sample_from_json(j["samples"][group], &s);
 		}
+
+		delete midi_sample->s;
+		if (j.contains("midi-sample"))
+			load_sample_from_json(j["midi-sample"], midi_sample);
+		else
+			midi_sample->s = nullptr;
 
 		return true;
 	}

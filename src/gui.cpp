@@ -961,7 +961,7 @@ void clear_everything(std::array<pattern, pattern_groups> & pat_clickables, std:
 		const std::string file_name = path + "/before_clear." PROG_EXT;
 
 		std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
-		if (write_file(file_name, pat_clickables, samples, file_parameters) == false)
+		if (write_file(file_name, pat_clickables, samples, file_parameters, &sound_pars.midi_sample) == false)
 			menu_status->assign("failed: " + file_name);
 	}
 	{
@@ -1274,7 +1274,7 @@ int main(int argc, char *argv[])
 
 	std::atomic_int humanize_amount_parameter { humanize_amount };
 
-	if (kaboem_file.empty() == false && read_file(kaboem_file, &pat_clickables, &samples, &file_parameters)) {
+	if (kaboem_file.empty() == false && read_file(kaboem_file, &pat_clickables, &samples, &file_parameters, &sound_pars.midi_sample)) {
 		for(size_t i=0; i<pattern_groups; i++) {
 			if (samples[i].name.empty() == false)
 				channel_clickables[i].text = get_filename(samples[i].name).substr(0, 5);
@@ -1371,7 +1371,7 @@ int main(int argc, char *argv[])
 
 						std::unique_lock<std::shared_mutex> pat_lck(pat_clickables_lock   );
 						std::unique_lock<std::shared_mutex> lck    (sound_pars.sounds_lock);
-						if (read_file(fs_data.file, &pat_clickables, &samples, &file_parameters)) {
+						if (read_file(fs_data.file, &pat_clickables, &samples, &file_parameters, &sound_pars.midi_sample)) {
 							kaboem_file                                     = fs_data.file;
 							sound_pars.global_volume                        = vol / 100.;
 							sound_pars.sound_saturation                     = 1. - sound_saturation / 1000.;
@@ -1424,7 +1424,7 @@ int main(int argc, char *argv[])
 						kaboem_file = file;
 
 						std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-						if (write_file(file, pat_clickables, samples, file_parameters)) {
+						if (write_file(file, pat_clickables, samples, file_parameters, &sound_pars.midi_sample)) {
 							menu_status = "file " + get_filename(fs_data.file) + " written";
 							work_path   = get_dirname(kaboem_file);
 							save_configuration(work_path, kaboem_file);
@@ -1502,18 +1502,20 @@ int main(int argc, char *argv[])
 			else if (fs_action == fs_load_midi_sample) {
 				if (fs_data.finished) {
 					std::unique_lock<std::mutex> lck(sound_pars.midi_sample_lock);
-					delete sound_pars.midi_sample;
+					delete sound_pars.midi_sample.s;
+					sound_pars.midi_sample_name.clear();
 
-					sound_pars.midi_sample = new sound_sample(sample_rate, fs_data.file);
-					if (sound_pars.midi_sample->begin() == false) {
-						delete sound_pars.midi_sample;
-						sound_pars.midi_sample = nullptr;
+					sound_pars.midi_sample.s = new sound_sample(sample_rate, fs_data.file);
+					if (sound_pars.midi_sample.s->begin() == false) {
+						delete sound_pars.midi_sample.s;
+						sound_pars.midi_sample.s    = nullptr;
 
-						menu_status            = "file " + get_filename(fs_data.file) + " INVALID/NOT FOUND";
+						menu_status                 = "file " + get_filename(fs_data.file) + " INVALID/NOT FOUND";
 						do_error_message(font, screen, win_width, win_height, get_filename(fs_data.file) + " invalid/not found");
 					}
 					else {
-						menu_status = "file " + get_filename(fs_data.file) + " read";
+						menu_status                 = "file " + get_filename(fs_data.file) + " read";
+						sound_pars.midi_sample_name = fs_data.file;
 					}
 
 					fs_action = fs_none;
@@ -1692,8 +1694,8 @@ int main(int argc, char *argv[])
 			else if (mode == m_midi) {
 				{
 					std::unique_lock<std::mutex> lck(sound_pars.midi_sample_lock);
-					if (sound_pars.midi_sample)
-						menu_status = sound_pars.midi_sample->get_name();
+					if (sound_pars.midi_sample.s)
+						menu_status = get_filename(sound_pars.midi_sample_name);
 					if (menu_status.empty())
 						menu_status = PROG_NAME " " KABOEM_VERSION;
 				}
@@ -2163,7 +2165,7 @@ int main(int argc, char *argv[])
 
 	{
 		std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-		write_file(work_path + "/default." PROG_EXT, pat_clickables, samples, file_parameters);
+		write_file(work_path + "/default." PROG_EXT, pat_clickables, samples, file_parameters, &sound_pars.midi_sample);
 	}
 
 	SDL_Quit();

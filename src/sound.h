@@ -175,6 +175,14 @@ public:
 	int         get_base_midi_note() const override { return base_midi_note; }
 };
 
+struct sample
+{
+	sound_sample      *s;
+	std::string        name;
+	std::optional<int> midi_note;
+	int                echo_t;
+};
+
 class sound_parameters
 {
 public:
@@ -198,7 +206,8 @@ public:
 	sdl3_data_audio      pw;
 
 	std::mutex           midi_sample_lock;
-	sound_sample        *midi_sample     { nullptr };
+	sample               midi_sample     {         };
+	std::string          midi_sample_name;
 
 	std::shared_mutex               stream_lock;
 	std::queue<std::vector<float> > stream;
