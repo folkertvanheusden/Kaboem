@@ -1239,14 +1239,15 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 		}
 
 		if ((cmd == 0x90 && msg.at(2) == 0) || cmd == 0x80) {
-			std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
+			bool immediately = msg.at(2) == 0;
 
+			std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
 			for(size_t i=0; i<sound_pars->sounds.size(); i++) {
 				auto & sound = sound_pars->sounds.at(i);
 				if (sound.pattern_idx.has_value() == false)
 					continue;
 				if (sound.pattern_idx == size_t(-1)) {
-					if (sound.s->can_repeat())
+					if (sound.s->can_repeat() && immediately == false)
 						sound.end_requested = true;
 					else {
 						delete sound.bp_filter;
