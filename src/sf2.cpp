@@ -135,26 +135,7 @@ void dump_sf2(const std::map<std::string, gen_block_t *> & sf2_map, const char *
 	printf("\n");
 }
 
-std::string hash(const std::string & what)
-{
-	uint32_t h = 0;
-	size_t n = what.size();
-
-	for(size_t i=0; i<n; i += 4) {
-		h ^= (what.at(i) << 24) | (what.at((i + 1) % n) << 16) | (what.at((i + 2) % n) << 8) | what.at((i + 3) % n);
-
-		h ^= h * 13;
-	}
-
-	char buffer[9];
-	snprintf(buffer, sizeof buffer, "%08x", h);
-
-	std::string out = buffer;
-
-	return out;
-}
-
-sf2_sample_t load_sf2_sample(const std::string & sf2_filename, const std::map<std::string, gen_block_t *> *const sf2_map, const gen_block_t *const shdr, const size_t nr, const std::string & name)
+sf2_sample_t load_sf2_sample(const std::map<std::string, gen_block_t *> *const sf2_map, const gen_block_t *const shdr, const size_t nr, const std::string & name)
 {
 	size_t idx = nr * 46;
 
@@ -225,16 +206,14 @@ sf2_sample_t load_sf2_sample(const std::string & sf2_filename, const std::map<st
 		printf("\tstereo loops %d-%d %d-%d\n", dwLoopStart - dwStart, dwLoopEnd - dwStart, dwLoopStart2 - dwStart2, dwLoopEnd2 - dwStart2);
 
 		s.repeat_start[1] = dwLoopStart2 - dwStart2;
-		s.repeat_end[1] = dwLoopEnd2 - dwStart2;
+		s.repeat_end  [1] = dwLoopEnd2 - dwStart2;
 
-		s.samples[1] = load_sf2_sample(sf2_map, dwStart2, dwEnd2);
+		s.samples[1]      = load_sf2_sample(sf2_map, dwStart2, dwEnd2);
 	}
 	else {
 		printf("* Sample type unrecognized ** %d\n", sampleType);
 		return { };
 	}
-
-	std::string meta_file = sf2_filename + "." + hash(name) + ".fmeta";
 
 	printf("\t%-20s\tsize: %u\tloop start: %u, loop end: %u, samplerate: %u, key: %u, pitch: %d, link: %u, type: %04x\n", name.c_str(), dwEnd - dwStart, dwLoopStart - dwStart, dwLoopEnd - dwStart, dwSampleRate, key, pitchCorrection, sampleLink, sampleType);
 
@@ -663,7 +642,7 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & filename, const bo
 						printf("\tSample name: %s\n", sample_name.c_str());
 						printf("\tSet key range %d - %d\n", midi_note_start, midi_note_end);
 
-						sf2_sample_t s = load_sf2_sample(filename, &sf2_map, shdr.getPointer(), genAmount, name);
+						sf2_sample_t s = load_sf2_sample(&sf2_map, shdr.getPointer(), genAmount, name);
 
 						if (loopSet) {
 							s.repeat_start[0] += loopStart;

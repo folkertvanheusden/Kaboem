@@ -1176,18 +1176,18 @@ void set_max_scheduling_priority(std::thread & target)
 
 void chose_and_load_sf2_sample(TTF_Font *const font, SDL_Renderer *const screen, const int w, const int h, const unsigned font_height, sound_parameters *const sound_pars, const std::string & file_name, std::string *const menu_status)
 {
-	std::optional<size_t> chosen;
-	void                 *chosen_sample = nullptr;
-	std::string           chosen_name;
-
 	std::map<uint16_t, sample_set_t> sample_set = load_sf2(file_name, false);
 	if (sample_set.empty() == false) {
+		std::optional<size_t> chosen;
+		sf2_sample_t         *chosen_sample = nullptr;
+		std::string           chosen_name;
+
 		// create list of all samples in set
 		std::vector<std::pair<std::string, void *> > sample_names;
 		for(auto & it: sample_set) {
 			for(auto & sample: it.second.samples) {
-				sample_names.push_back({ it.second.name + " - " + sample.filename, &sample });
-				printf("%p\n", &sample);
+				sample_names.push_back({ sample.filename, &sample });
+				printf("%p\t%s\n", &sample, sample.filename.c_str());
 			}
 		}
 
@@ -1196,17 +1196,21 @@ void chose_and_load_sf2_sample(TTF_Font *const font, SDL_Renderer *const screen,
 		if (chosen.has_value()) {
 			chosen_name   = sample_names.at(chosen.value()).first;
 			menu_status->assign("Selected: " + chosen_name);
-			chosen_sample = sample_names.at(chosen.value()).second;
+			chosen_sample = reinterpret_cast<sf2_sample_t *>(sample_names.at(chosen.value()).second);
+			printf("--> %p (%s | %s)\n", chosen_sample, chosen_name.c_str(), chosen_sample->filename.c_str());
+		}
+
+		std::unique_lock<std::mutex> lck(sound_pars->midi_sample_lock);
+		delete sound_pars->midi_sample.s;
+		if (chosen.has_value())
+			sound_pars->midi_sample   = convert_sf2_sample(chosen_sample);
+		else {
+			sound_pars->midi_sample.s = nullptr;
+			menu_status->assign("MIDI sample cleared");
 		}
 	}
-
-	std::unique_lock<std::mutex> lck(sound_pars->midi_sample_lock);
-	delete sound_pars->midi_sample.s;
-	if (chosen.has_value())
-		sound_pars->midi_sample   = convert_sf2_sample(reinterpret_cast<sf2_sample_t *>(chosen_sample));
 	else {
-		sound_pars->midi_sample.s = nullptr;
-		menu_status->assign("MIDI sample cleared");
+		do_error_message(font, screen, w, h, "Invalid SF2 file");
 	}
 }
 
@@ -1902,7 +1906,7 @@ int main(int argc, char *argv[])
 					std::unique_lock<std::mutex> lck(sound_pars.midi_sample_lock);
 					if (sound_pars.midi_sample.s)
 						name = sound_pars.midi_sample.name;
-					if (menu_status.empty())
+					if (name.empty())
 						name = PROG_NAME " " KABOEM_VERSION;
 				}
 				draw_text(font, screen, 0, 0, name, { { win_width, win_height } }, false, text_alignment::left, text_alignment::bottom);
