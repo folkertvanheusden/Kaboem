@@ -141,15 +141,15 @@ sf2_sample_t load_sf2_sample(const std::map<std::string, gen_block_t *> *const s
 	if (local_name == "EOS")
 		return { };
 
-	uint32_t dwStart = get_DWORD(&shdr->data[idx + 20]);
-	uint32_t dwEnd = get_DWORD(&shdr->data[idx + 24]);
-	uint32_t dwLoopStart = get_DWORD(&shdr->data[idx + 28]);
-	uint32_t dwLoopEnd = get_DWORD(&shdr->data[idx + 32]);
-	uint32_t dwSampleRate = get_DWORD(&shdr->data[idx + 36]);
-	uint8_t key = shdr->data[idx + 40];
-	int8_t pitchCorrection = shdr->data[idx + 41];
-	uint16_t sampleLink = get_WORD(&shdr->data[idx + 42]);
-	uint16_t sampleType = get_WORD(&shdr->data[idx + 44]);
+	uint32_t dwStart         = get_DWORD(&shdr->data[idx + 20]);
+	uint32_t dwEnd           = get_DWORD(&shdr->data[idx + 24]);
+	uint32_t dwLoopStart     = get_DWORD(&shdr->data[idx + 28]);
+	uint32_t dwLoopEnd       = get_DWORD(&shdr->data[idx + 32]);
+	uint32_t dwSampleRate    = get_DWORD(&shdr->data[idx + 36]);
+	uint8_t  key             = shdr->data[idx + 40];
+	int8_t   pitchCorrection = shdr->data[idx + 41];
+	uint16_t sampleLink      = get_WORD(&shdr->data[idx + 42]);
+	uint16_t sampleType      = get_WORD(&shdr->data[idx + 44]);
 
 	if (nr > 0 && sampleLink == 0)
 		sampleLink = nr;
@@ -565,12 +565,12 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & filename, const bo
 	SHDR shdr(sf2_map);
 
 	for(size_t phdr_ndx=0; phdr_ndx<phdr.size() - 1; phdr_ndx++) {
-		int wBank = phdr.getwBank(phdr_ndx);
+		int wBank   = phdr.getwBank  (phdr_ndx);
 		int wPreset = phdr.getwPreset(phdr_ndx);
 		printf("Loading preset %s (%d,%d)\n", phdr.getName(phdr_ndx).c_str(), wBank, wPreset);
 
-		int presetNdxStart = phdr.getwPresetBagNdx(phdr_ndx);
-		int presetNdxEnd = phdr.getwPresetBagNdxEnd(phdr_ndx);
+		int presetNdxStart = phdr.getwPresetBagNdx   (phdr_ndx);
+		int presetNdxEnd   = phdr.getwPresetBagNdxEnd(phdr_ndx);
 
 		for(int presetNdx = presetNdxStart; presetNdx < presetNdxEnd; presetNdx++) {
 			size_t wGenNdx = pbag.getwGenNdx(presetNdx);
@@ -587,16 +587,17 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & filename, const bo
 					std::string name = inst.getName(genAmount);
 					printf("\tinstrument %s\n", name.c_str());
 
-					int wInstBagNdx = inst.getBagIndex(genAmount);
-
+					int    wInstBagNdx = inst.getBagIndex(genAmount);
 					size_t wInstGenNdx = ibag.getwInstGenNdx(wInstBagNdx);
 					// size_t wInstModNdx = ibag.getwInstModNdx(wInstBagNdx);
 
-					int midi_note_start = -1, midi_note_end = -1;
-					int loopStart = -1, loopEnd = -1;
-					bool loopSet = false;
-					int key = -1;
-					int sample_id = -1;
+					int  midi_note_start = -1;
+					int  midi_note_end   = -1;
+					int  loopStart = -1;
+					int  loopEnd   = -1;
+					bool loopSet   = false;
+					int  key       = -1;
+					int  sample_id = -1;
 
 					while(wInstGenNdx < igen.size()) {
 						int sfGenOper = igen.getsfGenOper(wInstGenNdx);
@@ -611,8 +612,8 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & filename, const bo
 							loopEnd = int16_t(genAmount);
 						}
 						else if (sfGenOper == 43)  { // keyrange
-							midi_note_start = genAmount & 255;
-							midi_note_end = genAmount >> 8;
+							midi_note_start = genAmount &  255;
+							midi_note_end   = genAmount >> 8;
 						}
 						else if (sfGenOper == 45) { // startloopAddrsCoarseOffset
 							loopStart += genAmount;
@@ -628,6 +629,7 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & filename, const bo
 						}
 						else if (sfGenOper == 53) {
 							sample_id = genAmount;
+							break;  // the sampleID enumerator is the terminal generator for IGEN zones
 						}
 						else if (sfGenOper == 58) {  // overridingRootKey
 							key = genAmount;
@@ -642,16 +644,16 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & filename, const bo
 						printf("\tSample name: %s\n", sample_name.c_str());
 						printf("\tSet key range %d - %d\n", midi_note_start, midi_note_end);
 
-						sf2_sample_t s = load_sf2_sample(&sf2_map, shdr.getPointer(), genAmount, name);
+						sf2_sample_t s = load_sf2_sample(&sf2_map, shdr.getPointer(), sample_id, name);
 
 						if (loopSet) {
 							s.repeat_start[0] += loopStart;
-							s.repeat_end[0] += loopEnd;
+							s.repeat_end  [0] += loopEnd;
 							printf("\tloop left/mono %zu->%zu\n", s.repeat_start[0], s.repeat_end[0]);
 
 							if (s.samples.size() >= 2) {
 								s.repeat_start[1] += loopStart;
-								s.repeat_end[1] += loopEnd;
+								s.repeat_end  [1] += loopEnd;
 								printf("\tloop right %zu->%zu\n", s.repeat_start[1], s.repeat_end[1]);
 							}
 						}

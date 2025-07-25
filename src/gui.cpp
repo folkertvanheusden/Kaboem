@@ -1185,10 +1185,8 @@ void chose_and_load_sf2_sample(TTF_Font *const font, SDL_Renderer *const screen,
 		// create list of all samples in set
 		std::vector<std::pair<std::string, void *> > sample_names;
 		for(auto & it: sample_set) {
-			for(auto & sample: it.second.samples) {
+			for(auto & sample: it.second.samples)
 				sample_names.push_back({ sample.filename, &sample });
-				printf("%p\t%s\n", &sample, sample.filename.c_str());
-			}
 		}
 
 		chosen = select_from_list(font, screen, w, h, font_height, sample_names);
@@ -1197,7 +1195,6 @@ void chose_and_load_sf2_sample(TTF_Font *const font, SDL_Renderer *const screen,
 			chosen_name   = sample_names.at(chosen.value()).first;
 			menu_status->assign("Selected: " + chosen_name);
 			chosen_sample = reinterpret_cast<sf2_sample_t *>(sample_names.at(chosen.value()).second);
-			printf("--> %p (%s | %s)\n", chosen_sample, chosen_name.c_str(), chosen_sample->filename.c_str());
 		}
 
 		std::unique_lock<std::mutex> lck(sound_pars->midi_sample_lock);
