@@ -23,7 +23,9 @@ float * mix(sound_parameters *const sound_pars, const int period_size)
 		for(size_t s_idx=0; s_idx<sound_pars->sounds.size();) {
 			auto & item = sound_pars->sounds[s_idx];
 			if (item.s == nullptr) {
-				s_idx++;
+				printf("Sample without samples\n");
+				delete item.bp_filter;
+				sound_pars->sounds.erase(sound_pars->sounds.begin() + s_idx);
 				continue;
 			}
 
