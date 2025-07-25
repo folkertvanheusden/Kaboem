@@ -100,9 +100,7 @@ std::vector<float> load_sf2_sample(const std::map<std::string, gen_block_t *> *c
 	}
 
 	size_t n = dwEnd - dwStart;
-
 	std::vector<float> out(n);
-
 	const int16_t *const p = reinterpret_cast<const int16_t *>(smpl->data);
 	for(size_t i=0; i<n; i++)
 		out[i] = p[dwStart + i] / 32768.f;
@@ -499,11 +497,11 @@ public:
 	}
 };
 
-auto add_instrument_to_sample_set(std::map<uint16_t, sample_set_t> *const sets, const uint16_t bank_instrument, const std::string & name, const bool isPercussion, sf2_sample_t *const s)
+auto add_instrument_to_sample_set(std::map<uint16_t, sample_set_t> *const sets, const uint16_t bank_instrument, const std::string & name, const bool isPercussion, sf2_sample_t & s)
 {
 	std::map<uint16_t, sample_set_t>::iterator out;
 
-	printf("bank_instrument: %u\n", bank_instrument);
+	printf("bank_instrument: %u, name %s, filename %s\n", bank_instrument, name.c_str(), s.filename.c_str());
 
         auto ss_it = sets->find(bank_instrument);
 
@@ -511,12 +509,12 @@ auto add_instrument_to_sample_set(std::map<uint16_t, sample_set_t> *const sets, 
         if (ss_it == sets->end()) {
                 ss = alloc_sample_set();
                 ss.name = name;
-		ss.samples.push_back(*s);
+		ss.samples.push_back(s);
                 out = sets->insert(std::pair<uint16_t, sample_set_t>(bank_instrument, ss)).first;
         }
         else {
                 ss = ss_it->second;
-		ss.samples.push_back(*s);
+		ss.samples.push_back(s);
 		out = ss_it;
         }
 
@@ -666,7 +664,7 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & filename, const bo
 
 						// FIXME need to have multiple samples per bank/preset; per key(-range)
 						// add to sample_set
-						auto it = add_instrument_to_sample_set(&sets, (wBank << 8) | wPreset, name, wBank == 128, &s);
+						auto it = add_instrument_to_sample_set(&sets, (wBank << 8) | wPreset, name, wBank == 128, s);
 
 						if (midi_note_start != -1 && midi_note_end != -1) {
 							for(int n = midi_note_start; n<=midi_note_end; n++)
