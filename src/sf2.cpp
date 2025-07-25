@@ -730,7 +730,7 @@ sample convert_sf2_sample(sf2_sample_t *const in)
 
 		if (in->repeat_start[0] != size_t(-1)) {
 			printf("Can repeat: %zu %zu\n", in->repeat_start[0], in->repeat_end[0]);
-			out.s->set_repeat(in->repeat_start[0], in->repeat_end[0]);
+			out.s->set_repeat(in->repeat_end[0], in->repeat_start[0]);
 		}
 	}
 	return out;
