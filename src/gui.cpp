@@ -1185,9 +1185,10 @@ void chose_and_load_sf2_sample(TTF_Font *const font, SDL_Renderer *const screen,
 		// create list of all samples in set
 		std::vector<std::pair<std::string, void *> > sample_names;
 		for(auto & it: sample_set) {
-			printf("Selecting set %s\n", it.second.name.c_str());
-			for(auto & sample: it.second.samples)
+			for(auto & sample: it.second.samples) {
 				sample_names.push_back({ it.second.name + " - " + sample.filename, &sample });
+				printf("%p\n", &sample);
+			}
 		}
 
 		chosen = select_from_list(font, screen, w, h, font_height, sample_names);
@@ -1258,6 +1259,19 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 			double volume     = msg.at(2) / 127;
 			int    note_delta = sound_pars->midi_sample.midi_note.has_value() ? msg.at(1) - sound_pars->midi_sample.midi_note.value() : 0;
 			printf("Queue %s with volume %f\n", sound_pars->midi_sample.name.c_str(), volume);
+
+			{
+				std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
+				for(size_t i=0; i<sound_pars->sounds.size(); i++) {
+					auto & sound = sound_pars->sounds.at(i);
+					if (sound.pattern_idx.has_value() == true && sound.pattern_idx == size_t(-1)) {
+						delete sound.bp_filter;
+						sound_pars->sounds.erase(sound_pars->sounds.begin() + i);
+						break;
+					}
+				}
+			}
+
 			queue_sample(sound_pars, note_delta, volume, volume, &sound_pars->midi_sample, nullptr, -1, nullptr);
 		}
 	}
