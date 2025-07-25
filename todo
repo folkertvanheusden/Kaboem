@@ -3,7 +3,7 @@
 - shorten filenames (with '...') when they don't fit on screen
 - adjust fontsizes so that text fits
 - %zu / %zd -> size_t / ssize_t for uint64_t / int64_t verify
-- skips a beat after un-pause
+- skips a beat after un-pause ==> caused by not unpausing at a precise interval?
 - external sync (via midi?)
 
 - synquencer
