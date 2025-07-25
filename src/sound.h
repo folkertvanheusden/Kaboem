@@ -140,7 +140,8 @@ public:
 	sound_sample(const int sample_rate, const std::string & file_name, const std::vector<std::vector<float> > & sample_data, const unsigned sample_sample_rate);
 	virtual ~sound_sample() { }
 
-	bool begin();
+	// returns an error or nothing if ok
+	std::optional<std::string> begin();
 
 	size_t get_n_channels() const override { return samples.at(0).size(); }
 	size_t get_sample_count() const override { return samples.size(); }

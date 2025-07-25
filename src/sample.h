@@ -9,5 +9,5 @@ struct sample_t {
 	float                            loudest_frequency;
 };
 
-std::optional<sample_t> load_sample(const std::string & filename);
+std::pair<std::optional<sample_t>, std::string> load_sample(const std::string & filename);
 float find_loudest_frequency(const std::vector<std::vector<float> > & samples, const unsigned sample_sample_rate);

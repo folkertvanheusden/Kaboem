@@ -25,17 +25,17 @@ float find_loudest_frequency(const std::vector<std::vector<float> > & samples, c
 	return loudest_frequency;
 }
 
-std::optional<sample_t> load_sample(const std::string & filename)
+std::pair<std::optional<sample_t>, std::string> load_sample(const std::string & filename)
 {
-        SF_INFO si = { 0 };
-        SNDFILE *sh = sf_open(filename.c_str(), SFM_READ, &si);
+	SF_INFO si { };
+	SNDFILE *sh = sf_open(filename.c_str(), SFM_READ, &si);
 	if (!sh)
-		return { };
+		return { { }, sf_strerror(sh) };
 
 	std::vector<std::vector<float> > samples;
 	samples.resize(si.channels);
 
-	constexpr int load_buffer_size = 4096;
+	constexpr int load_buffer_size = 65536;
 	float *buffer = new float[load_buffer_size * si.channels];
 
 	for(;;) {
@@ -58,5 +58,5 @@ std::optional<sample_t> load_sample(const std::string & filename)
 
 	sample_t out { std::move(samples), si.samplerate, loudest_frequency };
 
-	return out;
+	return { out, "" };
 }

@@ -28,6 +28,7 @@
 #include "player.h"
 #include "sample.h"
 #include "sdl3-audio.h"
+#include "sf2.h"
 #include "sound.h"
 #include "time.h"
 #include "utils.h"
@@ -672,10 +673,112 @@ void draw_clickables(TTF_Font *const font, SDL_Renderer *const screen, const std
 		SDL_SetRenderDrawColor(screen, 40, 40, 40, 191);
 		SDL_RenderRect(screen, &r);
 
-		if (clickables[i].text.empty() == false) {
+		if (clickables[i].text.empty() == false)
 			draw_text(font, screen, x1, y1, clickables[i].text, { { clickables[i].where.w, clickables[i].where.h } });
+	}
+}
+
+std::optional<size_t> select_from_list(TTF_Font *const font, SDL_Renderer *const screen, const int w, const int h, const unsigned font_height, const std::vector<std::pair<std::string, void *> > & list)
+{
+	if (list.empty())
+		return { };
+
+	int  dim_w              = w / 6;
+	int  dim_h              = h / 6;
+	int  menu_button_width  = w * 15 / 100;
+	int  menu_button_height = h * 15 / 100;
+	bool redraw             = true;
+	int  border_w           = 0.05 * menu_button_width;
+	int  border_h           = 0.05 * menu_button_height;
+
+	std::vector<clickable> clickables;
+
+	size_t button_ok = 0;
+	{
+		clickable c { };
+		c.where    = { int(dim_w + 0.05 * menu_button_width), int(h - dim_h - menu_button_height * 1.05), menu_button_width, menu_button_height };
+		c.text     = "OK";
+		button_ok  = clickables.size();
+		clickables.push_back(c);
+	}
+
+	size_t button_cancel = 0;
+	{
+		clickable c { };
+		c.where    = { int(w - dim_w - menu_button_width * 1.05), int(h - dim_h - menu_button_height * 1.05), menu_button_width, menu_button_height };
+		c.text     = "Cancel";
+		button_cancel = clickables.size();
+		clickables.push_back(c);
+	}
+
+	size_t button_up = 0;
+	{
+		clickable c { };
+		c.where    = { int(w / 2 - menu_button_width / 2), dim_h + border_h, menu_button_width, menu_button_height / 3};
+		c.text     = "↑";
+		button_up  = clickables.size();
+		clickables.push_back(c);
+	}
+
+	size_t button_down = 0;
+	{
+		clickable c { };
+		c.where    = { int(w / 2 - menu_button_width / 2), dim_h * 5 - border_h - menu_button_height, menu_button_width, menu_button_height / 3};
+		c.text     = "↓";
+		button_down= clickables.size();
+		clickables.push_back(c);
+	}
+
+	size_t n_rows = (h - dim_h * 2 - menu_button_height / 3 - menu_button_height * 1.05) / font_height;
+	printf("rows shown: %zu\n", n_rows);
+
+	size_t list_offset = 0;
+
+	while(!do_exit) {
+		if (redraw) {
+			redraw = false;
+
+			SDL_SetRenderDrawColor(screen, 0, 0, 0, 255);
+			SDL_RenderClear(screen);
+
+			SDL_FRect rec { float(dim_w), float(dim_h), float(w - dim_w * 2), float(h - dim_h * 2) };
+			SDL_SetRenderDrawColor(screen, 50, 40, 40, 255);
+			SDL_RenderFillRect(screen, &rec);
+			SDL_SetRenderDrawColor(screen, 40, 40, 40, 191);
+			SDL_RenderRect(screen, &rec);
+
+			for(size_t i=0; i<std::min(n_rows, list.size() - list_offset); i++)
+				draw_text(font, screen, dim_w + border_w, dim_h + border_h + menu_button_height / 3 + i * font_height, list.at(i + list_offset).first, { { dim_w * 2 - border_w, font_height } }, i == 0, text_alignment::left, text_alignment::top);
+
+			draw_clickables(font, screen, clickables, { }, { });
+
+			SDL_RenderPresent(screen);
+		}
+
+		SDL_Event event { };
+		if (SDL_WaitEvent(&event)) {
+			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+				auto   button_clicked = find_clickable(clickables, event.button.x, event.button.y);
+				if (button_clicked.has_value() == false)
+					continue;
+				size_t idx            = button_clicked.value();
+				if (idx == button_ok)
+					return list_offset;
+				if (idx == button_cancel)
+					return { };
+				if (idx == button_up && list_offset > 0) {
+					list_offset--;
+					redraw = true;
+				}
+				if (idx == button_down && list_offset < list.size() - 1) {
+					list_offset++;
+					redraw = true;
+				}
+			}
 		}
 	}
+
+	return { };
 }
 
 bool configure_filter(pattern *const pat, std::shared_mutex *const lock, const up_down_widget & widget, const size_t widget_idx, const bool is_highpass, const bool shift)
@@ -863,7 +966,6 @@ void draw_message(TTF_Font *const font, SDL_Renderer *const screen, int win_widt
 	SDL_SetRenderDrawColor(screen, r, g, b, 255);
 	draw_text(font, screen, 0, 0, message, { { win_width, win_height } }, true);
 	SDL_RenderPresent(screen);
-
 }
 
 void draw_please_wait(TTF_Font *const font, SDL_Renderer *const screen, int win_width, int win_height)
@@ -1258,9 +1360,10 @@ int main(int argc, char *argv[])
 
 	std::array<sample, pattern_groups> samples { };
 
-	SDL_DialogFileFilter sf_filters[]        { { "Kaboem files", PROG_EXT  } };
-	SDL_DialogFileFilter sf_filters_sample[] { { "Samples",      "wav;mp3" } };
-	SDL_DialogFileFilter sf_filters_record[] { { "Record",       "wav;mid" } };
+	SDL_DialogFileFilter sf_filters[]        { { "Kaboem files", PROG_EXT       } };
+	SDL_DialogFileFilter sf_filters_sample[] { { "Samples",      "wav;mp3;flac" } };
+	SDL_DialogFileFilter sf_filters_sf2[]    { { "Sound font",   "sf2"          } };
+	SDL_DialogFileFilter sf_filters_record[] { { "Record",       "wav;mid"      } };
 
 	const std::vector<file_parameter> file_parameters {
 		{ "bpm",          file_parameter::T_INT,    &bpm,              nullptr,                           nullptr, nullptr,      nullptr, nullptr      },
@@ -1448,10 +1551,13 @@ int main(int argc, char *argv[])
 						auto *old_s_pointer = s->s;
 						delete s->s;
 
+						std::string error;
                                 		s->s = new sound_sample(sample_rate, s->name);
-						if (s->s->begin() == false) {
+						auto rc = s->s->begin();
+						if (rc.has_value()) {
 							delete s->s;
 							s->s = nullptr;
+							error = rc.value();
 						}
 
 						if (s->s) {
@@ -1461,8 +1567,8 @@ int main(int argc, char *argv[])
 							s->s->set_volume(1, 1.);
 						}
 						else {
-							menu_status = "file " + get_filename(fs_data.file) + " NOT FOUND";
-							do_error_message(font, screen, win_width, win_height, get_filename(fs_data.file) + " invalid/not found");
+							menu_status = get_filename(fs_data.file) + ": " + error;
+							do_error_message(font, screen, win_width, win_height, menu_status);
 						}
 
 						for(size_t i=0; i<sound_pars.sounds.size(); i++) {
@@ -1502,21 +1608,39 @@ int main(int argc, char *argv[])
 			}
 			else if (fs_action == fs_load_midi_sample) {
 				if (fs_data.finished) {
+					std::optional<size_t> chosen;
+					void                 *chosen_sample = nullptr;
+					std::string           chosen_name;
+
+					std::map<uint16_t, sample_set_t> sample_set = load_sf2(fs_data.file, false);
+					if (sample_set.empty() == false) {
+						// create list of all samples in set
+						std::vector<std::pair<std::string, void *> > sample_names;
+						for(auto & it: sample_set) {
+							printf("Selecting set %s\n", it.second.name.c_str());
+							for(auto & sample: it.second.samples)
+								sample_names.push_back({ it.second.name + " - " + sample.filename, &sample });
+						}
+
+						chosen = select_from_list(font, screen, win_width, win_height, font_height, sample_names);
+
+						if (chosen.has_value()) {
+							chosen_name   = sample_names.at(chosen.value()).first;
+							menu_status   = "Selected: " + chosen_name;
+							chosen_sample = sample_names.at(chosen.value()).second;
+						}
+					}
+
 					std::unique_lock<std::mutex> lck(sound_pars.midi_sample_lock);
 					delete sound_pars.midi_sample.s;
-					sound_pars.midi_sample_name.clear();
-
-					sound_pars.midi_sample.s = new sound_sample(sample_rate, fs_data.file);
-					if (sound_pars.midi_sample.s->begin() == false) {
-						delete sound_pars.midi_sample.s;
-						sound_pars.midi_sample.s    = nullptr;
-
-						menu_status                 = "file " + get_filename(fs_data.file) + " INVALID/NOT FOUND";
-						do_error_message(font, screen, win_width, win_height, get_filename(fs_data.file) + " invalid/not found");
+					if (chosen.has_value()) {
+						sound_pars.midi_sample      = convert_sf2_sample(reinterpret_cast<sf2_sample_t *>(chosen_sample));
+						sound_pars.midi_sample_name = chosen_name;
 					}
 					else {
-						menu_status                 = "file " + get_filename(fs_data.file) + " read";
-						sound_pars.midi_sample_name = fs_data.file;
+						sound_pars.midi_sample.s    = nullptr;
+						sound_pars.midi_sample_name.clear();
+						menu_status                 = "MIDI sample cleared";
 					}
 
 					fs_action = fs_none;
@@ -2039,7 +2163,7 @@ int main(int argc, char *argv[])
 						else if (idx == load_midi_sample_idx) {
 							fs_data.finished = false;
 							fs_action        = fs_load_midi_sample;
-							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters_sample, 1, work_path.c_str(), false);
+							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters_sf2, 1, work_path.c_str(), false);
 						}
 					}
 				}

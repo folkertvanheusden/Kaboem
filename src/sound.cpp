@@ -27,17 +27,17 @@ sound_sample::sound_sample(const int sample_rate, const std::string & file_name,
 {
 }
 
-bool sound_sample::begin()
+std::optional<std::string> sound_sample::begin()
 {
 	if (samples.empty() == true) {
 		auto            rc = load_sample(file_name);
-		if (rc.has_value() == false) {
-			printf("Cannot access sample \"%s\" in cache\n", file_name.c_str());
-			return false;
+		if (rc.first.has_value() == false) {
+			printf("Cannot access sample \"%s\": %s\n", file_name.c_str(), rc.second.c_str());
+			return rc.second;
 		}
-		samples            = std::move(rc.value().samples);
-		sample_sample_rate = rc.value().sample_rate;
-		base_frequency     = rc.value().loudest_frequency;
+		samples            = std::move(rc.first.value().samples);
+		sample_sample_rate = rc.first.value().sample_rate;
+		base_frequency     = rc.first.value().loudest_frequency;
 	}
 	else {
 		base_frequency     = find_loudest_frequency(samples, sample_sample_rate);
@@ -51,7 +51,7 @@ bool sound_sample::begin()
 
 	printf("Sample %s has %zu channel(s), is sampled at %u Hz and sounds like a %s (%.2f Hz), duration: %.2fs\n", file_name.c_str(), volumes.size(), sample_sample_rate, name.c_str(), base_frequency, samples.size() / double(sample_sample_rate));
 
-	return true;
+	return { };
 }
 
 std::string sound_sample::get_name() const

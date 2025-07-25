@@ -29,6 +29,7 @@ add_executable(
   src/player.cpp
   src/sample.cpp
   src/sdl3-audio.cpp
+  src/sf2.cpp
   src/sound.cpp
   src/time.cpp
   src/utils.cpp

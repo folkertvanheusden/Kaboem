@@ -146,7 +146,7 @@ void load_sample_from_json(const json & j, sample *const s)
 
 	const std::vector<std::vector<float> > sample_data = j["data"];
 	s->s = new sound_sample(sample_rate, file_name, sample_data, j["sample-rate"]);
-	if (s->s->begin() == false) {
+	if (s->s->begin().has_value()) {
 		delete s->s;
 		s->s = nullptr;
 		printf("Cannot init sample \"%s\"\n", file_name.c_str());
