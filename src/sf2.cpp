@@ -103,7 +103,7 @@ std::vector<float> load_sf2_sample(const std::map<std::string, gen_block_t *> *c
 
 	std::vector<float> out(n);
 
-	short *const p = (short *)smpl->data;
+	const int16_t *const p = reinterpret_cast<const int16_t *>(smpl->data);
 	for(size_t i=0; i<n; i++)
 		out[i] = p[dwStart + i] / 32768.f;
 
@@ -621,6 +621,7 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & filename, const bo
 					int loopStart = -1, loopEnd = -1;
 					bool loopSet = false;
 					int key = -1;
+					int sample_id = -1;
 
 					while(wInstGenNdx < igen.size()) {
 						int sfGenOper = igen.getsfGenOper(wInstGenNdx);
@@ -644,54 +645,58 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & filename, const bo
 						else if (sfGenOper == 46) { // keynum
 							if (genAmount > 127)
 								printf("\t*** ignoring keynum\n");
-							else {
+							else
 								key = genAmount;
-							}
 						}
 						else if (sfGenOper == 50) { // endloopAddrsCoarseOffset
 							loopEnd += genAmount;
 						}
 						else if (sfGenOper == 53) {
-							std::string sample_name = shdr.getName(genAmount);
-
-							printf("\tSample name: %s\n", sample_name.c_str());
-							printf("\tSet key range %d - %d\n", midi_note_start, midi_note_end);
-
-							sf2_sample_t s = load_sf2_sample(filename, &sf2_map, shdr.getPointer(), genAmount, name);
-
-							if (loopSet) {
-								s.repeat_start[0] += loopStart;
-								s.repeat_end[0] += loopEnd;
-								printf("\tloop left/mono %zu->%zu\n", s.repeat_start[0], s.repeat_end[0]);
-
-								if (s.samples.size() >= 2) {
-									s.repeat_start[1] += loopStart;
-									s.repeat_end[1] += loopEnd;
-									printf("\tloop right %zu->%zu\n", s.repeat_start[1], s.repeat_end[1]);
-								}
-							}
-
-							printf("\tSet keynum %d\n", key);
-
-							s.key = key;
-							if (key != -1) {
-								s.base_freq = midi_note_to_frequency(key);
-								printf("\tbase freq overriden to %.1fhz\n", s.base_freq);
-							}
-
-// FIXME need to have multiple samples per bank/preset; per key(-range)
-							// add to sample_set
-							auto it = add_instrument_to_sample_set(&sets, (wBank << 8) | wPreset, name, wBank == 128, &s);
-
-							if (midi_note_start != -1 && midi_note_end != -1) {
-								for(int n = midi_note_start; n<=midi_note_end; n++)
-									it->second.sample_map[n] = it->second.samples.size() - 1;
-							}
-
-							break;
+							sample_id = genAmount;
+						}
+						else if (sfGenOper == 58) {  // overridingRootKey
+							key = genAmount;
 						}
 
 						wInstGenNdx++;
+					}
+
+					if (sample_id != -1) {
+						std::string sample_name = shdr.getName(sample_id);
+
+						printf("\tSample name: %s\n", sample_name.c_str());
+						printf("\tSet key range %d - %d\n", midi_note_start, midi_note_end);
+
+						sf2_sample_t s = load_sf2_sample(filename, &sf2_map, shdr.getPointer(), genAmount, name);
+
+						if (loopSet) {
+							s.repeat_start[0] += loopStart;
+							s.repeat_end[0] += loopEnd;
+							printf("\tloop left/mono %zu->%zu\n", s.repeat_start[0], s.repeat_end[0]);
+
+							if (s.samples.size() >= 2) {
+								s.repeat_start[1] += loopStart;
+								s.repeat_end[1] += loopEnd;
+								printf("\tloop right %zu->%zu\n", s.repeat_start[1], s.repeat_end[1]);
+							}
+						}
+
+						printf("\tSet keynum %d\n", key);
+
+						s.key = key;
+						if (key != -1) {
+							s.base_freq = midi_note_to_frequency(key);
+							printf("\tbase freq overriden to %.1fhz\n", s.base_freq);
+						}
+
+						// FIXME need to have multiple samples per bank/preset; per key(-range)
+						// add to sample_set
+						auto it = add_instrument_to_sample_set(&sets, (wBank << 8) | wPreset, name, wBank == 128, &s);
+
+						if (midi_note_start != -1 && midi_note_end != -1) {
+							for(int n = midi_note_start; n<=midi_note_end; n++)
+								it->second.sample_map[n] = it->second.samples.size() - 1;
+						}
 					}
 
 					break;
@@ -718,7 +723,37 @@ sample convert_sf2_sample(sf2_sample_t *const in)
 	if (in->key != -1)
 		out.midi_note = in->key;
 	out.name   = in->filename;
-	out.s      = new sound_sample(sample_rate, out.name, in->samples, in->sample_rate);
-	out.s->begin();
+
+	std::vector<std::vector<float> > samples;
+	if (in->samples.size() >= 2) {
+		size_t use_n_samples = std::min(in->samples.at(0).size(), in->samples.at(1).size());
+		printf("\"%s\" is stereo, %zu samples\n", out.name.c_str(), use_n_samples);
+		samples.reserve(use_n_samples);
+		for(size_t i=0; i<use_n_samples; i++) {
+			std::vector<float> pair { in->samples.at(0).at(i), in->samples.at(1).at(i) };
+			samples.push_back(pair);
+		}
+	}
+	else {
+		size_t use_n_samples = in->samples.at(0).size();
+		printf("\"%s\" is mono, %zu samples\n", out.name.c_str(), use_n_samples);
+		samples.reserve(use_n_samples);
+		for(size_t i=0; i<use_n_samples; i++) {
+			std::vector<float> pair { in->samples.at(0).at(i) };
+			samples.push_back(pair);
+		}
+	}
+
+	// TODO loop-settings!
+
+	out.s   = new sound_sample(sample_rate, out.name, samples, in->sample_rate);
+	auto rc = out.s->begin();
+	if (rc.has_value())
+		printf("error: %s\n", rc.value().c_str());
+	else {
+		out.s->set_volume(0, 1.);
+		if (in->samples.size() >= 2)
+			out.s->set_volume(1, 1.);
+	}
 	return out;
 }

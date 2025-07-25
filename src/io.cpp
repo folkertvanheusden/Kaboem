@@ -41,6 +41,9 @@ json generate_sample_json(const sample & sample_file)
 		const std::vector<std::vector<float> > & sample_data = sample_file.s->get_raw();
 		sample["data"]        = sample_data;
 		sample["sample-rate"] = sample_file.s->get_sample_rate();
+
+		if (sample_file.midi_note.has_value())
+			sample["midi-note"] = sample_file.midi_note.value();
 	}
 	else {
 		sample["vol-left"]    = 0.;
@@ -163,6 +166,8 @@ void load_sample_from_json(const json & j, sample *const s)
 			s->s->set_mute(j["mute"]);
 		else
 			s->s->set_mute(false);
+		if (j.contains("midi-note"))
+			s->midi_note = j["midi-note"];
 	}
 }
 

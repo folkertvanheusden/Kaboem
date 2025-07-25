@@ -189,7 +189,6 @@ public:
 
 	std::mutex           midi_sample_lock;
 	sample               midi_sample     {         };
-	std::string          midi_sample_name;
 
 	std::shared_mutex               stream_lock;
 	std::queue<std::vector<float> > stream;

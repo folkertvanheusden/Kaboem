@@ -1174,6 +1174,95 @@ void set_max_scheduling_priority(std::thread & target)
 		printf("Failed to set scheduling parameters for thread: %s\n", strerror(errno));
 }
 
+void chose_and_load_sf2_sample(TTF_Font *const font, SDL_Renderer *const screen, const int w, const int h, const unsigned font_height, sound_parameters *const sound_pars, const std::string & file_name, std::string *const menu_status)
+{
+	std::optional<size_t> chosen;
+	void                 *chosen_sample = nullptr;
+	std::string           chosen_name;
+
+	std::map<uint16_t, sample_set_t> sample_set = load_sf2(file_name, false);
+	if (sample_set.empty() == false) {
+		// create list of all samples in set
+		std::vector<std::pair<std::string, void *> > sample_names;
+		for(auto & it: sample_set) {
+			printf("Selecting set %s\n", it.second.name.c_str());
+			for(auto & sample: it.second.samples)
+				sample_names.push_back({ it.second.name + " - " + sample.filename, &sample });
+		}
+
+		chosen = select_from_list(font, screen, w, h, font_height, sample_names);
+
+		if (chosen.has_value()) {
+			chosen_name   = sample_names.at(chosen.value()).first;
+			menu_status->assign("Selected: " + chosen_name);
+			chosen_sample = sample_names.at(chosen.value()).second;
+		}
+	}
+
+	std::unique_lock<std::mutex> lck(sound_pars->midi_sample_lock);
+	delete sound_pars->midi_sample.s;
+	if (chosen.has_value())
+		sound_pars->midi_sample   = convert_sf2_sample(reinterpret_cast<sf2_sample_t *>(chosen_sample));
+	else {
+		sound_pars->midi_sample.s = nullptr;
+		menu_status->assign("MIDI sample cleared");
+	}
+}
+
+void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in, std::atomic_int *const percussion_midi_channel, std::atomic_bool *const midi_triggered)
+{
+	if (!midi_in) {
+		printf("No MIDI-in\n");
+		return;
+	}
+
+	while(!do_exit) {
+		// TODO need a midi-waiter that is limited by time in RtMidi
+		my_us_sleep(1000000 / (31250 / (10 * 2)));
+
+		// check for midi events
+		auto msg = receive_midi_note(midi_in);
+
+		if (msg.size() != 3)
+			continue;
+
+		uint8_t cmd = msg.at(0) & 0xf0;
+		uint8_t ch  = msg.at(0) & 0x0f;
+
+		printf("MIDI in command %02x for channel %d\n", cmd, ch);
+
+		if (*percussion_midi_channel != -1 && msg.at(0) == 0x90 + *percussion_midi_channel) {
+			*midi_triggered = true;
+			continue;
+		}
+
+		if ((cmd == 0x90 && msg.at(2) == 0) || cmd == 0x80) {
+			std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
+
+			for(size_t i=0; i<sound_pars->sounds.size(); i++) {
+				auto & sound = sound_pars->sounds.at(i);
+				if (sound.pattern_idx.has_value() == false)
+					continue;
+				if (sound.pattern_idx == size_t(-1)) {
+					if (sound.s->can_repeat())
+						sound.end_requested = true;
+					else {
+						delete sound.bp_filter;
+						sound_pars->sounds.erase(sound_pars->sounds.begin() + i);
+					}
+					break;
+				}
+			}
+		}
+		else if (cmd == 0x90) {
+			double volume     = msg.at(2) / 127;
+			int    note_delta = sound_pars->midi_sample.midi_note.has_value() ? msg.at(1) - sound_pars->midi_sample.midi_note.value() : 0;
+			printf("Queue %s with volume %f\n", sound_pars->midi_sample.name.c_str(), volume);
+			queue_sample(sound_pars, note_delta, volume, volume, &sound_pars->midi_sample, nullptr, -1, nullptr);
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	bool             full_screen = true;
@@ -1306,6 +1395,7 @@ int main(int argc, char *argv[])
 	up_down_widget sound_saturation_widget { };
 	int            sound_saturation = 0;
 	std::optional<int> selected_percussion_midi_channel;
+	std::atomic_int midi_thread_selected_percussion_midi_channel = -1;
 	size_t         polyrythmic_idx  = 0;
 	std::atomic_bool polyrythmic    = false;
 	up_down_widget humanize_widget    { };
@@ -1390,6 +1480,11 @@ int main(int argc, char *argv[])
 		settings_menu_buttons[polyrythmic_idx].selected = polyrythmic;
 		humanize_amount_parameter                       = humanize_amount;
 
+		if (selected_percussion_midi_channel.has_value())
+			midi_thread_selected_percussion_midi_channel = selected_percussion_midi_channel.value();
+		else
+			midi_thread_selected_percussion_midi_channel = -1;
+
 		regenerate_pattern_grid(win_width, win_height, &pat_clickables[pattern_group]);
 
 		reset_all_patterns(&pat_clickables, &pat_clickables_lock, samples, false);
@@ -1418,6 +1513,12 @@ int main(int argc, char *argv[])
 			set_thread_name("KAB-mixer");
 			mixer(&do_exit, &sound_pars);
 		});
+
+	std::atomic_bool midi_triggered = false;
+	std::thread midi_thread([&sound_pars, midi_in, &midi_thread_selected_percussion_midi_channel, &midi_triggered] {
+			set_thread_name("KAB-MIDI");
+			midi_processor(&sound_pars, midi_in, &midi_thread_selected_percussion_midi_channel, &midi_triggered);
+	});
 
 	set_max_scheduling_priority(mixer_thread);
 
@@ -1448,17 +1549,11 @@ int main(int argc, char *argv[])
 			prev_pat_index = pat_index;
 		}
 
-		// check for midi events
-		if (midi_in && selected_percussion_midi_channel.has_value()) {
-			auto msg = receive_midi_note(midi_in);
-			if (msg.size() == 3 && msg.at(0) == 0x90 + selected_percussion_midi_channel.value()) {
-				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
-				pat_clickables[pattern_group].pattern[pat_index].selected = true;
-				redraw = true;
-			}
-			else {
-				// TODO midi_processor(&sound_pars, msg);
-			}
+		// MIDI percussion events set a pattern-cell
+		if (midi_triggered.exchange(false)) {
+			std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
+			pat_clickables[pattern_group].pattern[pat_index].selected = true;
+			redraw = true;
 		}
 
 		// did the user select a file in the fileselector?
@@ -1500,6 +1595,11 @@ int main(int argc, char *argv[])
 
 							work_path = get_dirname(kaboem_file);
 							save_configuration(work_path, kaboem_file);
+
+							if (selected_percussion_midi_channel.has_value())
+								midi_thread_selected_percussion_midi_channel = selected_percussion_midi_channel.value();
+							else
+								midi_thread_selected_percussion_midi_channel = -1;
 						}
 						else {
 							lck    .unlock();
@@ -1608,41 +1708,7 @@ int main(int argc, char *argv[])
 			}
 			else if (fs_action == fs_load_midi_sample) {
 				if (fs_data.finished) {
-					std::optional<size_t> chosen;
-					void                 *chosen_sample = nullptr;
-					std::string           chosen_name;
-
-					std::map<uint16_t, sample_set_t> sample_set = load_sf2(fs_data.file, false);
-					if (sample_set.empty() == false) {
-						// create list of all samples in set
-						std::vector<std::pair<std::string, void *> > sample_names;
-						for(auto & it: sample_set) {
-							printf("Selecting set %s\n", it.second.name.c_str());
-							for(auto & sample: it.second.samples)
-								sample_names.push_back({ it.second.name + " - " + sample.filename, &sample });
-						}
-
-						chosen = select_from_list(font, screen, win_width, win_height, font_height, sample_names);
-
-						if (chosen.has_value()) {
-							chosen_name   = sample_names.at(chosen.value()).first;
-							menu_status   = "Selected: " + chosen_name;
-							chosen_sample = sample_names.at(chosen.value()).second;
-						}
-					}
-
-					std::unique_lock<std::mutex> lck(sound_pars.midi_sample_lock);
-					delete sound_pars.midi_sample.s;
-					if (chosen.has_value()) {
-						sound_pars.midi_sample      = convert_sf2_sample(reinterpret_cast<sf2_sample_t *>(chosen_sample));
-						sound_pars.midi_sample_name = chosen_name;
-					}
-					else {
-						sound_pars.midi_sample.s    = nullptr;
-						sound_pars.midi_sample_name.clear();
-						menu_status                 = "MIDI sample cleared";
-					}
-
+					chose_and_load_sf2_sample(font, screen, win_width, win_height, font_height, &sound_pars, fs_data.file, &menu_status);
 					fs_action = fs_none;
 					redraw    = true;
 				}
@@ -1817,14 +1883,15 @@ int main(int argc, char *argv[])
 					{ { cell_volume_right_widget.text_w, cell_volume_right_widget.text_h } });
 			}
 			else if (mode == m_midi) {
+				std::string name;
 				{
 					std::unique_lock<std::mutex> lck(sound_pars.midi_sample_lock);
 					if (sound_pars.midi_sample.s)
-						menu_status = get_filename(sound_pars.midi_sample_name);
+						name = sound_pars.midi_sample.name;
 					if (menu_status.empty())
-						menu_status = PROG_NAME " " KABOEM_VERSION;
+						name = PROG_NAME " " KABOEM_VERSION;
 				}
-				draw_text(font, screen, 0, 0, menu_status, { { win_width, win_height } }, false, text_alignment::left, text_alignment::bottom);
+				draw_text(font, screen, 0, 0, name, { { win_width, win_height } }, false, text_alignment::left, text_alignment::bottom);
 
 				if (selected_percussion_midi_channel.has_value()) {
 					draw_text(font, screen, midi_ch_widget.x, midi_ch_widget.y,  std::to_string(selected_percussion_midi_channel.value() + 1),
@@ -2158,7 +2225,10 @@ int main(int argc, char *argv[])
 					else if (midi_clicked.has_value()) {
 						size_t idx = midi_clicked.value();
 						if (set_up_down_value(idx, midi_ch_widget, 0, 15, &selected_percussion_midi_channel, shift)) {
-							// taken
+							if (selected_percussion_midi_channel.has_value())
+								midi_thread_selected_percussion_midi_channel = selected_percussion_midi_channel.value();
+							else
+								midi_thread_selected_percussion_midi_channel = -1;
 						}
 						else if (idx == load_midi_sample_idx) {
 							fs_data.finished = false;
@@ -2268,8 +2338,9 @@ int main(int argc, char *argv[])
 
 	draw_please_wait(font, screen, win_width, win_height);
 
+	midi_thread  .join();
 	player_thread.join();
-	mixer_thread.join();
+	mixer_thread .join();
 	stop_sdl3_audio(&sound_pars);
 
 	{  // stop any recording

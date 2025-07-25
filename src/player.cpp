@@ -38,8 +38,10 @@ int64_t us_to_next_pattern(const uint64_t now, std::atomic_bool *const polyrythm
 void queue_sample(sound_parameters *const sound_pars, const int note_delta, const double volume_left, const double volume_right,
 		const sample *const s, const pattern *const pat, const std::optional<size_t> pat_nr, RtMidiOut *const midi_port)
 {
-	if (!s->s)
+	if (!s->s) {
+		printf("Queuing sample without samples!\n");
 		return;
+	}
 
 	sound_parameters::queued_sound qs { };
 	qs.s     = s->s;
@@ -58,14 +60,16 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 	qs.echo_t              = s->echo_t;
 	qs.history.reserve(s->s->get_sample_count() + s->echo_t);
 
-	float  lp_cutoff       = pat->lp_cutoff.has_value() ? pat->lp_cutoff.value() : 0;
-	float  hp_cutoff       = pat->hp_cutoff.has_value() ? pat->hp_cutoff.value() : sample_rate / 2;
-	if (pat->lp_cutoff.has_value() || pat->hp_cutoff.has_value())
-		qs.bp_filter = design_bandpass(sample_rate, lp_cutoff, hp_cutoff);
+	if (pat) {
+		float lp_cutoff = pat->lp_cutoff.has_value() ? pat->lp_cutoff.value() : 0;
+		float hp_cutoff = pat->hp_cutoff.has_value() ? pat->hp_cutoff.value() : sample_rate / 2;
+		if (pat->lp_cutoff.has_value() || pat->hp_cutoff.has_value())
+			qs.bp_filter = design_bandpass(sample_rate, lp_cutoff, hp_cutoff);
+	}
 
 	std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
 	bool hit = false;
-	if (pat->serial_notes && pat_nr.has_value()) {
+	if (pat && pat->serial_notes && pat_nr.has_value()) {
 		for(auto & sound: sound_pars->sounds) {
 			if (sound.pattern_idx.has_value() == false)
 				continue;
