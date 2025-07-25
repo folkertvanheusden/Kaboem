@@ -152,6 +152,7 @@ public:
 	void        get_new_t(int *const t) const;
 	bool        can_repeat() const { return restart.has_value(); }
 	void        set_repeat(const size_t go_back_from, const size_t go_back_to) { restart = { go_back_to, go_back_from }; }
+	restart_t   get_repeat() const { return *restart; }
 
 	std::string get_name() const override;
 	double      get_base_frequency() const override { return base_frequency; }

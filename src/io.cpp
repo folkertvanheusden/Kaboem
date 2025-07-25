@@ -44,6 +44,12 @@ json generate_sample_json(const sample & sample_file)
 
 		if (sample_file.midi_note.has_value())
 			sample["midi-note"] = sample_file.midi_note.value();
+
+		if (sample_file.s->can_repeat()) {
+			auto repeat = sample_file.s->get_repeat();
+			sample["go-back-to"  ] = repeat.go_back_to;
+			sample["go-back-from"] = repeat.go_back_from;
+		}
 	}
 	else {
 		sample["vol-left"]    = 0.;
@@ -168,6 +174,8 @@ void load_sample_from_json(const json & j, sample *const s)
 			s->s->set_mute(false);
 		if (j.contains("midi-note"))
 			s->midi_note = j["midi-note"];
+		if (j.contains("go-back-to"))
+			s->s->set_repeat(j["go-back-from"], j["go-back-to"]);
 	}
 }
 
