@@ -151,6 +151,7 @@ public:
 	std::optional<std::pair<float, float> > get_sample(const double t, const size_t channel_nr) const override;
 	void        get_new_t(int *const t) const;
 	bool        can_repeat() const { return restart.has_value(); }
+	void        set_repeat(const size_t go_back_from, const size_t go_back_to) { restart = { go_back_to, go_back_from }; }
 
 	std::string get_name() const override;
 	double      get_base_frequency() const override { return base_frequency; }

@@ -7,14 +7,15 @@
 
 typedef struct
 {
-	std::string filename;
-	double base_freq;
-	int key;
+	std::string  filename;
+	double       base_freq;
+	int          key;
 	unsigned int sample_rate;
 
-	std::vector<std::vector<float> > samples;
+	size_t       repeat_start[2];
+	size_t       repeat_end  [2];
 
-	size_t n_samples[2], repeat_start[2], repeat_end[2];
+	std::vector<std::vector<float> > samples;
 } sf2_sample_t;
 
 typedef struct

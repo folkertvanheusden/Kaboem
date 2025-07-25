@@ -48,8 +48,6 @@ std::optional<std::string> sound_sample::begin()
 	delta_t            = sample_sample_rate / double(sample_rate);
 
 	volumes.resize(samples.at(0).size());
-	printf("%zu\n", samples.size());
-	printf("%zu\n", samples.at(0).size());
 
 	printf("Sample %s has %zu channel(s), is sampled at %u Hz and sounds like a %s (%.2f Hz), duration: %.2fs\n", file_name.c_str(), volumes.size(), sample_sample_rate, name.c_str(), base_frequency, samples.size() / double(sample_sample_rate));
 

@@ -187,17 +187,14 @@ sf2_sample_t load_sf2_sample(const std::string & sf2_filename, const std::map<st
 		s.samples.resize(1);
 		s.repeat_start[0] = dwLoopStart - dwStart;
 		s.repeat_end[0] = dwLoopEnd - dwStart;
-		s.n_samples[0] = dwEnd - dwStart;
 		s.samples[0] = load_sf2_sample(sf2_map, dwStart, dwEnd);
 
 		s.repeat_start[1] = s.repeat_end[1] = -1;
-		s.n_samples[1] = 0;
 	}
 	else if (sampleType == 2) {
 		s.samples.resize(2);
 		s.repeat_start[1] = dwLoopStart - dwStart;
 		s.repeat_end[1] = dwLoopEnd - dwStart;
-		s.n_samples[1] = dwEnd - dwStart;
 		s.samples[1] = load_sf2_sample(sf2_map, dwStart, dwEnd);
 
 		uint32_t dwStart2 = get_DWORD(&shdr->data[sampleLink * 46 + 20]);
@@ -210,7 +207,6 @@ sf2_sample_t load_sf2_sample(const std::string & sf2_filename, const std::map<st
 
 		s.repeat_start[0] = dwLoopStart2 - dwStart2;
 		s.repeat_end[0] = dwLoopEnd2 - dwStart2;
-		s.n_samples[0] = dwEnd2 - dwStart2;
 
 		s.samples[0] = load_sf2_sample(sf2_map, dwStart2, dwEnd2);
 	}
@@ -218,7 +214,6 @@ sf2_sample_t load_sf2_sample(const std::string & sf2_filename, const std::map<st
 		s.samples.resize(2);
 		s.repeat_start[0] = dwLoopStart - dwStart;
 		s.repeat_end[0] = dwLoopEnd - dwStart;
-		s.n_samples[0] = dwEnd - dwStart;
 		s.samples[0] = load_sf2_sample(sf2_map, dwStart, dwEnd);
 
 		uint32_t dwStart2 = get_DWORD(&shdr->data[sampleLink * 46 + 20]);
@@ -231,7 +226,6 @@ sf2_sample_t load_sf2_sample(const std::string & sf2_filename, const std::map<st
 
 		s.repeat_start[1] = dwLoopStart2 - dwStart2;
 		s.repeat_end[1] = dwLoopEnd2 - dwStart2;
-		s.n_samples[1] = dwEnd2 - dwStart2;
 
 		s.samples[1] = load_sf2_sample(sf2_map, dwStart2, dwEnd2);
 	}
@@ -563,10 +557,12 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & filename, const bo
 	struct stat st { };
 	fstat(fileno(fh), &st);
 
-	size_t size = st.st_size;
+	size_t   size = st.st_size;
 	uint8_t *data = new uint8_t[size]();
-	(void)fread(data, size, 1, fh);
+	bool     ok   = fread(data, size, 1, fh) == size;
 	fclose(fh);
+	if (!ok)
+		return { };
 
 	std::map<std::string, gen_block_t *> sf2_map;
 	process_riff_block(&sf2_map, data, size);
@@ -744,8 +740,6 @@ sample convert_sf2_sample(sf2_sample_t *const in)
 		}
 	}
 
-	// TODO loop-settings!
-
 	out.s   = new sound_sample(sample_rate, out.name, samples, in->sample_rate);
 	auto rc = out.s->begin();
 	if (rc.has_value())
@@ -754,6 +748,11 @@ sample convert_sf2_sample(sf2_sample_t *const in)
 		out.s->set_volume(0, 1.);
 		if (in->samples.size() >= 2)
 			out.s->set_volume(1, 1.);
+
+		if (in->repeat_start[0] != size_t(-1)) {
+			printf("Can repeat: %zu %zu\n", in->repeat_start[0], in->repeat_end[0]);
+			out.s->set_repeat(in->repeat_start[0], in->repeat_end[0]);
+		}
 	}
 	return out;
 }
