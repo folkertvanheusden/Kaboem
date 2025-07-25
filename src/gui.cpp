@@ -1186,7 +1186,7 @@ void chose_and_load_sf2_sample(TTF_Font *const font, SDL_Renderer *const screen,
 		std::vector<std::pair<std::string, void *> > sample_names;
 		for(auto & it: sample_set) {
 			for(auto & sample: it.second.samples)
-				sample_names.push_back({ sample.filename, &sample });
+				sample_names.push_back({ sample.file_name, &sample });
 		}
 
 		chosen = select_from_list(font, screen, w, h, font_height, sample_names);

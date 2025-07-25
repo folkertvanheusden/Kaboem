@@ -159,7 +159,7 @@ sf2_sample_t load_sf2_sample(const std::map<std::string, gen_block_t *> *const s
 		return { };
 
 	sf2_sample_t s { };
-	s.filename = name.empty() ? local_name : name;
+	s.file_name = name.empty() ? local_name : name;
 	s.sample_rate = dwSampleRate;
 
 	if (sampleType == 1) {
@@ -501,7 +501,7 @@ auto add_instrument_to_sample_set(std::map<uint16_t, sample_set_t> *const sets, 
 {
 	std::map<uint16_t, sample_set_t>::iterator out;
 
-	printf("bank_instrument: %u, name %s, filename %s\n", bank_instrument, name.c_str(), s.filename.c_str());
+	printf("bank_instrument: %u, name %s, filename %s\n", bank_instrument, name.c_str(), s.file_name.c_str());
 
         auto ss_it = sets->find(bank_instrument);
 
@@ -521,11 +521,11 @@ auto add_instrument_to_sample_set(std::map<uint16_t, sample_set_t> *const sets, 
         return out;
 }
 
-std::map<uint16_t, sample_set_t> load_sf2(const std::string & filename, const bool isPercussion)
+std::map<uint16_t, sample_set_t> load_sf2(const std::string & file_name, const bool isPercussion)
 {
-	printf("Loading sf2 %s...\n", filename.c_str());
+	printf("Loading sf2 %s...\n", file_name.c_str());
 
-	FILE *fh = fopen(filename.c_str(), "rb");
+	FILE *fh = fopen(file_name.c_str(), "rb");
 	if (!fh)
 		return { };
 
@@ -699,7 +699,7 @@ sample convert_sf2_sample(sf2_sample_t *const in)
 	out.echo_t = 0;
 	if (in->key != -1)
 		out.midi_note = in->key;
-	out.name   = in->filename;
+	out.name   = in->file_name;
 
 	std::vector<std::vector<float> > samples;
 	if (in->samples.size() >= 2) {

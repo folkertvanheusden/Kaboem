@@ -7,7 +7,7 @@
 
 typedef struct
 {
-	std::string  filename;
+	std::string  file_name;
 	double       base_freq;
 	int          key;
 	unsigned int sample_rate;
@@ -32,5 +32,5 @@ typedef struct
 	filter_t              filter;
 } sample_set_t;
 
-std::map<uint16_t, sample_set_t> load_sf2(const std::string & filename, const bool isPercussion);
+std::map<uint16_t, sample_set_t> load_sf2(const std::string & file_name, const bool isPercussion);
 sample                           convert_sf2_sample(sf2_sample_t *const in);
