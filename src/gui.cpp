@@ -1260,7 +1260,7 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 			}
 		}
 		else if (cmd == 0x90) {
-			double volume     = msg.at(2) / 127;
+			double volume     = msg.at(2) / 127.;
 			int    note_delta = sound_pars->midi_sample.midi_note.has_value() ? msg.at(1) - sound_pars->midi_sample.midi_note.value() : 0;
 			printf("Queue %s with volume %f\n", sound_pars->midi_sample.name.c_str(), volume);
 

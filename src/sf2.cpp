@@ -538,8 +538,10 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & filename, const bo
 	uint8_t *data = new uint8_t[size]();
 	bool     ok   = fread(data, 1, size, fh) == size;
 	fclose(fh);
-	if (!ok)
+	if (!ok) {
+		delete [] data;
 		return { };
+	}
 
 	std::map<std::string, gen_block_t *> sf2_map;
 	process_riff_block(&sf2_map, data, size);

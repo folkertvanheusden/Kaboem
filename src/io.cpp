@@ -100,8 +100,8 @@ bool write_file(const std::string & file_name, const std::array<pattern, pattern
 	}
 
 	json out;
-	out["patterns"]   = patterns;
-	out["samples"]    = samples;
+	out["patterns"]   = std::move(patterns);
+	out["samples"]    = std::move(samples);
 	out["midi-notes"] = midi_notes;
 	out["echo-t"]     = echo_t;
 

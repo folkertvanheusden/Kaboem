@@ -58,7 +58,7 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 
 	// scope
 	std::unique_lock<std::shared_mutex> lck(sound_pars->stats_lock);
-	sound_pars->scope = data;
+	sound_pars->scope = std::move(data);
 	sound_pars->scope_t++;
 
 	// statistics
