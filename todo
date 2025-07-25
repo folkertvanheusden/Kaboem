@@ -7,6 +7,6 @@
 - external sync (via midi?)
 
 - synquencer
-  - multiple notes concurrently
   - name is not stored correctly
+  - set volume for midi input
 - support for multiple patterns, switchable at "runtime" via midi messages
