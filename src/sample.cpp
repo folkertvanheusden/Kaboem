@@ -33,7 +33,6 @@ std::pair<std::optional<sample_t>, std::string> load_sample(const std::string & 
 		return { { }, sf_strerror(sh) };
 
 	std::vector<std::vector<float> > samples;
-	samples.resize(si.channels);
 
 	constexpr int load_buffer_size = 65536;
 	float *buffer = new float[load_buffer_size * si.channels];
@@ -45,8 +44,10 @@ std::pair<std::optional<sample_t>, std::string> load_sample(const std::string & 
 
 		for(sf_count_t i=0; i<cur_n; i++) {
 			int offset = i * si.channels;
-			for(int ch=0; ch<si.channels; ch++)
-				samples[ch].push_back(buffer[offset + ch]);
+			std::vector<float> row;
+			for(int j=offset; j<offset + si.channels; j++)
+				row.push_back(buffer[j]);
+			samples.push_back(row);
 		}
 	}
 
@@ -54,7 +55,7 @@ std::pair<std::optional<sample_t>, std::string> load_sample(const std::string & 
 	delete [] buffer;
 
 	float loudest_frequency = find_loudest_frequency(samples, si.samplerate);
-	printf("loudest_frequency of \"%s\": %.1f Hz\n", filename.c_str(), loudest_frequency);
+	printf("Loudest frequency of \"%s\": %.1f Hz\n", filename.c_str(), loudest_frequency);
 
 	sample_t out { std::move(samples), si.samplerate, loudest_frequency };
 
