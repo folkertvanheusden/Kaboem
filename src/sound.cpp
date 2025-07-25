@@ -30,6 +30,7 @@ sound_sample::sound_sample(const int sample_rate, const std::string & file_name,
 std::optional<std::string> sound_sample::begin()
 {
 	if (samples.empty() == true) {
+		printf("Loading sample %s\n", file_name.c_str());
 		auto            rc = load_sample(file_name);
 		if (rc.first.has_value() == false) {
 			printf("Cannot access sample \"%s\": %s\n", file_name.c_str(), rc.second.c_str());

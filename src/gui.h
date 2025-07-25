@@ -23,12 +23,18 @@ struct pattern
 	std::vector<int>       note_delta;
 	std::vector<double>    volume_left;
 	std::vector<double>    volume_right;
-	size_t                 dim          { 0    };
+	size_t                 dim          { 0     };
 	std::optional<double>  lp_cutoff;
 	std::optional<double>  hp_cutoff;
-	bool                   serial_notes { true };
-	int                    swing        { 0    };
-	int                    delay        { 0    };
+	bool                   serial_notes { true  };
+	int                    swing        { 0     };
+	int                    delay        { 0     };
+	std::atomic_bool       playing      { false };
+};
+
+struct pattern_midi : pattern
+{
+	uint8_t                current_note { 255  };
 };
 
 constexpr const int    sample_rate     = 48000;

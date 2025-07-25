@@ -36,12 +36,14 @@ int64_t us_to_next_pattern(const uint64_t now, std::atomic_bool *const polyrythm
 }
 
 void queue_sample(sound_parameters *const sound_pars, const int note_delta, const double volume_left, const double volume_right,
-		const sample *const s, const pattern *const pat, const std::optional<size_t> pat_nr, RtMidiOut *const midi_port)
+		const sample *const s, pattern *const pat, const std::optional<size_t> pat_nr, RtMidiOut *const midi_port)
 {
 	if (!s->s) {
 		printf("Queuing sample without samples!\n");
 		return;
 	}
+
+	pat->playing = true;
 
 	sound_parameters::queued_sound qs { };
 	qs.s     = s->s;
@@ -53,7 +55,7 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 	int    adjusted_note_f = midi_note_to_frequency(adjusted_note);
 
 	double pitch           = base_note_f ? adjusted_note_f / base_note_f : 1.;
-	qs.pattern_idx         = pat_nr;
+	qs.pat                 = pat;
 	qs.pitch               = pitch;
 	qs.volume_left         = volume_left;
 	qs.volume_right        = volume_right;
@@ -69,23 +71,21 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 
 	std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
 	bool hit = false;
-	if (pat && pat->serial_notes && pat_nr.has_value()) {
+	if (pat->serial_notes && pat_nr.has_value()) {
 		for(auto & sound: sound_pars->sounds) {
-			if (sound.pattern_idx.has_value() == false)
+			if (sound.pat != pat)
 				continue;
-			if (sound.pattern_idx == qs.pattern_idx) {
-				if (sound.s->can_repeat())
-					sound.end_requested = true;
-				else {
-					delete sound.bp_filter;
-					sound = qs;
-					hit = true;
-					break;
-				}
+
+			if (sound.s->can_repeat())
+				sound.end_requested = true;
+			else {
+				delete sound.bp_filter;
+				sound = qs;
+				hit = true;
+				break;
 			}
 		}
 	}
-
 	if (!hit)
 		sound_pars->sounds.push_back(qs);
 
@@ -120,12 +120,12 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 	}
 }
 
-void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, const sample *const s, const pattern *const pat, const size_t pat_nr, RtMidiOut *const midi_port)
+void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, const sample *const s, pattern *const pat, const size_t pat_nr, RtMidiOut *const midi_port)
 {
 	queue_sample(sound_pars, pat->note_delta[pat_index], pat->volume_left[pat_index], pat->volume_right[pat_index], s, pat, pat_nr, midi_port);
 }
 
-void player(const std::array<pattern, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock,
+void player(std::array<pattern, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock,
 		const std::array<sample, pattern_groups> *const samples,
 		std::atomic_int  *const sleep_us, sound_parameters *const sound_pars,
 		std::atomic_bool *const pause,    std::atomic_bool *const do_exit,

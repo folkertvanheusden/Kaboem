@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <SDL3/SDL.h>
 
+#include "gui.h"
 #include "sound.h"
 #include "time.h"
 
@@ -25,6 +26,7 @@ float * mix(sound_parameters *const sound_pars, const int period_size)
 			if (item.s == nullptr) {
 				printf("Sample without samples\n");
 				delete item.bp_filter;
+				item.pat  ->playing = false;
 				sound_pars->sounds.erase(sound_pars->sounds.begin() + s_idx);
 				continue;
 			}
@@ -71,7 +73,7 @@ float * mix(sound_parameters *const sound_pars, const int period_size)
 
 			if (fin) {
 				delete item.bp_filter;
-
+				item.pat->playing = false;
 				sound_pars->sounds.erase(sound_pars->sounds.begin() + s_idx);
 			}
 			else {

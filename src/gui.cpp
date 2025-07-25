@@ -509,7 +509,7 @@ std::vector<clickable> generate_midi_menu(const int w, const int h, size_t *cons
 	return clickables;
 }
 
-pattern generate_pattern_grid(const int w, const int h, const int steps)
+void generate_pattern_grid(const int w, const int h, const int steps, pattern *const p)
 {
 	int pattern_w   = w * 85 / 100;
 	int pattern_h   = h * 80 / 100;
@@ -519,14 +519,13 @@ pattern generate_pattern_grid(const int w, const int h, const int steps)
 	int step_width  = pattern_w / steps_sq;
 	int step_height = pattern_h / steps_sq;
 
-	pattern p;
-	p.pattern   .resize(max_pattern_dim);
-	p.note_delta.resize(max_pattern_dim);
-	p.dim = steps;
+	p->pattern   .resize(max_pattern_dim);
+	p->note_delta.resize(max_pattern_dim);
+	p->dim = steps;
 
 	for(size_t i=0; i<max_pattern_dim; i++) {
-		p.volume_left .push_back(1.);
-		p.volume_right.push_back(1.);
+		p->volume_left .push_back(1.);
+		p->volume_right.push_back(1.);
 	}
 
 	for(int i=0; i<steps; i++) {
@@ -535,11 +534,9 @@ pattern generate_pattern_grid(const int w, const int h, const int steps)
 		clickable c { };
 		c.where            = { x, y, step_width, step_height };
 		c.selected         = false;
-		p.pattern.at(i)    = c;
-		p.note_delta.at(i) = 0;
+		p->pattern.at(i)    = c;
+		p->note_delta.at(i) = 0;
 	}
-
-	return p;
 }
 
 std::vector<clickable> generate_pattern_menu(const int w, const int h, size_t *const pause_idx, size_t *const restart_idx)
@@ -1218,13 +1215,28 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 		return;
 	}
 
+	constexpr const int n_polyphonic = 10;
+	pattern_midi patterns[n_polyphonic] { };
+	int          indexes [n_polyphonic] { };
+	for(int i=0; i<n_polyphonic; i++) {
+		auto & p = patterns[i];
+		p.note_delta   = { 0,  0  };
+		p.volume_left  = { 1., 1. };
+		p.volume_right = { 1., 1. };
+		p.dim          = { 2      };
+		p.serial_notes = { true   };
+		p.swing        = { 0      };
+		p.delay        = { 0      };
+		p.current_note = { 255    };
+		indexes[i]     = { -1     };
+	}
+
 	while(!do_exit) {
 		// TODO need a midi-waiter that is limited by time in RtMidi
 		my_us_sleep(1000000 / (31250 / (10 * 2)));
 
 		// check for midi events
 		auto msg = receive_midi_note(midi_in);
-
 		if (msg.size() != 3)
 			continue;
 
@@ -1241,19 +1253,30 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 		if ((cmd == 0x90 && msg.at(2) == 0) || cmd == 0x80) {
 			bool immediately = msg.at(2) == 0;
 
-			std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
-			for(size_t i=0; i<sound_pars->sounds.size(); i++) {
-				auto & sound = sound_pars->sounds.at(i);
-				if (sound.pattern_idx.has_value() == false)
-					continue;
-				if (sound.pattern_idx == size_t(-1)) {
-					if (sound.s->can_repeat() && immediately == false)
-						sound.end_requested = true;
-					else {
-						delete sound.bp_filter;
-						sound_pars->sounds.erase(sound_pars->sounds.begin() + i);
+			int found_idx = -1;
+			for(int i=0; i<n_polyphonic; i++) {
+				if (patterns[i].current_note == msg.at(1))
+					found_idx = i;
+			}
+
+			if (found_idx != -1) {
+				printf("Find note by index %d\n", found_idx);
+				std::lock_guard<std::shared_mutex> lck(sound_pars->sounds_lock);
+				for(size_t i=0; i<sound_pars->sounds.size(); i++) {
+					auto & sound = sound_pars->sounds.at(i);
+					if (sound.pat == &patterns[found_idx]) {
+						if (immediately) {
+							printf("Stop immediately\n");
+							delete sound.bp_filter;
+							sound_pars->sounds.erase(sound_pars->sounds.begin() + i);
+							patterns[i].playing = false;
+						}
+						else {
+							printf("End requested\n");
+							sound.end_requested = true;
+						}
+						break;
 					}
-					break;
 				}
 			}
 		}
@@ -1262,19 +1285,29 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 			int    note_delta = sound_pars->midi_sample.midi_note.has_value() ? msg.at(1) - sound_pars->midi_sample.midi_note.value() : 0;
 			printf("Queue %s with volume %f\n", sound_pars->midi_sample.name.c_str(), volume);
 
-			{
-				std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
+			int current_idx = -1;
+			int new_idx     = -1;
+			for(int i=0; i<n_polyphonic; i++) {
+				if (patterns[i].current_note == msg.at(1) && patterns[i].playing == true)
+					current_idx = i;
+				else if (patterns[i].playing == false)
+					new_idx = i;
+			}
+
+			if (current_idx != -1) {
+				std::lock_guard<std::shared_mutex> lck(sound_pars->sounds_lock);
 				for(size_t i=0; i<sound_pars->sounds.size(); i++) {
 					auto & sound = sound_pars->sounds.at(i);
-					if (sound.pattern_idx.has_value() == true && sound.pattern_idx == size_t(-1)) {
-						delete sound.bp_filter;
-						sound_pars->sounds.erase(sound_pars->sounds.begin() + i);
+					if (sound.pat == &patterns[current_idx]) {
+						sound.t = 0;
 						break;
 					}
 				}
 			}
-
-			queue_sample(sound_pars, note_delta, volume, volume, &sound_pars->midi_sample, nullptr, -1, nullptr);
+			else if (new_idx != -1) {
+				patterns[new_idx].current_note = msg.at(1);
+				queue_sample(sound_pars, note_delta, volume, volume, &sound_pars->midi_sample, &patterns[new_idx], ++indexes[new_idx], nullptr);
+			}
 		}
 	}
 }
@@ -1462,7 +1495,7 @@ int main(int argc, char *argv[])
 	size_t         restart_idx            = 0;
 	std::vector<clickable> pattern_menu = generate_pattern_menu(win_width, win_height, &p_pause_idx, &restart_idx);
 	for(size_t i=0; i<pattern_groups; i++)
-		pat_clickables[i] = generate_pattern_grid(win_width, win_height, steps);
+		generate_pattern_grid(win_width, win_height, steps, &pat_clickables[i]);
 
 	std::array<sample, pattern_groups> samples { };
 

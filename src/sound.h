@@ -166,6 +166,8 @@ struct sample
 	int                echo_t;
 };
 
+struct pattern;
+
 class sound_parameters
 {
 public:
@@ -204,7 +206,7 @@ public:
 		int            echo_t;
 		bool           end_requested;
 		biquad_filter *bp_filter    { nullptr };
-		std::optional<size_t>            pattern_idx;
+		pattern       *pat          { nullptr };
 		std::vector<std::vector<float> > history;
 	};
 	std::vector<queued_sound> sounds;
