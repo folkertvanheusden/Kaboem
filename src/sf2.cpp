@@ -559,7 +559,7 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & filename, const bo
 
 	size_t   size = st.st_size;
 	uint8_t *data = new uint8_t[size]();
-	bool     ok   = fread(data, size, 1, fh) == size;
+	bool     ok   = fread(data, 1, size, fh) == size;
 	fclose(fh);
 	if (!ok)
 		return { };
