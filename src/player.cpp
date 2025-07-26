@@ -52,7 +52,7 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 	int    base_note       = qs.s->get_base_midi_note();
 	double base_note_f     = midi_note_to_frequency(base_note);
 	int    adjusted_note   = base_note + note_delta;
-	int    adjusted_note_f = midi_note_to_frequency(adjusted_note);
+	double adjusted_note_f = midi_note_to_frequency(adjusted_note);
 
 	double pitch           = base_note_f ? adjusted_note_f / base_note_f : 1.;
 	qs.pat                 = pat;
