@@ -9,9 +9,20 @@
 #include "time.h"
 
 constexpr const int n_polyphonic = 10;
-static std::mutex   lock;
 static pattern_midi patterns[n_polyphonic] { };
 static int          indexes [n_polyphonic] { };
+
+void midi_update_global_volume(sound_parameters *const sound_pars, const uint8_t volume_left, const uint8_t volume_right)
+{
+	std::lock_guard<std::shared_mutex> lck(sound_pars->sounds_lock);
+
+	for(auto & sound: sound_pars->sounds) {
+		if (sound.pat >= &patterns[0] && sound.pat < &patterns[n_polyphonic]) {
+			sound.volume_left  = volume_left  / 127.;
+			sound.volume_right = volume_right / 127.;
+		}
+	}
+}
 
 void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in, std::atomic_int *const percussion_midi_channel, std::atomic_bool *const midi_triggered, std::atomic_bool *const do_exit)
 {
@@ -39,8 +50,6 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 
 		// check for midi events
 		auto msg = receive_midi_note(midi_in);
-		if (msg.size() != 3)
-			continue;
 
 		uint8_t cmd = msg.at(0) & 0xf0;
 		uint8_t ch  = msg.at(0) & 0x0f;
@@ -52,8 +61,7 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 			continue;
 		}
 
-		std::unique_lock<std::mutex> lck(lock);
-		if ((cmd == 0x90 && msg.at(2) == 0) || cmd == 0x80) {
+		if (((cmd == 0x90 && msg.at(2) == 0) || cmd == 0x80) && msg.size() == 3) {
 			bool immediately = msg.at(2) == 0;
 
 			int found_idx = -1;
@@ -83,7 +91,7 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 				}
 			}
 		}
-		else if (cmd == 0x90) {
+		else if (cmd == 0x90 && msg.size() == 3) {
 			double volume     = msg.at(2) / 127.;
 			int    note_delta = sound_pars->midi_sample.midi_note.has_value() ? msg.at(1) - sound_pars->midi_sample.midi_note.value() : 0;
 			printf("Queue %s with volume %f\n", sound_pars->midi_sample.name.c_str(), volume);
@@ -112,17 +120,14 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 				queue_sample(sound_pars, note_delta, volume, volume, &sound_pars->midi_sample, &patterns[new_idx], ++indexes[new_idx], nullptr);
 			}
 		}
-	}
-}
-
-void midi_update_global_volume(sound_parameters *const sound_pars, const uint8_t volume_left, const uint8_t volume_right)
-{
-	std::lock_guard<std::shared_mutex> lck(sound_pars->sounds_lock);
-
-	for(auto & sound: sound_pars->sounds) {
-		if (sound.pat >= &patterns[0] && sound.pat < &patterns[n_polyphonic]) {
-			sound.volume_left  = volume_left  / 127.;
-			sound.volume_right = volume_right / 127.;
+		else if (cmd == 0xf0) {  // SysEx
+			if (msg.size() == 8 && msg.at(1) == 0x7f &&  // realtime
+					msg.at(2) == 0x7f &&  // any channel
+					msg.at(3) == 0x04 &&  // device control
+					msg.at(4) == 0x01)  // master volume
+			{
+				midi_update_global_volume(sound_pars, msg.at(6), msg.at(6));
+			}
 		}
 	}
 }
