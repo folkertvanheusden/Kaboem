@@ -35,10 +35,12 @@ add_executable(
   src/utils.cpp
 )
 
+add_subdirectory(3rdparty/libremidi)
+
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads)
-target_link_libraries(kaboem PRIVATE Threads::Threads)
+target_link_libraries(kaboem PRIVATE Threads::Threads libremidi)
 
 include(FindPkgConfig)
 
@@ -114,24 +116,6 @@ target_compile_options(kaboem PUBLIC ${NLOHMANN_JSON_CFLAGS_OTHER})
 
 find_package(Fontconfig)
 target_link_libraries(kaboem PRIVATE Fontconfig::Fontconfig)
-
-#find_package(rtmidi)
-#target_link_libraries(kaboem PRIVATE RtMidi)
-#pkg_check_modules(RTMIDI REQUIRED rtmidi)
-if (APPLE)
-	find_path(RTMIDI_INCLUDE_DIR rtmidi/RtMidi.h PATHS /opt/homebrew/include)
-	find_library(RTMIDI_LIBRARY rtmidi PATHS /opt/homebrew/lib)
-
-	include_directories(${RTMIDI_INCLUDE_DIR})
-	link_libraries(${RTMIDI_LIBRARY})
-
-	target_link_libraries(kaboem PRIVATE ${RTMIDI_LIBRARY})
-else ()
-pkg_check_modules(RTMIDI rtmidi)
-endif ()
-target_link_libraries(kaboem PRIVATE ${RTMIDI_LIBRARIES})
-target_include_directories(kaboem PUBLIC ${RTMIDI_INCLUDE_DIRS})
-target_compile_options(kaboem PUBLIC ${RTMIDI_CFLAGS_OTHER})
 
 if (APPLE)
 	find_path(FFTW_INCLUDE_DIR fftw3.h PATHS /opt/homebrew/include)

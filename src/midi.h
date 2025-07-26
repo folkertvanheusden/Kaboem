@@ -1,19 +1,22 @@
-#include "config.h"
-#if HAVE_RTMIDI == 1
-#include <rtmidi/RtMidi.h>
-#else
-#define RtMidiOut void
-#define RtMidiIn  void
-#endif
+#pragma once
+#include <libremidi/libremidi.hpp>
 
+
+struct midi_handle_wrapper_in {
+	libremidi::midi_in *in;
+};
+
+struct midi_handle_wrapper_out {
+	libremidi::midi_out *out;
+};
 
 bool init_midi  ();
 void deinit_midi();
 
-RtMidiOut * allocate_midi_output_port();
-RtMidiIn  * allocate_midi_input_port ();
-void                       send_midi_note   (RtMidiOut *const out_port, const int note, const int velocity);
-void                       send_pitch_bend  (RtMidiOut *const out_port, const uint16_t pb);
-std::vector<unsigned char> receive_midi_note(RtMidiIn  *const p);
-void close_midi_in_port (RtMidiIn  *const midi_port);
-void close_midi_out_port(RtMidiOut *const midi_port);
+midi_handle_wrapper_out allocate_midi_output_port();
+midi_handle_wrapper_in  allocate_midi_input_port ();
+void                       send_midi_note   (midi_handle_wrapper_out & out_port, const int note, const int velocity);
+void                       send_pitch_bend  (midi_handle_wrapper_out & out_port, const uint16_t pb);
+std::vector<unsigned char> receive_midi_note(midi_handle_wrapper_in  & in_port);
+void close_midi_in_port (midi_handle_wrapper_in  & in_port);
+void close_midi_out_port(midi_handle_wrapper_out & out_port);

@@ -1,7 +1,3 @@
-#include "config.h"
-#if HAVE_RTMIDI == 1
-#include <rtmidi/RtMidi.h>
-#endif
 #include <utility>
 
 #include "gui.h"
@@ -17,64 +13,46 @@ void deinit_midi()
 {
 }
 
-RtMidiOut * allocate_midi_output_port()
+midi_handle_wrapper_out allocate_midi_output_port()
 {
-#if HAVE_RTMIDI == 1
-	auto *p = new RtMidiOut(RtMidi::Api::UNSPECIFIED, PROG_NAME);
-	p->openVirtualPort("output");
-	return p;
-#else
-	return nullptr;
-#endif
+	libremidi::midi_out *midi = new libremidi::midi_out;
+	midi->open_virtual_port(PROG_NAME " OUTPUT");
+	return { midi };
 }
 
-void send_midi_note(RtMidiOut *const p, const int note, const int velocity)
+void send_midi_note(midi_handle_wrapper_out & p, const int note, const int velocity)
 {
-#if HAVE_RTMIDI == 1
-	std::vector<unsigned char> message { 0x99, (unsigned char)note, (unsigned char)velocity };
-	p->sendMessage(&message);
-#endif
+	if (p.out)
+		p.out->send_message(0x99, note, velocity);
 }
 
-void send_pitch_bend(RtMidiOut *const p, const uint16_t pb)
+void send_pitch_bend(midi_handle_wrapper_out & p, const uint16_t pb)
 {
-#if HAVE_RTMIDI == 1
-	std::vector<unsigned char> message { 0xe9, (unsigned char)(pb & 127), (unsigned char)((pb >> 7) & 127) };
-	p->sendMessage(&message);
-#endif
+	if (p.out)
+		p.out->send_message(0xe9, pb & 127, (pb >> 7) & 127);
 }
 
-RtMidiIn * allocate_midi_input_port()
+midi_handle_wrapper_in allocate_midi_input_port()
 {
-#if HAVE_RTMIDI == 1
-	auto *p = new RtMidiIn(RtMidi::Api::UNSPECIFIED, PROG_NAME);
-	p->openVirtualPort("input");
-	p->ignoreTypes(true, true, true);  // ignore sysex, timing, and active sensing messages
-	return p;
-#else
-	return nullptr;
-#endif
+	libremidi::input_configuration cfg;
+	libremidi::midi_in *midi = new libremidi::midi_in(cfg);
+	midi->open_virtual_port(PROG_NAME " INPUT");
+	return { midi };
 }
 
-std::vector<unsigned char> receive_midi_note(RtMidiIn *const p)
+std::vector<unsigned char> receive_midi_note(midi_handle_wrapper_in & p)
 {
 	std::vector<unsigned char> message;
-#if HAVE_RTMIDI == 1
-	p->getMessage(&message);
-#endif
+	// TODO
 	return message;
 }
 
-void close_midi_in_port(RtMidiIn *const midi_port)
+void close_midi_in_port(midi_handle_wrapper_in & midi_port)
 {
-#if HAVE_RTMIDI == 1
-	delete midi_port;
-#endif
+	delete midi_port.in;
 }
 
-void close_midi_out_port(RtMidiOut *const midi_port)
+void close_midi_out_port(midi_handle_wrapper_out & midi_port)
 {
-#if HAVE_RTMIDI == 1
-	delete midi_port;
-#endif
+	delete midi_port.out;
 }

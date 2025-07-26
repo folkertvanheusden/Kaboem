@@ -24,9 +24,9 @@ void midi_update_global_volume(sound_parameters *const sound_pars, const uint8_t
 	}
 }
 
-void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in, std::atomic_int *const percussion_midi_channel, std::atomic_bool *const midi_triggered, std::atomic_bool *const do_exit)
+void midi_processor(sound_parameters *const sound_pars, midi_handle_wrapper_in & midi_in, std::atomic_int *const percussion_midi_channel, std::atomic_bool *const midi_triggered, std::atomic_bool *const do_exit)
 {
-	if (!midi_in) {
+	if (midi_in.in == nullptr) {
 		printf("No MIDI-in\n");
 		return;
 	}
@@ -45,7 +45,7 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 	}
 
 	while(!*do_exit) {
-		// TODO need a midi-waiter that is limited by time in RtMidi
+		// TODO need a midi-waiter that is limited by time in libremidi
 		my_us_sleep(1000000 / (31250 / (10 * 2)));
 
 		// check for midi events
@@ -119,7 +119,7 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 			}
 			else if (new_idx != -1) {
 				patterns[new_idx].current_note = msg.at(1);
-				queue_sample(sound_pars, note_delta, volume, volume, &sound_pars->midi_sample, &patterns[new_idx], ++indexes[new_idx], nullptr);
+				queue_sample(sound_pars, note_delta, volume, volume, &sound_pars->midi_sample, &patterns[new_idx], ++indexes[new_idx], { nullptr });
 			}
 		}
 		else if (cmd == 0xf0) {  // SysEx

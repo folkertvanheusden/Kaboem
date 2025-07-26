@@ -1473,7 +1473,7 @@ int main(int argc, char *argv[])
 		});
 
 	std::atomic_bool midi_triggered = false;
-	std::thread midi_thread([&sound_pars, midi_in, &midi_thread_selected_percussion_midi_channel, &midi_triggered] {
+	std::thread midi_thread([&sound_pars, &midi_in, &midi_thread_selected_percussion_midi_channel, &midi_triggered] {
 			set_thread_name("KAB-MIDI");
 			midi_processor(&sound_pars, midi_in, &midi_thread_selected_percussion_midi_channel, &midi_triggered, &do_exit);
 	});
