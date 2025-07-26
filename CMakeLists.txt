@@ -24,6 +24,7 @@ add_executable(
   src/gui.cpp
   src/io.cpp
   src/midi.cpp
+  src/midi-handler.cpp
   src/mixer.cpp
   src/player.cpp
   src/sample.cpp
