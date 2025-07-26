@@ -5,7 +5,4 @@
 - %zu / %zd -> size_t / ssize_t for uint64_t / int64_t verify
 - skips a beat after un-pause ==> caused by not unpausing at a precise interval?
 - external sync (via midi?)
-
-- synquencer
-  - name is not stored correctly
 - support for multiple patterns, switchable at "runtime" via midi messages

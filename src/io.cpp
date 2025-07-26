@@ -161,6 +161,7 @@ void load_sample_from_json(const json & j, sample *const s)
 		printf("Cannot init sample \"%s\"\n", file_name.c_str());
 	}
 	else {
+		s->name = file_name;
 		bool is_stereo = s->s->get_n_channels() >= 2;
 		s->s->set_volume(0, j["vol-left"]);
 		if (is_stereo)
