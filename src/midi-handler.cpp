@@ -1,5 +1,6 @@
 #include <atomic>
 #include <cstdint>
+#include <mutex>
 
 #include "gui.h"
 #include "midi.h"
@@ -7,6 +8,10 @@
 #include "sound.h"
 #include "time.h"
 
+constexpr const int n_polyphonic = 10;
+static std::mutex   lock;
+static pattern_midi patterns[n_polyphonic] { };
+static int          indexes [n_polyphonic] { };
 
 void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in, std::atomic_int *const percussion_midi_channel, std::atomic_bool *const midi_triggered, std::atomic_bool *const do_exit)
 {
@@ -15,9 +20,6 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 		return;
 	}
 
-	constexpr const int n_polyphonic = 10;
-	pattern_midi patterns[n_polyphonic] { };
-	int          indexes [n_polyphonic] { };
 	for(int i=0; i<n_polyphonic; i++) {
 		auto & p = patterns[i];
 		p.note_delta   = { 0,  0  };
@@ -50,6 +52,7 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 			continue;
 		}
 
+		std::unique_lock<std::mutex> lck(lock);
 		if ((cmd == 0x90 && msg.at(2) == 0) || cmd == 0x80) {
 			bool immediately = msg.at(2) == 0;
 
@@ -108,6 +111,18 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 				patterns[new_idx].current_note = msg.at(1);
 				queue_sample(sound_pars, note_delta, volume, volume, &sound_pars->midi_sample, &patterns[new_idx], ++indexes[new_idx], nullptr);
 			}
+		}
+	}
+}
+
+void midi_update_global_volume(sound_parameters *const sound_pars, const uint8_t volume_left, const uint8_t volume_right)
+{
+	std::lock_guard<std::shared_mutex> lck(sound_pars->sounds_lock);
+
+	for(auto & sound: sound_pars->sounds) {
+		if (sound.pat >= &patterns[0] && sound.pat < &patterns[n_polyphonic]) {
+			sound.volume_left  = volume_left  / 127.;
+			sound.volume_right = volume_right / 127.;
 		}
 	}
 }

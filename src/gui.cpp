@@ -486,7 +486,7 @@ std::vector<clickable> generate_channel_buttons(const int w, const int h,
 	return clickables;
 }
 
-std::vector<clickable> generate_midi_menu(const int w, const int h, size_t *const load_midi_sample_idx, up_down_widget *const midi_ch_widget_pars)
+std::vector<clickable> generate_midi_menu(const int w, const int h, size_t *const load_midi_sample_idx, up_down_widget *const midi_ch_widget_pars, up_down_widget *const volume_widget_left_pars, up_down_widget *const volume_widget_right_pars)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -506,6 +506,12 @@ std::vector<clickable> generate_midi_menu(const int w, const int h, size_t *cons
 
 	std::vector<clickable> midi_ch_widget = generate_up_down_widget(w, h, 0, y, "midi ch.", clickables.size(), midi_ch_widget_pars);
 	std::copy(midi_ch_widget.begin(), midi_ch_widget.end(), std::back_inserter(clickables));
+
+	std::vector<clickable> volume_left_widget = generate_up_down_widget(w, h, menu_button_width, y, "vol l", clickables.size(), volume_widget_left_pars);
+	std::copy(volume_left_widget.begin(), volume_left_widget.end(), std::back_inserter(clickables));
+
+	std::vector<clickable> volume_right_widget = generate_up_down_widget(w, h, menu_button_width * 2, y, "vol r", clickables.size(), volume_widget_right_pars);
+	std::copy(volume_right_widget.begin(), volume_right_widget.end(), std::back_inserter(clickables));
 
 	return clickables;
 }
@@ -1385,8 +1391,12 @@ int main(int argc, char *argv[])
 			&lp_filter_widget, &hp_filter_widget, &serial_notes_idx, &swing_factor_widget, &delay_factor_widget);
 
 	size_t         load_midi_sample_idx   = 0;
-	up_down_widget midi_ch_widget     { };
-	std::vector<clickable> midi_menu_buttons = generate_midi_menu(win_width, win_height, &load_midi_sample_idx, &midi_ch_widget);
+	up_down_widget midi_ch_widget           { };
+	up_down_widget midi_volume_left_widget  { };
+	up_down_widget midi_volume_right_widget { };
+	int            midi_volume_left       = 127;
+	int            midi_volume_right      = 127;
+	std::vector<clickable> midi_menu_buttons = generate_midi_menu(win_width, win_height, &load_midi_sample_idx, &midi_ch_widget, &midi_volume_left_widget, &midi_volume_right_widget);
 
 	size_t         p_pause_idx            = 0;
 	size_t         restart_idx            = 0;
@@ -1402,13 +1412,15 @@ int main(int argc, char *argv[])
 	SDL_DialogFileFilter sf_filters_record[] { { "Record",       "wav;mid"      } };
 
 	const std::vector<file_parameter> file_parameters {
-		{ "bpm",          file_parameter::T_INT,    &bpm,              nullptr,                           nullptr, nullptr,      nullptr, nullptr      },
-		{ "volume",       file_parameter::T_INT,    &vol,              nullptr,                           nullptr, nullptr,      nullptr, nullptr      },
-		{ "saturation",   file_parameter::T_INT,    &sound_saturation, nullptr,                           nullptr, nullptr,      nullptr, nullptr      },
-		{ "midi-channel", file_parameter::T_INT,    nullptr,           &selected_percussion_midi_channel, nullptr, nullptr,      nullptr, nullptr      },
-		{ "humanize-factor", file_parameter::T_INT, &humanize_amount,  nullptr,                           nullptr, nullptr,      nullptr, nullptr      },
-		{ "polyrythmic",  file_parameter::T_ABOOL,  nullptr,           nullptr,                           nullptr, nullptr,      nullptr, &polyrythmic },
-		{ "agc",          file_parameter::T_BOOL,   nullptr,           nullptr,                           nullptr, nullptr,      &agc,    nullptr      }
+		{ "bpm",           file_parameter::T_INT,   &bpm,               nullptr,                           nullptr, nullptr, nullptr, nullptr      },
+		{ "volume",        file_parameter::T_INT,   &vol,               nullptr,                           nullptr, nullptr, nullptr, nullptr      },
+		{ "saturation",    file_parameter::T_INT,   &sound_saturation,  nullptr,                           nullptr, nullptr, nullptr, nullptr      },
+		{ "midi-channel",  file_parameter::T_INT,   nullptr,            &selected_percussion_midi_channel, nullptr, nullptr, nullptr, nullptr      },
+		{ "midi-volume-l", file_parameter::T_INT,   &midi_volume_left,  nullptr,                           nullptr, nullptr, nullptr, nullptr      },
+		{ "midi-volume-r", file_parameter::T_INT,   &midi_volume_right, nullptr,                           nullptr, nullptr, nullptr, nullptr      },
+		{ "humanize-factor", file_parameter::T_INT, &humanize_amount,   nullptr,                           nullptr, nullptr, nullptr, nullptr      },
+		{ "polyrythmic",   file_parameter::T_ABOOL, nullptr,            nullptr,                           nullptr, nullptr, nullptr, &polyrythmic },
+		{ "agc",           file_parameter::T_BOOL,  nullptr,            nullptr,                           nullptr, nullptr, &agc,    nullptr      }
 	};
 
 	std::atomic_int humanize_amount_parameter { humanize_amount };
@@ -1844,6 +1856,12 @@ int main(int argc, char *argv[])
 						{ { midi_ch_widget.text_w, midi_ch_widget.text_h } });
 				}
 
+				draw_text(font, screen, midi_volume_left_widget.x, midi_volume_left_widget.y, std::to_string(midi_volume_left),
+					{ { midi_volume_left_widget.text_w, midi_volume_left_widget.text_h } });
+
+				draw_text(font, screen, midi_volume_right_widget.x, midi_volume_right_widget.y, std::to_string(midi_volume_right),
+					{ { midi_volume_right_widget.text_w, midi_volume_right_widget.text_h } });
+
 				draw_clickables(font, screen, menu_button_clickables, { }, { });
 				draw_clickables(font, screen, midi_menu_buttons,      { }, { });
 			}
@@ -2180,6 +2198,12 @@ int main(int argc, char *argv[])
 							fs_data.finished = false;
 							fs_action        = fs_load_midi_sample;
 							SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters_sf2, 1, work_path.c_str(), false);
+						}
+						else if (set_up_down_value(idx, midi_volume_left_widget,  0, 127, &midi_volume_left,  shift)) {
+							midi_update_global_volume(&sound_pars, midi_volume_left, midi_volume_right);
+						}
+						else if (set_up_down_value(idx, midi_volume_right_widget, 0, 127, &midi_volume_right, shift)) {
+							midi_update_global_volume(&sound_pars, midi_volume_left, midi_volume_right);
 						}
 					}
 				}

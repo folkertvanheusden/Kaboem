@@ -8,5 +8,4 @@
 
 - synquencer
   - name is not stored correctly
-  - set volume for midi input
 - support for multiple patterns, switchable at "runtime" via midi messages
