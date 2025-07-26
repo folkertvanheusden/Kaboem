@@ -50,6 +50,8 @@ void midi_processor(sound_parameters *const sound_pars, RtMidiIn *const midi_in,
 
 		// check for midi events
 		auto msg = receive_midi_note(midi_in);
+		if (msg.size() < 2)
+			continue;
 
 		uint8_t cmd = msg.at(0) & 0xf0;
 		uint8_t ch  = msg.at(0) & 0x0f;
