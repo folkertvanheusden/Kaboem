@@ -123,7 +123,6 @@ if (APPLE)
 	include_directories(${FFTW_INCLUDE_DIR})
 	target_link_libraries(kaboem PRIVATE ${FFTW_LIBRARY})
 else ()
-	pkg_check_modules(RTMIDI rtmidi)
 	pkg_search_module(FFTW REQUIRED fftw3 IMPORTED_TARGET)
 	include_directories(PkgConfig::FFTW)
 	link_libraries(PkgConfig::FFTW)
@@ -141,10 +140,6 @@ install(FILES images/icon.png DESTINATION share/icons/hicolor/256x256/ RENAME ka
 
 configure_file(src/config.h.in config.h)
 target_include_directories(kaboem PUBLIC "${PROJECT_BINARY_DIR}")
-
-if (RTMIDI_FOUND)
-	message("librtmidi found, MIDI in/out support enabled")
-endif()
 
 if (SMF_FOUND)
 	message("libsmf found, can write MIDI files")

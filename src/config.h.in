@@ -6,8 +6,5 @@
 #define kaboem_VERSION_MINOR @kaboem_VERSION_MINOR@
 #define VERSION "@kaboem_VERSION_MAJOR@.@kaboem_VERSION_MINOR@"
 
-#cmakedefine01 RTMIDI_FOUND
-#define HAVE_RTMIDI RTMIDI_FOUND
-
 #cmakedefine01 SMF_FOUND
 #define HAVE_SMF SMF_FOUND
