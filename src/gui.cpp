@@ -1351,7 +1351,7 @@ int main(int argc, char *argv[])
 	size_t         polyrythmic_idx  = 0;
 	std::atomic_bool polyrythmic    = false;
 	up_down_widget humanize_widget    { };
-	int            humanize_amount     = 0;
+	int            humanize_amount  = 0;
 	size_t         clipping_idx     = 0;
 	size_t         busyness_idx     = 0;
 	size_t         agc_idx          = 0;
@@ -1365,7 +1365,7 @@ int main(int argc, char *argv[])
 			&record_time_idx);
 	std::string    menu_status;
 
-	up_down_widget pitch_widget       { };
+	up_down_widget pitch_widget             { };
 	up_down_widget cell_volume_left_widget  { };
 	up_down_widget cell_volume_right_widget { };
 	std::vector<clickable> cell_menu_buttons = generate_cell_settings_menu_buttons(win_width, win_height,
