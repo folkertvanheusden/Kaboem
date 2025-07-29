@@ -1,13 +1,26 @@
 #pragma once
+#include <map>
+#include <string>
+
 #include <libremidi/libremidi.hpp>
 
 
 struct midi_handle_wrapper_in {
-	libremidi::midi_in *in;
+	libremidi::midi_in    *in;
 };
 
 struct midi_handle_wrapper_out {
-	libremidi::midi_out *out;
+	libremidi::midi_out   *out;
+};
+
+struct midi_in_pair {
+	libremidi::API         api;
+	libremidi::input_port  port;
+};
+
+struct midi_out_pair {
+	libremidi::API         api;
+	libremidi::output_port port;
 };
 
 bool init_midi  ();

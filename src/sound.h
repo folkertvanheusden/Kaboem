@@ -149,8 +149,8 @@ public:
 	unsigned get_sample_rate() const { return sample_sample_rate; }
 
 	std::optional<std::pair<float, float> > get_sample(const double t, const size_t channel_nr) const override;
-	void        get_new_t(int *const t) const;
-	bool        can_repeat() const { return restart.has_value(); }
+	void        get_new_t(int *const t) const override;
+	bool        can_repeat() const override { return restart.has_value(); }
 	void        set_repeat(const size_t go_back_from, const size_t go_back_to) { restart = { go_back_to, go_back_from }; }
 	restart_t   get_repeat() const { return *restart; }
 
