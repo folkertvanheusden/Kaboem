@@ -6,3 +6,4 @@
 - skips a beat after un-pause ==> caused by not unpausing at a precise interval?
 - external sync (via midi?)
 - support for multiple patterns, switchable at "runtime" via midi messages
+- soundboard mode
