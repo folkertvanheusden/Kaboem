@@ -1527,6 +1527,10 @@ int main(int argc, char *argv[])
 
 		// MIDI percussion events set a pattern-cell
 		if (midi_triggered.exchange(false)) {
+			double volume_l = midi_volume_left  / 127.;
+			double volume_r = midi_volume_right / 127.;
+			queue_sample(&sound_pars, 0, volume_l, volume_r, &sound_pars.midi_sample, &pat_clickables[pattern_group], pat_index, nullptr);
+
 			std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
 			if (!paused)
 				pat_clickables[pattern_group].pattern[pat_index].selected = true;
