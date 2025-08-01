@@ -7,3 +7,6 @@
 - external sync (via midi?)
 - support for multiple patterns, switchable at "runtime" via midi messages
 - soundboard mode
+- if midi input, play that immediately
+- stop progressing cursor in pause mode
+- sf2: load mini note
