@@ -1178,41 +1178,57 @@ void set_max_scheduling_priority(std::thread & target)
 		printf("Failed to set scheduling parameters for thread: %s\n", strerror(errno));
 }
 
-void chose_and_load_sf2_sample(TTF_Font *const font, SDL_Renderer *const screen, const int w, const int h, const unsigned font_height, sound_parameters *const sound_pars, const std::string & file_name, std::string *const menu_status)
+std::optional<sample> chose_and_load_sf2_sample(TTF_Font *const font, SDL_Renderer *const screen, const int w, const int h, const unsigned font_height, sound_parameters *const sound_pars, const std::string & file_name)
 {
 	std::map<uint16_t, sample_set_t> sample_set = load_sf2(file_name, false);
-	if (sample_set.empty() == false) {
-		std::optional<size_t> chosen;
-		sf2_sample_t         *chosen_sample = nullptr;
-		std::string           chosen_name;
-
-		// create list of all samples in set
-		std::vector<std::pair<std::string, void *> > sample_names;
-		for(auto & it: sample_set) {
-			for(auto & sample: it.second.samples)
-				sample_names.push_back({ sample.file_name, &sample });
-		}
-
-		chosen = select_from_list(font, screen, w, h, font_height, sample_names);
-
-		if (chosen.has_value()) {
-			chosen_name   = sample_names.at(chosen.value()).first;
-			menu_status->assign("Selected: " + chosen_name);
-			chosen_sample = reinterpret_cast<sf2_sample_t *>(sample_names.at(chosen.value()).second);
-		}
-
-		std::unique_lock<std::mutex> lck(sound_pars->midi_sample_lock);
-		delete sound_pars->midi_sample.s;
-		if (chosen.has_value())
-			sound_pars->midi_sample   = convert_sf2_sample(chosen_sample);
-		else {
-			sound_pars->midi_sample.s = nullptr;
-			menu_status->assign("MIDI sample cleared");
-		}
-	}
-	else {
+	if (sample_set.empty()) {
 		do_error_message(font, screen, w, h, "Invalid SF2 file");
+		return { };
 	}
+
+	// create list of all samples in set
+	std::vector<std::pair<std::string, void *> > sample_names;
+	for(auto & it: sample_set) {
+		for(auto & sample: it.second.samples)
+			sample_names.push_back({ sample.file_name, &sample });
+	}
+
+	std::optional<size_t> chosen = select_from_list(font, screen, w, h, font_height, sample_names);
+	if (chosen.has_value() == false)
+		return { };
+
+	std::string   chosen_name   = sample_names.at(chosen.value()).first;
+	sf2_sample_t *chosen_sample = reinterpret_cast<sf2_sample_t *>(sample_names.at(chosen.value()).second);
+
+	return convert_sf2_sample(chosen_sample);
+}
+
+std::string set_sample(TTF_Font *const font, SDL_Renderer *const screen, const int w, const int h, sound_parameters *const sound_pars, std::array<sample, pattern_groups> & samples, const size_t sample_index, std::array<pattern, pattern_groups> *const pat_clickables, std::vector<clickable> *const channel_clickables, sample & s_in)
+{
+	std::unique_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
+	sample *const s = &samples[sample_index];
+	auto *old_s_pointer = s->s;
+	delete s->s;
+
+	*s = s_in;
+
+	printf("%s %zu %zu\n", s->name.c_str(), s->s->get_n_channels(), s->s->get_sample_count());
+
+	std::string menu_status = "file " + s->name + " read";
+
+	channel_clickables->at(sample_index).text = s->name.substr(0, 5);
+	s->s->set_volume(0, 1.);
+	s->s->set_volume(1, 1.);
+
+	for(size_t i=0; i<sound_pars->sounds.size(); i++) {
+		if (sound_pars->sounds[i].s == old_s_pointer)
+			sound_pars->sounds[i].s = s->s;
+	}
+
+	if (s->s)
+		reset_pattern(pat_clickables, sample_index, s->s, false);
+
+	return menu_status;
 }
 
 int main(int argc, char *argv[])
@@ -1406,10 +1422,10 @@ int main(int argc, char *argv[])
 
 	std::array<sample, pattern_groups> samples { };
 
-	SDL_DialogFileFilter sf_filters[]        { { "Kaboem files", PROG_EXT       } };
-	SDL_DialogFileFilter sf_filters_sample[] { { "Samples",      "wav;mp3;flac" } };
-	SDL_DialogFileFilter sf_filters_sf2[]    { { "Sound font",   "sf2"          } };
-	SDL_DialogFileFilter sf_filters_record[] { { "Record",       "wav;mid"      } };
+	SDL_DialogFileFilter sf_filters[]        { { "Kaboem files", PROG_EXT           } };
+	SDL_DialogFileFilter sf_filters_sample[] { { "Samples",      "wav;mp3;flac;sf2" } };
+	SDL_DialogFileFilter sf_filters_sf2[]    { { "Sound font",   "sf2"              } };
+	SDL_DialogFileFilter sf_filters_record[] { { "Record",       "wav;mid"          } };
 
 	const std::vector<file_parameter> file_parameters {
 		{ "bpm",           file_parameter::T_INT,   &bpm,               nullptr,                           nullptr, nullptr, nullptr, nullptr      },
@@ -1602,43 +1618,36 @@ int main(int argc, char *argv[])
 			}
 			else if (fs_action == fs_load_sample) {
 				if (fs_data.finished) {
-					if (fs_data.file.empty() == false) {
-						std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-						sample *const s = &samples[fs_action_sample_index];
-						s->name = fs_data.file;
-						auto *old_s_pointer = s->s;
-						delete s->s;
+					auto ext = fs_data.file.size() > 4 ? fs_data.file.substr(fs_data.file.size() - 4) : "";
 
-						std::string error;
-                                		s->s = new sound_sample(sample_rate, s->name);
-						auto rc = s->s->begin();
-						if (rc.has_value()) {
-							delete s->s;
-							s->s = nullptr;
-							error = rc.value();
-						}
-
-						if (s->s) {
-							menu_status = "file " + get_filename(fs_data.file) + " read";
-							channel_clickables[fs_action_sample_index].text = get_filename(s->name).substr(0, 5);
-							s->s->set_volume(0, 1.);
-							s->s->set_volume(1, 1.);
+					std::optional<sample> choice;
+					if (ext == ".sf2")
+						choice = chose_and_load_sf2_sample(font, screen, win_width, win_height, font_height, &sound_pars, fs_data.file);
+					else {
+						auto rc = load_sample(fs_data.file);
+						if (rc.first.has_value()) {
+							sample s { };
+							s.name = get_filename(fs_data.file);
+							s.s    = new sound_sample(sample_rate, s.name, rc.first.value().samples, rc.first.value().sample_rate);
+							auto rc = s.s->begin();
+							if (rc.has_value()) {
+								delete s.s;
+								s.s = nullptr;
+								menu_status = rc.value();
+							}
+							else {
+								choice = s;
+							}
 						}
 						else {
-							menu_status = get_filename(fs_data.file) + ": " + error;
-							do_error_message(font, screen, win_width, win_height, menu_status);
+							menu_status = rc.second;
 						}
-
-						for(size_t i=0; i<sound_pars.sounds.size(); i++) {
-							if (sound_pars.sounds[i].s == old_s_pointer)
-								sound_pars.sounds[i].s = s->s;
-						}
-
-						if (s->s)
-							reset_pattern(&pat_clickables, fs_action_sample_index, s->s, false);
-
-						redraw = true;
 					}
+
+					if (choice.has_value())
+						menu_status = set_sample(font, screen, win_width, win_height, &sound_pars, samples, fs_action_sample_index, &pat_clickables, &channel_clickables, choice.value());
+
+					redraw = true;
 					fs_action = fs_none;
 				}
 			}
@@ -1666,7 +1675,14 @@ int main(int argc, char *argv[])
 			}
 			else if (fs_action == fs_load_midi_sample) {
 				if (fs_data.finished) {
-					chose_and_load_sf2_sample(font, screen, win_width, win_height, font_height, &sound_pars, fs_data.file, &menu_status);
+					auto rc = chose_and_load_sf2_sample(font, screen, win_width, win_height, font_height, &sound_pars, fs_data.file);
+
+					if (rc.has_value()) {
+						std::unique_lock<std::mutex> lck(sound_pars.midi_sample_lock);
+						delete sound_pars.midi_sample.s;
+						sound_pars.midi_sample = rc.value();
+					}
+
 					fs_action = fs_none;
 					redraw    = true;
 				}
