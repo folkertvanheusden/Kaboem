@@ -1503,6 +1503,8 @@ int main(int argc, char *argv[])
 		// determine pattern index
 		size_t pat_index = 0;
 		{
+			if (paused)
+				start_t = get_us();
 			auto   now         = get_us() - start_t;
 			std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 			size_t current_dim = pat_clickables[pattern_group].dim;
@@ -1526,7 +1528,8 @@ int main(int argc, char *argv[])
 		// MIDI percussion events set a pattern-cell
 		if (midi_triggered.exchange(false)) {
 			std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
-			pat_clickables[pattern_group].pattern[pat_index].selected = true;
+			if (!paused)
+				pat_clickables[pattern_group].pattern[pat_index].selected = true;
 			redraw = true;
 		}
 
