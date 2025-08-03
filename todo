@@ -8,3 +8,4 @@
 - support for multiple patterns, switchable at "runtime" via midi messages
 - soundboard mode -> when a non-main-midi-note is played but the note got triggered as configured for a channel, play that
 - sf2: load midi note
+- sf2: do not repeat always
