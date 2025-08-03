@@ -736,7 +736,15 @@ std::optional<size_t> select_from_list(TTF_Font *const font, SDL_Renderer *const
 	size_t n_rows = (h - dim_h * 2 - menu_button_height / 3 - menu_button_height * 1.05) / font_height;
 	printf("rows shown: %zu\n", n_rows);
 
-	size_t list_offset = 0;
+	const int item_base_x = dim_w + border_w;
+	const int item_base_y = dim_h + border_h + menu_button_height / 3;
+	const int item_w      = dim_w * 2 - border_w;
+	const int item_h      = font_height;
+
+	ssize_t list_offset = 0;
+	ssize_t cur_n_rows  = n_rows;
+
+	bool   shift        = false;
 
 	while(!do_exit) {
 		if (redraw) {
@@ -751,8 +759,9 @@ std::optional<size_t> select_from_list(TTF_Font *const font, SDL_Renderer *const
 			SDL_SetRenderDrawColor(screen, 40, 40, 40, 191);
 			SDL_RenderRect(screen, &rec);
 
-			for(size_t i=0; i<std::min(n_rows, list.size() - list_offset); i++)
-				draw_text(font, screen, dim_w + border_w, dim_h + border_h + menu_button_height / 3 + i * font_height, list.at(i + list_offset).first, { { dim_w * 2 - border_w, font_height } }, i == 0, text_alignment::left, text_alignment::top);
+			cur_n_rows = std::min(n_rows, list.size() - list_offset);
+			for(ssize_t i=0; i<cur_n_rows; i++)
+				draw_text(font, screen, item_base_x, item_base_y + i * item_h, list.at(i + list_offset).first, { { item_w, item_h } }, i == 0, text_alignment::left, text_alignment::top);
 
 			draw_clickables(font, screen, clickables, { }, { });
 
@@ -763,21 +772,32 @@ std::optional<size_t> select_from_list(TTF_Font *const font, SDL_Renderer *const
 		if (SDL_WaitEvent(&event)) {
 			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
 				auto   button_clicked = find_clickable(clickables, event.button.x, event.button.y);
-				if (button_clicked.has_value() == false)
-					continue;
-				size_t idx            = button_clicked.value();
-				if (idx == button_ok)
-					return list_offset;
-				if (idx == button_cancel)
-					return { };
-				if (idx == button_up && list_offset > 0) {
-					list_offset--;
-					redraw = true;
+				if (button_clicked.has_value()) {
+					size_t idx            = button_clicked.value();
+					if (idx == button_ok)
+						return list_offset;
+					if (idx == button_cancel)
+						return { };
+					if (idx == button_up) {
+						list_offset = std::max(ssize_t(0), ssize_t(shift ? list_offset - n_rows * 2 / 3 : list_offset - 1));
+						redraw = true;
+					}
+					if (idx == button_down) {
+						list_offset = std::min(list.size() - 1, shift ? list_offset + n_rows * 2 / 3 : list_offset + 1);
+						redraw = true;
+					}
 				}
-				if (idx == button_down && list_offset < list.size() - 1) {
-					list_offset++;
-					redraw = true;
+				else {
+					if (event.button.x >= item_base_x && event.button.x < item_base_x + item_w &&
+					    event.button.y >= item_base_y && event.button.y < item_base_y + cur_n_rows * item_h)
+					{
+						list_offset += (event.button.y - item_base_y) / item_h;
+						redraw = true;
+					}
 				}
+			}
+			else if (event.key.scancode == SDL_SCANCODE_LSHIFT || event.key.scancode == SDL_SCANCODE_RSHIFT) {
+				shift = event.type == SDL_EVENT_KEY_DOWN;
 			}
 		}
 	}
