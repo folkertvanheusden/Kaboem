@@ -305,10 +305,10 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 	x = quit_x;
 	{
 		int temp_y = menu_button_height;
-		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "clipping", false, 0));
+		clickables.emplace_back(clickable({ x, temp_y, menu_button_width, half_height }, "clipping", false, 0));
 		temp_y += half_height;
 		*clipping_idx = clickables.size();
-		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "0%", false, 0));
+		clickables.emplace_back(clickable({ x, temp_y, menu_button_width, half_height }, "0%", false, 0));
 		y += menu_button_height;
 	}
 	{
@@ -323,7 +323,7 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 
 	{
 		*scope_idx = clickables.size();
-		clickables.emplace_back(clickable({ int(menu_button_width * 4.1), 4 * menu_button_height, int(menu_button_width * 1.8), menu_button_height * 2 }, "0%", true, 0));
+		clickables.emplace_back(clickable({ int(menu_button_width * 4.1), 4 * menu_button_height, int(menu_button_width * 1.8), menu_button_height * 2 }, "", true, 0));
 	}
 
 	{
