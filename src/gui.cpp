@@ -297,7 +297,7 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 
 	{
 		*midi_idx         = clickables.size();
-		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "MIDI", false, 0));
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "MIDI", false, 'M'));
 		x += menu_button_width;
 	}
 
