@@ -41,6 +41,12 @@ void clickable::draw(TTF_Font *const font_big, TTF_Font *const font_small, SDL_R
 
 	if (text.empty() == false)
 		draw_text(font_big, screen, x1, y1, text, { { where.w, where.h } });
+
+	if (key) {
+		std::string key_str = key < 27 ? std::string("^") + char(key + 'a' - 1) : std::string(1, key);
+		SDL_SetRenderDrawColor(screen, (color[0] + 40) / 2, (color[1] + 40) / 2, (color[2] + 40) / 2, 255);
+		draw_text(font_small, screen, x1, y1, key_str, { { where.w, where.h } }, false, text_alignment::left, text_alignment::bottom);
+	}
 }
 
 bool clickable::is_triggered(const SDL_Event & in) const

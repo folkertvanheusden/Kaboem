@@ -327,6 +327,7 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 	}
 
 	{
+		*record_time_idx = clickables.size();
 		clickables.emplace_back(clickable({ int(menu_button_width * 4.1), 6 * menu_button_height, int(menu_button_width * 1.8), half_height }, "", true, 0));
 	}
 
