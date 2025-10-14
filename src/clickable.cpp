@@ -60,5 +60,8 @@ bool clickable::is_triggered(const SDL_Event & in) const
 			y < where.y + where.h;
         }
 
+	if (in.type == SDL_EVENT_KEY_UP)
+		return SDL_GetKeyFromScancode(in.key.scancode, in.key.mod, false) == unsigned(key);
+
         return false;
 }

@@ -233,33 +233,33 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 	int y = 0;
 	{
 		*pause_idx = clickables.size();
-		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "pause", false, 0));
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "pause", false, 'p'));
 		x += menu_button_width;
 	}
 	{
 		*pattern_load_idx = clickables.size();
-		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "load", false, 0));
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "load", false, 'l'));
 		x += menu_button_width;
 	}
 	{
 		*record_idx  = clickables.size();
-		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "record", false, 0));
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "record", false, 'r'));
 		x += menu_button_width;
 	}
 	{
 		*save_idx  = clickables.size();
-		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "save", false, 0));
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "save", false, 's'));
 		x += menu_button_width;
 	}
 	{
 		*clear_idx  = clickables.size();
-		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "clear", false, 0));
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "clear", false, 'c'));
 		x += menu_button_width;
 	}
 	int quit_x = x;
 	{
 		*quit_idx  = clickables.size();
-		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "quit", false, 0));
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "quit", false, 'q'));
 		x += menu_button_width;
 	}
 
@@ -285,13 +285,13 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 	x = 0;
 	{
 		*polyrythmic_idx = clickables.size();
-		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "polyryth.", false, 0));
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "polyryth.", false, 'P'));
 		x += menu_button_width;
 	}
 
 	{
 		*agc_idx         = clickables.size();
-		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "AGC", false, 0));
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "AGC", false, 'A'));
 		x += menu_button_width;
 	}
 
@@ -927,7 +927,7 @@ bool are_you_sure(TTF_Font *const font_big, TTF_Font *const font_small, SDL_Rend
 	while(!do_exit) {
 		SDL_Event event { };
 		if (SDL_PollEvent(&event)) {
-			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_KEY_DOWN) {
+			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_KEY_UP) {
 				auto button_clicked = find_clickable(clickables, event);
 				if (button_clicked.has_value()) {
 					SDL_SetRenderDrawColor(screen, 40, 60, 40, 255);
@@ -1799,7 +1799,7 @@ int main(int argc, char *argv[])
 			float ignore = 0.;
 			SDL_MouseButtonFlags mouse_button_flags = SDL_GetMouseState(&ignore, &ignore);
 
-			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && (mouse_button_flags & 1) /* left button */) {
+			if ((event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && (mouse_button_flags & 1) /* left button */) || event.type == SDL_EVENT_KEY_UP) {
 				if (mode == m_pattern) {
 					auto menu_clicked = find_clickable(menu_button_clickables, event);
 					if (menu_clicked.has_value()) {
