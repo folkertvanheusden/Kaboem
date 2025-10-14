@@ -19,6 +19,7 @@ add_executable(
   kaboem
   src/agc.cpp
   src/bp-filter.cpp
+  src/clickable.cpp
   src/font.cpp
   src/frequencies.cpp
   src/gui.cpp

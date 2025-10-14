@@ -19,6 +19,7 @@
 #include <SDL3/SDL_render.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
+#include "clickable.h"
 #include "font.h"
 #include "frequencies.h"
 #include "gui.h"
@@ -44,8 +45,6 @@ void sigh(int s)
 {
 	do_exit = true;
 }
-
-enum text_alignment { left = 0, top = 0, right = 1, bottom = 1, center = 2 };
 
 struct fileselector_data {
 	std::mutex  lock;
@@ -106,15 +105,11 @@ bool close_mid_file(sound_parameters *const sound_pars)
 #endif
 }
 
-std::optional<size_t> find_clickable(const std::vector<clickable> & clickables, const int x, const int y)
+std::optional<size_t> find_clickable(const std::vector<clickable> & clickables, const SDL_Event & event)
 {
 	for(size_t i=0; i<clickables.size(); i++) {
-		if (x >= clickables[i].where.x &&
-		    y >= clickables[i].where.y &&
-		    x < clickables[i].where.x + clickables[i].where.w &&
-		    y < clickables[i].where.y + clickables[i].where.h) {
+		if (clickables.at(i).is_triggered(event))
 			return i;
-		}
 	}
 	return { };
 }
@@ -130,10 +125,7 @@ std::vector<clickable> generate_channel_column(const int w, const int h, const i
 	for(int i=0; i<channel_count; i++) {
 		int x = w - channel_width;
 		int y = i * channel_height + h_offset;
-		clickable c { };
-		c.where    = { x, y, channel_width, channel_height };
-		c.selected = false;
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, channel_width, channel_height }, "", false, 0));
 	}
 
 	return clickables;
@@ -145,14 +137,9 @@ std::vector<clickable> generate_menu_button(const int w, const int h)
 	int menu_button_height = h * 10 / 100;
 
 	std::vector<clickable> clickables;
-
 	int x = w - menu_button_width;
 	int y = 0;
-	clickable c { };
-	c.where    = { x, y, menu_button_width, menu_button_height };
-	c.selected = false;
-	c.text     = "menu";
-	clickables.push_back(c);
+	clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "menu", false, 'm'));
 
 	return clickables;
 }
@@ -178,44 +165,35 @@ std::vector<clickable> generate_up_down_widget(const int w, const int h, int x, 
 
 	std::vector<clickable> clickables;
 
-	y += menu_button_height;  // FIXME
-	clickable cbpm { };
-	cbpm.where    = { x, y, menu_button_width, menu_button_height / 3 };
-	cbpm.text     = name;
-	clickables.push_back(cbpm);
+	y += menu_button_height;
+	clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height / 3 }, name, false, 0));
+
 	y += menu_button_height / 3;
-	cbpm.where    = { x, y, menu_button_width, menu_button_height / 3 };
-	cbpm.text     = "↑";
-	pars->up      = clickables.size() + click_offset;
-	clickables.push_back(cbpm);
+	pars->up = clickables.size() + click_offset;
+	clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height / 3 }, "↑", false, 0));
+
 	y += menu_button_height / 3;
 	if (step10) {
-		cbpm.where    = { x, y, menu_button_width, menu_button_height / 3 };
-		cbpm.text     = "↑↑↑";
-		pars->up_10   = clickables.size() + click_offset;
-		clickables.push_back(cbpm);
+		pars->up_10 = clickables.size() + click_offset;
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height / 3 }, "↑↑↑", false, 0));
 	}
 	else {
-		pars->up_10   = size_t(-1);
+		pars->up_10 = size_t(-1);
 	}
 	y += menu_button_height / 3;
-	pars->x       = x;
-	pars->y       = y;
+	pars->x  = x;
+	pars->y  = y;
 	y += menu_button_height / 3;
 	if (step10) {
-		cbpm.where    = { x, y, menu_button_width, menu_button_height / 3 };
-		cbpm.text     = "↓↓↓";
 		pars->down_10 = clickables.size() + click_offset;
-		clickables.push_back(cbpm);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height / 3 }, "↓↓↓", false, 0));
 	}
 	else {
 		pars->down_10 = size_t(-1);
 	}
 	y += menu_button_height / 3;
-	cbpm.where    = { x, y, menu_button_width, menu_button_height / 3 };
-	cbpm.text     = "↓";
-	pars->down    = clickables.size() + click_offset;
-	clickables.push_back(cbpm);
+	pars->down = clickables.size() + click_offset;
+	clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height / 3 }, "↓", false, 0));
 	y += menu_button_height / 3;
 
 	return clickables;
@@ -254,52 +232,34 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 	int x = 0;
 	int y = 0;
 	{
-		clickable c { };
-		c.where    = { x, y, menu_button_width, menu_button_height };
-		c.text     = "pause";
 		*pause_idx = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "pause", false, 0));
 		x += menu_button_width;
 	}
 	{
-		clickable c { };
-		c.where    = { x, y, menu_button_width, menu_button_height };
-		c.text     = "load";
-		*pattern_load_idx  = clickables.size();
-		clickables.push_back(c);
+		*pattern_load_idx = clickables.size();
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "load", false, 0));
 		x += menu_button_width;
 	}
 	{
-		clickable c { };
-		c.where    = { x, y, menu_button_width, menu_button_height };
-		c.text     = "record";
 		*record_idx  = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "record", false, 0));
 		x += menu_button_width;
 	}
 	{
-		clickable c { };
-		c.where    = { x, y, menu_button_width, menu_button_height };
-		c.text     = "save";
 		*save_idx  = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "save", false, 0));
 		x += menu_button_width;
 	}
 	{
-		clickable c { };
-		c.where    = { x, y, menu_button_width, menu_button_height };
-		c.text     = "clear";
 		*clear_idx  = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "clear", false, 0));
 		x += menu_button_width;
 	}
 	int quit_x = x;
 	{
-		clickable c { };
-		c.where    = { x, y, menu_button_width, menu_button_height };
-		c.text     = "quit";
 		*quit_idx  = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "quit", false, 0));
 		x += menu_button_width;
 	}
 
@@ -324,29 +284,20 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 
 	x = 0;
 	{
-		clickable c { };
-		c.where          = { x, y, menu_button_width, menu_button_height };
-		c.text           = "polyryth.";
 		*polyrythmic_idx = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "polyryth.", false, 0));
 		x += menu_button_width;
 	}
 
 	{
-		clickable c { };
-		c.where          = { x, y, menu_button_width, menu_button_height };
-		c.text           = "AGC";
 		*agc_idx         = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "AGC", false, 0));
 		x += menu_button_width;
 	}
 
 	{
-		clickable c { };
-		c.where          = { x, y, menu_button_width, menu_button_height };
-		c.text           = "MIDI";
 		*midi_idx         = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "MIDI", false, 0));
 		x += menu_button_width;
 	}
 
@@ -354,48 +305,29 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 	x = quit_x;
 	{
 		int temp_y = menu_button_height;
-		clickable c1 { };
-		c1.where          = { x, temp_y, menu_button_width, half_height};
-		c1.text           = "clipping";
-		clickables.push_back(c1);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "clipping", false, 0));
 		temp_y += half_height;
-		clickable c2 { };
-		c2.where          = { x, temp_y, menu_button_width, half_height};
-		c2.text           = "0%";
 		*clipping_idx = clickables.size();
-		clickables.push_back(c2);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "0%", false, 0));
 		y += menu_button_height;
 	}
 	{
 		int temp_y = menu_button_height * 2;
-		clickable c1 { };
-		c1.where          = { x, temp_y, menu_button_width, half_height};
-		c1.text           = "busyness";
-		clickables.push_back(c1);
+		clickables.emplace_back(clickable({ x, temp_y, menu_button_width, half_height }, "busyness", false, 0));
 		temp_y += half_height;
-		clickable c2 { };
-		c2.where          = { x, temp_y, menu_button_width, half_height};
-		c2.text           = "0%";
 		*busyness_idx = clickables.size();
-		clickables.push_back(c2);
+		clickables.emplace_back(clickable({ x, temp_y, menu_button_width, half_height }, "0%", false, 0));
 		x += menu_button_width;
 		y += menu_button_height;
 	}
 
 	{
-		clickable c { };
-		c.where          = { int(menu_button_width * 4.1), 4 * menu_button_height, int(menu_button_width * 1.8), menu_button_height * 2 };
-		c.without_bg     = true;
 		*scope_idx = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ int(menu_button_width * 4.1), 4 * menu_button_height, int(menu_button_width * 1.8), menu_button_height * 2 }, "0%", true, 0));
 	}
 
 	{
-		clickable c { };
-		c.where          = { int(menu_button_width * 4.1), 6 * menu_button_height, int(menu_button_width * 1.8), half_height };
-		c.without_bg     = true;
-		*record_time_idx = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ int(menu_button_width * 4.1), 6 * menu_button_height, int(menu_button_width * 1.8), half_height }, "", true, 0));
 	}
 
 	return clickables;
@@ -416,37 +348,25 @@ std::vector<clickable> generate_channel_buttons(const int w, const int h,
 	int x = 0;
 	int y = 0;
 	{
-		clickable c { };
-		c.where          = { x, y, menu_button_width, menu_button_height };
-		c.text           = "load";
 		*sample_load_idx = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "load", false, 'l'));
 		x += menu_button_width;
 	}
 	{
-		clickable c { };
-		c.where          = { x, y, menu_button_width, menu_button_height };
-		c.text           = "unload";
 		*sample_unload_idx = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "unload", false, 'u'));
 		x += menu_button_width;
 	}
 	x += menu_button_width;
 	x += menu_button_width;
 	{
-		clickable c { };
-		c.where          = { x, y, menu_button_width, menu_button_height };
-		c.text           = "mute";
 		*mute_idx = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "mute", false, 'M'));
 		x += menu_button_width;
 	}
 	{
-		clickable c { };
-		c.where           = { x, y, menu_button_width, menu_button_height };
-		c.text            = "serial";
 		*serial_notes_idx = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "serial", false, 's'));
 		x += menu_button_width;
 	}
 
@@ -538,10 +458,7 @@ void generate_pattern_grid(const int w, const int h, const int steps, pattern *c
 	for(int i=0; i<steps; i++) {
 		int x = (i % steps_sq) * step_width;
 		int y = (i / steps_sq) * step_height + offset_h;
-		clickable c { };
-		c.where            = { x, y, step_width, step_height };
-		c.selected         = false;
-		p->pattern.at(i)    = c;
+		p->pattern.emplace_back(clickable({ x, y, step_width, step_height }, "", false, 0));
 		p->note_delta.at(i) = 0;
 	}
 }
@@ -556,19 +473,13 @@ std::vector<clickable> generate_pattern_menu(const int w, const int h, size_t *c
 	std::vector<clickable> clickables;
 
 	{
-		clickable c { };
-		c.where      = { x, y, menu_button_width, menu_button_height };
-		c.text       = "pause";
 		*pause_idx   = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "pause", false, 'p'));
 		x += menu_button_width;
 	}
 	{
-		clickable c { };
-		c.where      = { x, y, menu_button_width, menu_button_height };
-		c.text       = "rewind";
 		*restart_idx = clickables.size();
-		clickables.push_back(c);
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "rewind", false, 'r'));
 		x += menu_button_width;
 	}
 
@@ -582,7 +493,6 @@ void regenerate_pattern_grid(const int w, const int h, pattern *const p)
 	int offset_h    = h * 5 / 100;
 
 	int steps_sq    = ceil(sqrt(p->dim));
-	printf("%zu: %d\n", p->dim, steps_sq);
 	int step_width  = pattern_w / steps_sq;
 	int step_height = pattern_h / steps_sq;
 
@@ -591,36 +501,6 @@ void regenerate_pattern_grid(const int w, const int h, pattern *const p)
 		int y = (i / steps_sq) * step_height + offset_h;
 		p->pattern.at(i).where = { x, y, step_width, step_height };
 	}
-}
-
-void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, const int y, const std::string & text, const std::optional<std::pair<int, int> > & in, const bool important = false, const text_alignment h_alignment = text_alignment::center, const text_alignment v_alignment = text_alignment::center)
-{
-	SDL_Surface *surface = nullptr;
-	if (important)
-		surface = TTF_RenderText_Solid(font, text.c_str(), 0, { 255, 192, 192, 255 });
-	else
-		surface = TTF_RenderText_Solid(font, text.c_str(), 0, { 192, 255, 192, 255 });
-	assert(surface);
-
-	SDL_Texture *texture = SDL_CreateTextureFromSurface(screen, surface);
-	assert(texture);
-
-	SDL_FRect dest { float(x), float(y), float(surface->w), float(surface->h) };
-	if (in.has_value()) {
-		if (h_alignment == text_alignment::center)
-			dest.x = x + in.value().first / 2 - surface->w / 2;
-		else if (h_alignment == text_alignment::right)
-			dest.x = x + in.value().first - surface->w;
-
-		if (v_alignment == text_alignment::center)
-			dest.y = y + in.value().second / 2 - surface->h / 2;
-		else if (v_alignment == text_alignment::bottom)
-			dest.y = y + in.value().second - surface->h;
-	}
-	SDL_RenderTexture(screen, texture, nullptr, &dest);
-
-	SDL_DestroyTexture(texture);
-	SDL_DestroySurface(surface);
 }
 
 void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::vector<float> & scope)
@@ -642,7 +522,8 @@ void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::v
 }
 
 // hl_index: high light index
-void draw_clickables(TTF_Font *const font, SDL_Renderer *const screen, const std::vector<clickable> & clickables, const std::optional<std::pair<size_t, uint64_t> > & hl_index, const std::optional<size_t> play_index, const ssize_t draw_limit = -1)
+void draw_clickables(TTF_Font *const font_big, TTF_Font *const font_small, SDL_Renderer *const screen, const std::vector<clickable> & clickables,
+		const std::optional<std::pair<size_t, uint64_t> > & hl_index, const std::optional<size_t> play_index, const ssize_t draw_limit = -1)
 {
 	size_t   draw_n        = draw_limit == -1 ? clickables.size() : draw_limit;
 	uint64_t now           = get_ms();
@@ -667,22 +548,11 @@ void draw_clickables(TTF_Font *const font, SDL_Renderer *const screen, const std
 			else
 				color = { 40, 100, sub_color };
 		}
-		float                  x1 = clickables[i].where.x;
-		float                  y1 = clickables[i].where.y;
-		SDL_FRect              r    { x1, y1, float(clickables[i].where.w), float(clickables[i].where.h) };
-		if (clickables[i].without_bg == false) {
-			SDL_SetRenderDrawColor(screen, color[0], color[1], color[2], 255);
-			SDL_RenderFillRect(screen, &r);
-		}
-		SDL_SetRenderDrawColor(screen, 40, 40, 40, 191);
-		SDL_RenderRect(screen, &r);
-
-		if (clickables[i].text.empty() == false)
-			draw_text(font, screen, x1, y1, clickables[i].text, { { clickables[i].where.w, clickables[i].where.h } });
+		clickables[i].draw(font_big, font_small, screen, color);
 	}
 }
 
-std::optional<size_t> select_from_list(TTF_Font *const font, SDL_Renderer *const screen, const int w, const int h, const unsigned font_height, const std::vector<std::pair<std::string, void *> > & list)
+std::optional<size_t> select_from_list(TTF_Font *const font, TTF_Font *const font_small, SDL_Renderer *const screen, const int w, const int h, const unsigned font_height, const std::vector<std::pair<std::string, void *> > & list)
 {
 	if (list.empty())
 		return { };
@@ -763,7 +633,7 @@ std::optional<size_t> select_from_list(TTF_Font *const font, SDL_Renderer *const
 			for(ssize_t i=0; i<cur_n_rows; i++)
 				draw_text(font, screen, item_base_x, item_base_y + i * item_h, list.at(i + list_offset).first, { { item_w, item_h } }, i == 0, text_alignment::left, text_alignment::top);
 
-			draw_clickables(font, screen, clickables, { }, { });
+			draw_clickables(font, font_small, screen, clickables, { }, { });
 
 			SDL_RenderPresent(screen);
 		}
@@ -771,7 +641,7 @@ std::optional<size_t> select_from_list(TTF_Font *const font, SDL_Renderer *const
 		SDL_Event event { };
 		if (SDL_WaitEvent(&event)) {
 			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-				auto   button_clicked = find_clickable(clickables, event.button.x, event.button.y);
+				auto   button_clicked = find_clickable(clickables, event);
 				if (button_clicked.has_value()) {
 					size_t idx            = button_clicked.value();
 					if (idx == button_ok)
@@ -1021,7 +891,7 @@ void do_error_message(TTF_Font *const font, SDL_Renderer *const screen, int win_
 	SDL_RenderPresent(screen);
 }
 
-bool are_you_sure(TTF_Font *const font, SDL_Renderer *const screen, int win_width, int win_height, const int font_height, const std::string & question)
+bool are_you_sure(TTF_Font *const font_big, TTF_Font *const font_small, SDL_Renderer *const screen, int win_width, int win_height, const int font_height, const std::string & question)
 {
 	int dim_w              = win_width / 6;
 	int dim_h              = win_height / 6;
@@ -1043,27 +913,21 @@ bool are_you_sure(TTF_Font *const font, SDL_Renderer *const screen, int win_widt
 	int  y2                = scr_half_h;
 
         std::vector<clickable> clickables;
-	clickable c1 { };
-	c1.where = { x1 - menu_button_width / 2, y1, menu_button_width, menu_button_height };
-	c1.text  = "Yes";
-	clickables.push_back(c1);
-	clickable c2 { };
-	c2.where = { x2 - menu_button_width / 2, y2, menu_button_width, menu_button_height };
-	c2.text  = "No";
-	clickables.push_back(c2);
+	clickables.emplace_back(clickable({ x1 - menu_button_width / 2, y1, menu_button_width, menu_button_height }, "Yes", false, 'y'));
+	clickables.emplace_back(clickable({ x2 - menu_button_width / 2, y2, menu_button_width, menu_button_height }, "No",  false, 'n'));
 
-	draw_clickables(font, screen, clickables, { }, { });
+	draw_clickables(font_big, font_small, screen, clickables, { }, { });
 
 	SDL_SetRenderDrawColor(screen, 255, 40, 40, 255);
-	draw_text(font, screen, 0, scr_half_h - font_height * 2, question,        { { win_width, font_height } }, true);
-	draw_text(font, screen, 0, scr_half_h - font_height,     "Are you sure?", { { win_width, font_height } }, true);
+	draw_text(font_big, screen, 0, scr_half_h - font_height * 2, question,        { { win_width, font_height } }, true);
+	draw_text(font_big, screen, 0, scr_half_h - font_height,     "Are you sure?", { { win_width, font_height } }, true);
 	SDL_RenderPresent(screen);
 
 	while(!do_exit) {
 		SDL_Event event { };
 		if (SDL_PollEvent(&event)) {
 			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_KEY_DOWN) {
-				auto button_clicked = find_clickable(clickables, event.button.x, event.button.y);
+				auto button_clicked = find_clickable(clickables, event);
 				if (button_clicked.has_value()) {
 					SDL_SetRenderDrawColor(screen, 40, 60, 40, 255);
 					SDL_RenderClear(screen);
@@ -1198,7 +1062,7 @@ void set_max_scheduling_priority(std::thread & target)
 		printf("Failed to set scheduling parameters for thread: %s\n", strerror(errno));
 }
 
-std::optional<sample> chose_and_load_sf2_sample(TTF_Font *const font, SDL_Renderer *const screen, const int w, const int h, const unsigned font_height, sound_parameters *const sound_pars, const std::string & file_name)
+std::optional<sample> chose_and_load_sf2_sample(TTF_Font *const font, TTF_Font *const font_small, SDL_Renderer *const screen, const int w, const int h, const unsigned font_height, sound_parameters *const sound_pars, const std::string & file_name)
 {
 	std::map<uint16_t, sample_set_t> sample_set = load_sf2(file_name, false);
 	if (sample_set.empty()) {
@@ -1213,7 +1077,7 @@ std::optional<sample> chose_and_load_sf2_sample(TTF_Font *const font, SDL_Render
 			sample_names.push_back({ sample.file_name, &sample });
 	}
 
-	std::optional<size_t> chosen = select_from_list(font, screen, w, h, font_height, sample_names);
+	std::optional<size_t> chosen = select_from_list(font, font_small, screen, w, h, font_height, sample_names);
 	if (chosen.has_value() == false)
 		return { };
 
@@ -1351,6 +1215,10 @@ int main(int argc, char *argv[])
 	if (font == nullptr)
 		font = load_font({ "Free Sans", "Arial", "Ubuntu Sans Regular", "DejaVu Sans" }, font_height, false);
 	assert(font);
+	TTF_Font *font_small  = load_font_by_filenames({ "Arial.ttf", "FreeSans.ttf", "DejaVuSans.ttf" }, font_height, false);
+	if (font_small == nullptr)
+		font_small = load_font({ "Free Sans", "Arial", "Ubuntu Sans Regular", "DejaVu Sans" }, font_height / 2, false);
+	assert(font_small);
 
 	bool redraw = true;
 	int  steps  = 16;
@@ -1649,7 +1517,7 @@ int main(int argc, char *argv[])
 
 					std::optional<sample> choice;
 					if (ext == ".sf2")
-						choice = chose_and_load_sf2_sample(font, screen, win_width, win_height, font_height, &sound_pars, fs_data.file);
+						choice = chose_and_load_sf2_sample(font, font_small, screen, win_width, win_height, font_height, &sound_pars, fs_data.file);
 					else {
 						auto rc = load_sample(fs_data.file);
 						if (rc.first.has_value()) {
@@ -1702,7 +1570,7 @@ int main(int argc, char *argv[])
 			}
 			else if (fs_action == fs_load_midi_sample) {
 				if (fs_data.finished) {
-					auto rc = chose_and_load_sf2_sample(font, screen, win_width, win_height, font_height, &sound_pars, fs_data.file);
+					auto rc = chose_and_load_sf2_sample(font, font_small, screen, win_width, win_height, font_height, &sound_pars, fs_data.file);
 
 					if (rc.has_value()) {
 						std::unique_lock<std::mutex> lck(sound_pars.midi_sample_lock);
@@ -1747,18 +1615,18 @@ int main(int argc, char *argv[])
 
 			int font_height = win_height * 2 / 100;
 
-			draw_clickables(font, screen, menu_button_clickables, { }, { });
+			draw_clickables(font, font_small, screen, menu_button_clickables, { }, { });
 
 			if (mode == m_pattern) {
 				std::optional<std::pair<size_t, uint64_t> > click_state;
 				if (pat_clickable_selected.has_value())
 					click_state = { pat_clickable_selected.value(), pat_clickable_pressed_since };
 
-				draw_clickables(font, screen, pattern_menu, { }, { });
+				draw_clickables(font, font_small, screen, pattern_menu, { }, { });
 
 				std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-				draw_clickables(font, screen, pat_clickables[pattern_group].pattern, click_state, pat_index, pat_clickables[pattern_group].dim);
-				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
+				draw_clickables(font, font_small, screen, pat_clickables[pattern_group].pattern, click_state, pat_index, pat_clickables[pattern_group].dim);
+				draw_clickables(font, font_small, screen, channel_clickables, { }, pattern_group);
 
 				int pattern_width = win_width * 85 / 100;
 				int text_height   = win_height * 5 / 100;
@@ -1774,8 +1642,8 @@ int main(int argc, char *argv[])
 				if (menu_status.empty())
 					menu_status = PROG_NAME " " KABOEM_VERSION;
 				draw_text(font, screen, 0, 0, menu_status, { { win_width, win_height } }, false, text_alignment::left, text_alignment::bottom);
-				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
-				draw_clickables(font, screen, settings_menu_buttons, { }, { });
+				draw_clickables(font, font_small, screen, channel_clickables, { }, pattern_group);
+				draw_clickables(font, font_small, screen, settings_menu_buttons, { }, { });
 				draw_text(font, screen, bpm_widget.x, bpm_widget.y, std::to_string(bpm), { { bpm_widget.text_w, bpm_widget.text_h } });
 				draw_text(font, screen, vol_widget.x, vol_widget.y, std::to_string(vol), { { vol_widget.text_w, vol_widget.text_h } });
 				draw_text(font, screen, sound_saturation_widget.x, sound_saturation_widget.y, std::to_string(sound_saturation), { { sound_saturation_widget.text_w, sound_saturation_widget.text_h } });
@@ -1838,8 +1706,8 @@ int main(int argc, char *argv[])
 
 				if (name.empty() == false)
 					draw_text(font, screen, 0, win_height - font_height * 5, get_filename(name), { { win_width, font_height } });
-				draw_clickables(font, screen, channel_clickables, { }, pattern_group);
-				draw_clickables(font, screen, channel_buttons_clickables, { }, { });
+				draw_clickables(font, font_small, screen, channel_clickables, { }, pattern_group);
+				draw_clickables(font, font_small, screen, channel_buttons_clickables, { }, { });
 				draw_text(font, screen, sample_vol_widget_left.x,  sample_vol_widget_left.y,  std::to_string(vol_left),
 					{ { sample_vol_widget_left.text_w,  sample_vol_widget_left.text_h } });
 				draw_text(font, screen, sample_vol_widget_right.x, sample_vol_widget_right.y, std::to_string(vol_right),
@@ -1875,7 +1743,7 @@ int main(int argc, char *argv[])
 				std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 				auto & pattern = pat_clickables[pattern_group];
 
-				draw_clickables(font, screen, cell_menu_buttons, { }, { });
+				draw_clickables(font, font_small, screen, cell_menu_buttons, { }, { });
 				draw_text(font, screen, pitch_widget.x, pitch_widget.y, pattern.pattern[selected_cell].text,
 					{ { pitch_widget.text_w, pitch_widget.text_h } });
 				draw_text(font, screen, cell_volume_left_widget.x, cell_volume_left_widget.y, std::to_string(pattern.volume_left[selected_cell]),
@@ -1905,8 +1773,8 @@ int main(int argc, char *argv[])
 				draw_text(font, screen, midi_volume_right_widget.x, midi_volume_right_widget.y, std::to_string(midi_volume_right),
 					{ { midi_volume_right_widget.text_w, midi_volume_right_widget.text_h } });
 
-				draw_clickables(font, screen, menu_button_clickables, { }, { });
-				draw_clickables(font, screen, midi_menu_buttons,      { }, { });
+				draw_clickables(font, font_small, screen, menu_button_clickables, { }, { });
+				draw_clickables(font, font_small, screen, midi_menu_buttons,      { }, { });
 			}
 			else {
 				fprintf(stderr, "Internal error: %d\n", mode);
@@ -1932,7 +1800,7 @@ int main(int argc, char *argv[])
 
 			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && (mouse_button_flags & 1) /* left button */) {
 				if (mode == m_pattern) {
-					auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
+					auto menu_clicked = find_clickable(menu_button_clickables, event);
 					if (menu_clicked.has_value()) {
 						if (mode == m_pattern)
 							mode = m_settings;
@@ -1942,8 +1810,8 @@ int main(int argc, char *argv[])
 							mode = m_pattern;
 					}
 					else {
-						auto p_menu_clicked = find_clickable(pattern_menu, event.button.x, event.button.y);
-						auto new_group      = find_clickable(channel_clickables, event.button.x, event.button.y);
+						auto p_menu_clicked = find_clickable(pattern_menu,       event);
+						auto new_group      = find_clickable(channel_clickables, event);
 						if (new_group.has_value()) {
 							channel_clickables[pattern_group].selected = false;
 							pattern_group = new_group.value();
@@ -1963,7 +1831,7 @@ int main(int argc, char *argv[])
 						}
 						else {
 							std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-							pat_clickable_selected = find_clickable(pat_clickables[pattern_group].pattern, event.button.x, event.button.y);
+							pat_clickable_selected = find_clickable(pat_clickables[pattern_group].pattern, event);
 							if (pat_clickable_selected.has_value())
 								pat_clickable_pressed_since = get_ms();
 						}
@@ -1971,9 +1839,9 @@ int main(int argc, char *argv[])
 				}
 				else if (mode == m_settings) {
 					menu_status.clear();
-					auto menu_clicked   = find_clickable(menu_button_clickables, event.button.x, event.button.y);
-					auto sample_clicked = find_clickable(channel_clickables,     event.button.x, event.button.y);
-					auto menus_clicked  = find_clickable(settings_menu_buttons,  event.button.x, event.button.y);
+					auto menu_clicked   = find_clickable(menu_button_clickables, event);
+					auto sample_clicked = find_clickable(channel_clickables,     event);
+					auto menus_clicked  = find_clickable(settings_menu_buttons,  event);
 					if (menu_clicked.has_value()) {
 						if (mode == m_pattern)
 							mode = m_settings;
@@ -1983,7 +1851,7 @@ int main(int argc, char *argv[])
 					else if (menus_clicked.has_value()) {
 						size_t idx = menus_clicked.value();
 						if (idx == clear_idx) {
-							bool choice = are_you_sure(font, screen, win_width, win_height, font_height, "Clear everything");
+							bool choice = are_you_sure(font, font_small, screen, win_width, win_height, font_height, "Clear everything");
 							if (choice) {
 								draw_please_wait(font, screen, win_width, win_height);
 								clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, work_path,
@@ -1994,7 +1862,7 @@ int main(int argc, char *argv[])
 							redraw = true;
 						}
 						else if (idx == pattern_load_idx) {
-							if (kaboem_file.empty() || are_you_sure(font, screen, win_width, win_height, font_height, "Load")) {
+							if (kaboem_file.empty() || are_you_sure(font, font_small, screen, win_width, win_height, font_height, "Load")) {
 								fs_data.finished = false;
 								fs_action        = fs_load;
 								SDL_ShowOpenFileDialog(fs_callback, &fs_data, win, sf_filters, 1, work_path.c_str(), false);
@@ -2009,7 +1877,7 @@ int main(int argc, char *argv[])
 							mode = m_midi;
 						}
 						else if (idx == quit_idx) {
-							if (are_you_sure(font, screen, win_width, win_height, font_height, "Quit"))
+							if (are_you_sure(font, font_small, screen, win_width, win_height, font_height, "Quit"))
 								do_exit = true;
 						}
 						else if (set_up_down_value(idx, humanize_widget, 0, 1000, &humanize_amount, shift)) {
@@ -2084,9 +1952,9 @@ int main(int argc, char *argv[])
 					}
 				}
 				else if (mode == m_sample) {
-					auto menu_clicked   = find_clickable(menu_button_clickables,     event.button.x, event.button.y);
-					auto sample_clicked = find_clickable(channel_clickables,         event.button.x, event.button.y);
-					auto menus_clicked  = find_clickable(channel_buttons_clickables, event.button.x, event.button.y);
+					auto menu_clicked   = find_clickable(menu_button_clickables,     event);
+					auto sample_clicked = find_clickable(channel_clickables,         event);
+					auto menus_clicked  = find_clickable(channel_buttons_clickables, event);
 					if (menu_clicked.has_value()) {
 						mode = m_settings;
 						channel_clickables[fs_action_sample_index].selected = false;
@@ -2200,8 +2068,8 @@ int main(int argc, char *argv[])
 					}
 				}
 				else if (mode == m_cell) {
-					auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
-					auto idx          = find_clickable(cell_menu_buttons, event.button.x, event.button.y);
+					auto menu_clicked = find_clickable(menu_button_clickables, event);
+					auto idx          = find_clickable(cell_menu_buttons,      event);
 					if (menu_clicked.has_value())
 						mode = m_pattern;
 					else if (idx.has_value()) {
@@ -2225,8 +2093,8 @@ int main(int argc, char *argv[])
 					}
 				}
 				else if (mode == m_midi) {
-					auto menu_clicked = find_clickable(menu_button_clickables, event.button.x, event.button.y);
-					auto midi_clicked = find_clickable(midi_menu_buttons,      event.button.x, event.button.y);
+					auto menu_clicked = find_clickable(menu_button_clickables, event);
+					auto midi_clicked = find_clickable(midi_menu_buttons,      event);
 					if (menu_clicked.has_value())
 						mode = m_settings;
 					else if (midi_clicked.has_value()) {
@@ -2256,7 +2124,7 @@ int main(int argc, char *argv[])
 			else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && (mouse_button_flags & 4) /* right button */) {
 				std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 
-				pat_clickable_selected = find_clickable(pat_clickables[pattern_group].pattern, event.button.x, event.button.y);
+				pat_clickable_selected = find_clickable(pat_clickables[pattern_group].pattern, event);
 				if (pat_clickable_selected.has_value()) {
 					mode          = m_cell;
 					selected_cell = pat_clickable_selected.value();
@@ -2296,6 +2164,7 @@ int main(int argc, char *argv[])
 					ctrl = true;
 				}
 				else if (event.key.scancode == SDL_SCANCODE_UP || event.key.scancode == SDL_SCANCODE_DOWN) {
+#if 0  // TODO
 					std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
 					auto & pattern   = pat_clickables[pattern_group];
 					float  mouse_x   = -1;
@@ -2315,6 +2184,7 @@ int main(int argc, char *argv[])
 							pattern.pattern[idx.value()].text = midi_note_to_name(s->get_base_midi_note() + pattern.note_delta[idx.value()]);
 						redraw = true;
 					}
+#endif
 				}
 			}
 			else if (event.type == SDL_EVENT_KEY_UP) {
@@ -2324,6 +2194,7 @@ int main(int argc, char *argv[])
 					ctrl = false;
 			}
 			else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+#if 0  // TODO
 				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
 				auto & pattern = pat_clickables[pattern_group];
 				auto   idx     = find_clickable(pat_clickables[pattern_group].pattern, event.wheel.mouse_x, event.wheel.mouse_y);
@@ -2345,6 +2216,7 @@ int main(int argc, char *argv[])
 
 					redraw = true;
 				}
+#endif
 			}
 		}
 	}
