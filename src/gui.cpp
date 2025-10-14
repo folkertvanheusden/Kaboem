@@ -125,7 +125,7 @@ std::vector<clickable> generate_channel_column(const int w, const int h, const i
 	for(int i=0; i<channel_count; i++) {
 		int x = w - channel_width;
 		int y = i * channel_height + h_offset;
-		clickables.emplace_back(clickable({ x, y, channel_width, channel_height }, "", false, 0));
+		clickables.emplace_back(clickable({ x, y, channel_width, channel_height }, "", false, '1' + i));
 	}
 
 	return clickables;
