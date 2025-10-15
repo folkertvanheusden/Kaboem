@@ -449,7 +449,9 @@ void generate_pattern_grid(const int w, const int h, const int steps, pattern *c
 
 	p->pattern   .resize(max_pattern_dim);
 	p->note_delta.resize(max_pattern_dim);
-	p->dim = steps;
+	p->dim  = steps;
+	p->wdim = steps_sq;
+	p->hdim = ceil(steps / double(steps_sq));
 
 	for(size_t i=0; i<max_pattern_dim; i++) {
 		p->volume_left .push_back(1.);
@@ -524,7 +526,8 @@ void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::v
 
 // hl_index: high light index
 void draw_clickables(TTF_Font *const font_big, TTF_Font *const font_small, SDL_Renderer *const screen, const std::vector<clickable> & clickables,
-		const std::optional<std::pair<size_t, uint64_t> > & hl_index, const std::optional<size_t> play_index, const ssize_t draw_limit = -1)
+		const std::optional<std::pair<size_t, uint64_t> > & hl_index, const std::optional<size_t> play_index, const ssize_t draw_limit = -1,
+		const std::optional<size_t> & cursor = { })
 {
 	size_t   draw_n        = draw_limit == -1 ? clickables.size() : draw_limit;
 	uint64_t now           = get_ms();
@@ -550,6 +553,13 @@ void draw_clickables(TTF_Font *const font_big, TTF_Font *const font_small, SDL_R
 				color = { 40, 100, sub_color };
 		}
 		clickables[i].draw(font_big, font_small, screen, color);
+	}
+
+	if (cursor.has_value()) {
+		const SDL_Rect & where = clickables[cursor.value()].where;
+		SDL_FRect        r     = { float(where.x + where.w / 4.), float(where.y + where.h / 4.), float(where.w / 2.), float(where.h / 2.) };
+                SDL_SetRenderDrawColor(screen, 0, 0, 255, 255);
+                SDL_RenderRect(screen, &r);
 	}
 }
 
@@ -1626,7 +1636,13 @@ int main(int argc, char *argv[])
 				draw_clickables(font, font_small, screen, pattern_menu, { }, { });
 
 				std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-				draw_clickables(font, font_small, screen, pat_clickables[pattern_group].pattern, click_state, pat_index, pat_clickables[pattern_group].dim);
+				if (pat_clickables[pattern_group].cursor.has_value()) {
+					size_t cursor_idx = pat_clickables[pattern_group].cursor.value().second * pat_clickables[pattern_group].wdim + pat_clickables[pattern_group].cursor.value().first;
+					draw_clickables(font, font_small, screen, pat_clickables[pattern_group].pattern, click_state, pat_index, pat_clickables[pattern_group].dim, cursor_idx);
+				}
+				else {
+					draw_clickables(font, font_small, screen, pat_clickables[pattern_group].pattern, click_state, pat_index, pat_clickables[pattern_group].dim);
+				}
 				draw_clickables(font, font_small, screen, channel_clickables, { }, pattern_group);
 
 				int pattern_width = win_width * 85 / 100;
@@ -2154,10 +2170,86 @@ int main(int argc, char *argv[])
 			else if (event.type == SDL_EVENT_KEY_DOWN) {
 				if (event.key.scancode == SDL_SCANCODE_SPACE) {
 					std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
-					pat_clickables[pattern_group].pattern[pat_index].selected = !pat_clickables[pattern_group].pattern[pat_index].selected;
+					pattern & p = pat_clickables[pattern_group];
+					if (p.cursor.has_value()) {
+						size_t cursor_idx = p.cursor.value().second * p.wdim + p.cursor.value().first;
+						p.pattern[cursor_idx].selected = !p.pattern[cursor_idx].selected;
+					}
+					else {
+						p.pattern[pat_index].selected = !p.pattern[pat_index].selected;
+					}
+
 					redraw        = true;
 					force_trigger = true;
 				}
+				else if (event.key.scancode == SDL_SCANCODE_LEFT) {
+					pattern & p = pat_clickables[pattern_group];
+					if (p.cursor.has_value() == false)
+						p.cursor = { 0, 0 };
+					else if (p.cursor.value().first == 0) {
+						if (p.cursor.value().second) {
+							p.cursor.value().second--;
+							p.cursor.value().first = p.wdim - 1;
+						}
+						else {
+							p.cursor.value().second = p.hdim - 1;
+
+							auto h_index = p.cursor.value().second * p.wdim;
+							if (h_index + p.cursor.value().first >= p.dim)
+								p.cursor.value().first = p.dim - h_index - 1;
+							else
+								p.cursor.value().first = p.wdim - 1;
+						}
+					}
+					else {
+						p.cursor.value().first--;
+					}
+				}
+				else if (event.key.scancode == SDL_SCANCODE_RIGHT) {
+					pattern & p = pat_clickables[pattern_group];
+					if (p.cursor.has_value() == false)
+						p.cursor = { 0, 0 };
+					else if (p.cursor.value().first == int(p.wdim - 1)) {
+						if (p.cursor.value().second < int(p.hdim - 1)) {
+							p.cursor.value().second++;
+							p.cursor.value().first = 0;
+						}
+						else {
+							p.cursor.value().second = 0;
+							p.cursor.value().first = 0;
+						}
+					}
+					else {
+						p.cursor.value().first++;
+					}
+				}
+				else if (event.key.scancode == SDL_SCANCODE_UP) {
+					pattern & p = pat_clickables[pattern_group];
+					if (p.cursor.has_value() == false)
+						p.cursor = { 0, 0 };
+					else if (p.cursor.value().second == 0) {
+						p.cursor.value().second = p.hdim - 1;
+
+						auto h_index = p.cursor.value().second * p.wdim;
+						if (h_index + p.cursor.value().first >= p.dim)
+							p.cursor.value().first = p.dim - h_index - 1;
+						else
+							p.cursor.value().first = p.wdim - 1;
+					}
+					else {
+						p.cursor.value().second--;
+					}
+				}
+				else if (event.key.scancode == SDL_SCANCODE_DOWN) {
+					pattern & p = pat_clickables[pattern_group];
+					if (p.cursor.has_value() == false)
+						p.cursor = { 0, 0 };
+					else if (p.cursor.value().second == int(p.hdim - 1))
+						p.cursor.value().second = 0;
+					else
+						p.cursor.value().second++;
+				}
+				// TODO cursor up & cursor down
 				else if (event.key.scancode == SDL_SCANCODE_LSHIFT || event.key.scancode == SDL_SCANCODE_RSHIFT) {
 					shift = true;
 				}
