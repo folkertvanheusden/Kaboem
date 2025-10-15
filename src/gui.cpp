@@ -591,41 +591,17 @@ std::optional<size_t> select_from_list(TTF_Font *const font, TTF_Font *const fon
 
 	std::vector<clickable> clickables;
 
-	size_t button_ok = 0;
-	{
-		clickable c { };
-		c.where    = { int(dim_w + 0.05 * menu_button_width), int(h - dim_h - menu_button_height * 1.05), menu_button_width, menu_button_height };
-		c.text     = "OK";
-		button_ok  = clickables.size();
-		clickables.push_back(c);
-	}
+	size_t button_ok = clickables.size();
+	clickables.emplace_back(clickable({ int(dim_w + 0.05 * menu_button_width), int(h - dim_h - menu_button_height * 1.05), menu_button_width, menu_button_height }, "OK", false, 'o'));
 
-	size_t button_cancel = 0;
-	{
-		clickable c { };
-		c.where    = { int(w - dim_w - menu_button_width * 1.05), int(h - dim_h - menu_button_height * 1.05), menu_button_width, menu_button_height };
-		c.text     = "Cancel";
-		button_cancel = clickables.size();
-		clickables.push_back(c);
-	}
+	size_t button_cancel = clickables.size();
+	clickables.emplace_back(clickable({ int(w - dim_w - menu_button_width * 1.05), int(h - dim_h - menu_button_height * 1.05), menu_button_width, menu_button_height }, "Cancel", false, 'c'));
 
-	size_t button_up = 0;
-	{
-		clickable c { };
-		c.where    = { int(w / 2 - menu_button_width / 2), dim_h + border_h, menu_button_width, menu_button_height / 3};
-		c.text     = "↑";
-		button_up  = clickables.size();
-		clickables.push_back(c);
-	}
+	size_t button_up = clickables.size();
+	clickables.emplace_back(clickable({ int(w / 2 - menu_button_width / 2), dim_h + border_h, menu_button_width, menu_button_height / 3}, "↑", false, 'u'));
 
-	size_t button_down = 0;
-	{
-		clickable c { };
-		c.where    = { int(w / 2 - menu_button_width / 2), dim_h * 5 - border_h - menu_button_height, menu_button_width, menu_button_height / 3};
-		c.text     = "↓";
-		button_down= clickables.size();
-		clickables.push_back(c);
-	}
+	size_t button_down = clickables.size();
+	clickables.emplace_back(clickable({ int(w / 2 - menu_button_width / 2), dim_h * 5 - border_h - menu_button_height, menu_button_width, menu_button_height / 3}, "↓", false, 'd'));
 
 	size_t n_rows = (h - dim_h * 2 - menu_button_height / 3 - menu_button_height * 1.05) / font_height;
 	printf("rows shown: %zu\n", n_rows);
@@ -664,10 +640,10 @@ std::optional<size_t> select_from_list(TTF_Font *const font, TTF_Font *const fon
 
 		SDL_Event event { };
 		if (SDL_WaitEvent(&event)) {
-			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-				auto   button_clicked = find_clickable(clickables, event);
+			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN || event.type == SDL_EVENT_KEY_UP) {
+				auto button_clicked = find_clickable(clickables, event);
 				if (button_clicked.has_value()) {
-					size_t idx            = button_clicked.value();
+					size_t idx = button_clicked.value();
 					if (idx == button_ok)
 						return list_offset;
 					if (idx == button_cancel)
@@ -681,7 +657,7 @@ std::optional<size_t> select_from_list(TTF_Font *const font, TTF_Font *const fon
 						redraw = true;
 					}
 				}
-				else {
+				else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
 					if (event.button.x >= item_base_x && event.button.x < item_base_x + item_w &&
 					    event.button.y >= item_base_y && event.button.y < item_base_y + cur_n_rows * item_h)
 					{
