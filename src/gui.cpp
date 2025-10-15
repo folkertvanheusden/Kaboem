@@ -105,6 +105,19 @@ bool close_mid_file(sound_parameters *const sound_pars)
 #endif
 }
 
+std::optional<size_t> find_clickable(const std::vector<clickable> & clickables, const int x, const int y)
+{
+	for(size_t i=0; i<clickables.size(); i++) {
+		if (x >= clickables[i].where.x &&
+		    y >= clickables[i].where.y &&
+		    x < clickables[i].where.x + clickables[i].where.w &&
+		    y < clickables[i].where.y + clickables[i].where.h) {
+			return i;
+		}
+	}
+	return { };
+}
+
 std::optional<size_t> find_clickable(const std::vector<clickable> & clickables, const SDL_Event & event)
 {
 	for(size_t i=0; i<clickables.size(); i++) {
@@ -2249,35 +2262,11 @@ int main(int argc, char *argv[])
 					else
 						p.cursor.value().second++;
 				}
-				// TODO cursor up & cursor down
 				else if (event.key.scancode == SDL_SCANCODE_LSHIFT || event.key.scancode == SDL_SCANCODE_RSHIFT) {
 					shift = true;
 				}
 				else if (event.key.scancode == SDL_SCANCODE_LCTRL || event.key.scancode == SDL_SCANCODE_RCTRL) {
 					ctrl = true;
-				}
-				else if (event.key.scancode == SDL_SCANCODE_UP || event.key.scancode == SDL_SCANCODE_DOWN) {
-#if 0  // TODO
-					std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
-					auto & pattern   = pat_clickables[pattern_group];
-					float  mouse_x   = -1;
-					float  mouse_y   = -1;
-					SDL_GetMouseState(&mouse_x, &mouse_y);
-					int    i_mouse_x = mouse_x;
-					int    i_mouse_y = mouse_y;
-					auto   idx       = find_clickable(pat_clickables[pattern_group].pattern, i_mouse_x, i_mouse_y);
-					if (idx.has_value()) {
-						int    change    = shift ? 12 : 1;
-						double direction = event.key.scancode == SDL_SCANCODE_UP ? change : -change;
-						pattern.note_delta[idx.value()] += direction;
-
-						std::unique_lock<std::shared_mutex> lck(sound_pars.sounds_lock);
-						sound_sample *const s = samples[pattern_group].s;
-						if (s)
-							pattern.pattern[idx.value()].text = midi_note_to_name(s->get_base_midi_note() + pattern.note_delta[idx.value()]);
-						redraw = true;
-					}
-#endif
 				}
 			}
 			else if (event.type == SDL_EVENT_KEY_UP) {
@@ -2287,7 +2276,6 @@ int main(int argc, char *argv[])
 					ctrl = false;
 			}
 			else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
-#if 0  // TODO
 				std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
 				auto & pattern = pat_clickables[pattern_group];
 				auto   idx     = find_clickable(pat_clickables[pattern_group].pattern, event.wheel.mouse_x, event.wheel.mouse_y);
@@ -2309,7 +2297,6 @@ int main(int argc, char *argv[])
 
 					redraw = true;
 				}
-#endif
 			}
 		}
 	}
