@@ -459,7 +459,7 @@ void generate_pattern_grid(const int w, const int h, const int steps, pattern *c
 	for(int i=0; i<steps; i++) {
 		int x = (i % steps_sq) * step_width;
 		int y = (i / steps_sq) * step_height + offset_h;
-		p->pattern.emplace_back(clickable({ x, y, step_width, step_height }, "", false, 0));
+		p->pattern.at(i) = clickable({ x, y, step_width, step_height }, "", false, 0);
 		p->note_delta.at(i) = 0;
 	}
 }
