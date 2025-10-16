@@ -1791,11 +1791,9 @@ int main(int argc, char *argv[])
 			redraw = false;
 		}
 
-		SDL_Delay(1);
-
 		// process mouse clicks etc
 		SDL_Event event { 0 };
-		while(SDL_PollEvent(&event)) {
+		while(SDL_WaitEventTimeout(&event, 1)) {
 			if (event.type == SDL_EVENT_QUIT) {
 				do_exit = true;
 				break;
