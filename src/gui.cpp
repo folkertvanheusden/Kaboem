@@ -1680,23 +1680,39 @@ int main(int argc, char *argv[])
 					scope_in = sound_pars.scope;
 				}
 
-				clickable & scope_c    = settings_menu_buttons[scope_idx];
-				const int   n_channels = sound_pars.n_channels;
+				clickable & record_time_c = settings_menu_buttons[record_time_idx];
+				clickable & scope_c       = settings_menu_buttons[scope_idx];
+				const int   n_channels    = sound_pars.n_channels;
 				if (scope_stereo == false) {
-					std::vector<float> scope;  // mono
+					std::vector<float>  scope;  // mono
+					std::vector<double> avg_per_channel;
 					scope.resize(scope_in.size() / n_channels);
+					avg_per_channel.resize(n_channels);
 
 					for(size_t i=0; i<scope_in.size(); i += n_channels) {
 						size_t s_index = i / n_channels;
-						for(int c=0; c<n_channels; c++)
-							scope[s_index] += scope_in[i + c];
+						for(int c=0; c<n_channels; c++) {
+							scope[s_index]     += scope_in[i + c];
+							avg_per_channel[c] += fabs(scope_in[i + c]);
+						}
 						scope[s_index] /= n_channels;
 					}
+					for(int c=0; c<n_channels; c++)
+						avg_per_channel[c] /= scope_in.size() / n_channels;
 
 					draw_scope(screen, scope_c.where, scope, true);
+
+					for(int c=0; c<n_channels; c++) {
+						int h_per_c = record_time_c.where.h / n_channels;
+						SDL_SetRenderDrawColor(screen, 40 / (c * 2 + 1), 255, 40 / (c * 2 + 1), 255);
+						for(int h=0; h<h_per_c; h++) {
+							int y = c * h_per_c + h + record_time_c.where.y;
+							SDL_RenderLine(screen, record_time_c.where.x, y, record_time_c.where.x + record_time_c.where.w * avg_per_channel[c], y);
+						}
+					}
 				}
 				else {
-					std::vector<float> scope;  // mono
+					std::vector<float> scope;  // one channel
 					scope.resize(scope_in.size() / n_channels);
 
 					for(int c=0; c<std::min(n_channels, 2); c++) {
@@ -1715,7 +1731,6 @@ int main(int argc, char *argv[])
 							int(ms_running / (  60 * 1000) % 60),
 							int(ms_running / (       1000) % 60),
 							int(ms_running % 1000));
-					clickable & record_time_c = settings_menu_buttons[record_time_idx];
 					draw_text(font, screen, record_time_c.where.x, record_time_c.where.y, buffer, { { record_time_c.where.w, record_time_c.where.h } });
 				}
 			}
