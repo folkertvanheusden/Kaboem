@@ -235,7 +235,7 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 		up_down_widget *const volume_widget_pars, size_t *const pause_idx, size_t *const midi_idx,
 		up_down_widget *const sound_saturation_pars, size_t *const polyrythmic_idx,
 		up_down_widget *const humanize_widget_pars, size_t *const agc_idx, size_t *const clipping_idx, size_t *const scope_idx,
-		size_t *const busyness_idx, size_t *const record_time_idx)
+		size_t *const busyness_idx, size_t *const record_time_idx, size_t *const scope_stereo_idx)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -311,6 +311,12 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 	{
 		*midi_idx         = clickables.size();
 		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "MIDI", false, 'M'));
+		x += menu_button_width;
+	}
+
+	{
+		*scope_stereo_idx = clickables.size();
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "scope m.ch.", false, '_'));
 		x += menu_button_width;
 	}
 
@@ -519,12 +525,15 @@ void regenerate_pattern_grid(const int w, const int h, pattern *const p)
 	}
 }
 
-void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::vector<float> & scope)
+void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::vector<float> & scope, const bool is_left)
 {
 	if (scope.empty())
 		return;
 
-	SDL_SetRenderDrawColor(screen, 40, 255, 40, 255);
+	if (is_left)
+		SDL_SetRenderDrawColor(screen, 40, 255, 40, 255);
+	else
+		SDL_SetRenderDrawColor(screen, 255, 40, 40, 255);
 
 	float px         = where.x;
 	float py         = where.y + where.h * scope[0] / 2 + where.h / 2;
@@ -1262,11 +1271,13 @@ int main(int argc, char *argv[])
 	bool           agc              = false;
 	size_t         scope_idx        = 0;
 	size_t         record_time_idx  = 0;
+	size_t         scope_stereo_idx = 0;
+	bool           scope_stereo     = false;
 	std::vector<clickable> settings_menu_buttons = generate_settings_menu_buttons(win_width, win_height,
 			&pattern_load_idx, &save_idx, &clear_idx, &quit_idx, &bpm_widget, &record_idx, &vol_widget,
 			&pause_idx, &midi_idx, &sound_saturation_widget,
 			&polyrythmic_idx, &humanize_widget, &agc_idx, &clipping_idx, &scope_idx, &busyness_idx,
-			&record_time_idx);
+			&record_time_idx, &scope_stereo_idx);
 	std::string    menu_status;
 
 	up_down_widget pitch_widget             { };
@@ -1669,19 +1680,32 @@ int main(int argc, char *argv[])
 					scope_in = sound_pars.scope;
 				}
 
-				const int n_channels = sound_pars.n_channels;
-				std::vector<float> scope;  // mono
-				scope.resize(scope_in.size() / n_channels);
+				clickable & scope_c    = settings_menu_buttons[scope_idx];
+				const int   n_channels = sound_pars.n_channels;
+				if (scope_stereo == false) {
+					std::vector<float> scope;  // mono
+					scope.resize(scope_in.size() / n_channels);
 
-				for(size_t i=0; i<scope_in.size(); i += n_channels) {
-					size_t s_index = i / n_channels;
-					for(int c=0; c<n_channels; c++)
-						scope[s_index] += scope_in[i + c];
-					scope[s_index] /= n_channels;
+					for(size_t i=0; i<scope_in.size(); i += n_channels) {
+						size_t s_index = i / n_channels;
+						for(int c=0; c<n_channels; c++)
+							scope[s_index] += scope_in[i + c];
+						scope[s_index] /= n_channels;
+					}
+
+					draw_scope(screen, scope_c.where, scope, true);
 				}
+				else {
+					std::vector<float> scope;  // mono
+					scope.resize(scope_in.size() / n_channels);
 
-				clickable & scope_c = settings_menu_buttons[scope_idx];
-				draw_scope(screen, scope_c.where, scope);
+					for(int c=0; c<std::min(n_channels, 2); c++) {
+						for(size_t i=0, s_index=0; i<scope_in.size(); i += n_channels, s_index++)
+							scope[s_index] = scope_in[i + c];
+
+						draw_scope(screen, scope_c.where, scope, c);
+					}
+				}
 
 				if (sound_pars.record_wav_smf_since) {
 					char buffer[13];
@@ -1940,6 +1964,10 @@ int main(int argc, char *argv[])
 						else if (idx == agc_idx) {
 							agc = !agc;
 							settings_menu_buttons[agc_idx].selected = agc;
+						}
+						else if (idx == scope_stereo_idx) {
+							scope_stereo = !scope_stereo;
+							settings_menu_buttons[scope_stereo_idx].selected = scope_stereo;
 						}
 						set_bpm_sleep(&sleep_us, bpm);
 						std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
