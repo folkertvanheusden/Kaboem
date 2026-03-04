@@ -67,7 +67,7 @@ bool start_wav_recording(sound_parameters *const sound_pars, const std::string &
 {
 	SF_INFO si { };
 	si.samplerate = sample_rate;
-	si.channels   = sound_pars->n_channels;
+	si.channels   = sound_pars->record_multichannel ? pattern_groups * 2 : sound_pars->n_channels;
 	si.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_24;
 	auto handle   = sf_open(file.c_str(), SFM_WRITE, &si);
 
@@ -1105,7 +1105,7 @@ std::string set_sample(TTF_Font *const font, SDL_Renderer *const screen, const i
 
 	*s = s_in;
 
-	printf("%s %zu %zu\n", s->name.c_str(), s->s->get_n_channels(), s->s->get_sample_count());
+	printf("%s %zu %zu| %zu\n", s->name.c_str(), s->s->get_n_channels(), s->s->get_sample_count(), sample_index);
 
 	std::string menu_status = "file " + s->name + " read";
 
@@ -1142,12 +1142,15 @@ int main(int argc, char *argv[])
 
 	printf("Using configuration file: %s\n", cfg_file.c_str());
 
-	int c = -1;
-	while((c = getopt(argc, argv, "wu")) != -1) {
+	bool multi_channel_wav = false;
+	int  c                 = -1;
+	while((c = getopt(argc, argv, "wum")) != -1) {
 		if (c == 'w')
 			full_screen = false;
 		else if (c == 'u')
 			paused = false;
+		else if (c == 'm')
+			multi_channel_wav = true;
 		else {
 			fprintf(stderr, "\"-%c\" is not understood\n", c);
 			return 1;
@@ -1159,7 +1162,7 @@ int main(int argc, char *argv[])
 
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 
-	sound_parameters sound_pars(sample_rate, 2);
+	sound_parameters sound_pars(sample_rate, 2, multi_channel_wav);
 	sound_pars.global_volume    = 1.;
 
 	srand(time(nullptr));

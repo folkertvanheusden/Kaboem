@@ -36,7 +36,7 @@ int64_t us_to_next_pattern(const uint64_t now, std::atomic_bool *const polyrythm
 }
 
 void queue_sample(sound_parameters *const sound_pars, const int note_delta, const double volume_left, const double volume_right,
-		const sample *const s, pattern *const pat, const std::optional<size_t> pat_nr, RtMidiOut *const midi_port)
+		const sample *const s, pattern *const pat, const size_t pat_nr, RtMidiOut *const midi_port)
 {
 	if (!s->s) {
 		printf("Queuing sample without samples!\n");
@@ -61,6 +61,7 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 	qs.volume_right        = volume_right;
 	qs.echo_t              = s->echo_t;
 	qs.history.reserve(s->s->get_sample_count() + s->echo_t);
+	qs.pat_nr              = pat_nr;
 
 	if (pat) {
 		float lp_cutoff = pat->lp_cutoff.has_value() ? pat->lp_cutoff.value() : 0;
@@ -71,7 +72,7 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 
 	std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
 	bool hit = false;
-	if (pat->serial_notes && pat_nr.has_value()) {
+	if (pat->serial_notes) {
 		for(auto & sound: sound_pars->sounds) {
 			if (sound.pat != pat)
 				continue;
