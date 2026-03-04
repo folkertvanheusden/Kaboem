@@ -242,6 +242,8 @@ public:
 	std::mutex           record_lock;
 	SNDFILE             *record_handle    { nullptr };
 	bool                 record_multichannel { false };
+	int                  record_n_channels { 0      };
+	std::vector<int>     record_ch_offsets;  // per pattern offset
 
 	uint64_t             record_wav_smf_since { 0   };
 };

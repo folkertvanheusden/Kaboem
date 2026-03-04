@@ -63,17 +63,30 @@ void fs_callback(void *userdata, const char * const *filelist, int filter)
 	fs_data->finished = true;
 }
 
-bool start_wav_recording(sound_parameters *const sound_pars, const std::string & file)
+bool start_wav_recording(sound_parameters *const sound_pars, const std::string & file, const std::array<sample, pattern_groups> & samples)
 {
+	// count number of channels: this is required as a sample can have 1 (mono), 2 (stereo) or
+	// maybe even more channels
+	sound_pars->record_ch_offsets.clear();
+	int channel_count = 0;
+	for(size_t i=0; i<pattern_groups; i++) {
+		sound_pars->record_ch_offsets.push_back(channel_count);
+		channel_count += samples[i].s ? samples[i].s->get_n_channels() : 0;
+	}
+	assert(sound_pars->record_ch_offsets.size() <= pattern_groups);
+	printf("%d channels\n", channel_count);
+
+	// init wav file
 	SF_INFO si { };
 	si.samplerate = sample_rate;
-	si.channels   = sound_pars->record_multichannel ? pattern_groups * 2 : sound_pars->n_channels;
+	si.channels   = sound_pars->record_multichannel ? channel_count : sound_pars->n_channels;
 	si.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_24;
 	auto handle   = sf_open(file.c_str(), SFM_WRITE, &si);
 
 	std::unique_lock<std::mutex> r_lck(sound_pars->record_lock);
 	sound_pars->record_handle        = handle;
 	sound_pars->record_wav_smf_since = get_us();
+	sound_pars->record_n_channels    = channel_count;
 
 	return sound_pars->record_handle != nullptr;
 }
@@ -1567,7 +1580,7 @@ int main(int argc, char *argv[])
 
 					bool succeeded = false;
 					if (ext == ".wav")
-						succeeded = start_wav_recording(&sound_pars, fs_data.file);
+						succeeded = start_wav_recording(&sound_pars, fs_data.file, samples);
 					else if (ext == ".mid")
 						succeeded = start_mid_recording(&sound_pars, fs_data.file);
 
@@ -1750,6 +1763,8 @@ int main(int argc, char *argv[])
 					vol_right = s->get_volume(1) * 100;
 				}
 				std::string name = samples[fs_action_sample_index].name;
+				if (s)
+					name += " [" + std::to_string(sample.s->get_n_channels()) + "]";
 				sp_lck.unlock();
 
 				if (name.empty() == false)

@@ -1,5 +1,6 @@
 #include "config.h"
 #include <atomic>
+#include <cassert>
 #include <cfloat>
 #include <fcntl.h>
 #include <mutex>
@@ -15,14 +16,13 @@
 
 std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const sound_pars, const int period_size)
 {
-	std::vector<float> mixed_buffer(sound_pars->n_channels * period_size);
-	std::vector<float> all_channels(pattern_groups * 2     * period_size);
+	std::vector<float> mixed_buffer(sound_pars->n_channels        * period_size);
+	std::vector<float> all_channels(sound_pars->record_n_channels * period_size);
 
 	for(int t=0; t<period_size; t++) {
 		size_t mixed_base = t * sound_pars->n_channels;
 
 		// sum all samples
-		size_t base_all = t * pattern_groups * 2;
 		for(size_t s_idx=0; s_idx<sound_pars->sounds.size();) {
 			auto & item = sound_pars->sounds[s_idx];
 			if (item.s == nullptr) {
@@ -33,6 +33,7 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 				continue;
 			}
 
+			size_t cur_n_chan = item.s->get_n_channels();
 			bool   fin        = false;
 			bool   mute       = item.s->get_mute();
 			double t_use      = item.t * item.pitch;
@@ -42,7 +43,7 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 				std::vector<float> applied_echo;
 
 				// assume stereo samples (maybe in the future 2+1? or even 5+1?)
-				for(size_t ch=0; ch<2; ch++) {
+				for(size_t ch=0; ch<cur_n_chan; ch++) {
 					auto rc = item.s->get_sample(t_use, ch);
 
 					if (rc.has_value() == false) {
@@ -54,21 +55,27 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 						rc = { 0, 1 };
 					}
 
-					float value         = rc.value().first * (ch ? item.volume_right : item.volume_left);
-					float value_volumed = value * rc.value().second;
+					assert(item.pat_nr < pattern_groups);
+					assert(sound_pars->record_ch_offsets[item.pat_nr] < sound_pars->record_n_channels);
+
+					float value         = rc.value().first;
 
 					if (item.bp_filter)
-						value_volumed = item.bp_filter->process(value_volumed);
+						value = item.bp_filter->process(value);
 
 					if (apply_echo && item.t >= item.echo_t) {
 						constexpr const float feedback = 0.5;  // TODO configurable?
-						value_volumed += feedback * item.history[item.t - item.echo_t][ch];
+						value += feedback * item.history[item.t - item.echo_t][ch];
 					}
 
-					applied_echo.push_back(value_volumed);
+					applied_echo.push_back(value);
 
-					mixed_buffer[mixed_base           + ch] += value_volumed;
-					all_channels[base_all + s_idx * 2 + ch]  = value_volumed;
+					if (ch < sound_pars->n_channels) {
+						float value_volumed = value * rc.value().second * (ch ? item.volume_right : item.volume_left);
+						mixed_buffer[mixed_base + ch] += value_volumed;
+					}
+
+					all_channels[sound_pars->record_ch_offsets[item.pat_nr] + t * sound_pars->record_n_channels + ch] = value;
 				}
 
 				item.history.push_back(std::move(applied_echo));
@@ -196,7 +203,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		sound_pars->t_busyness += 100 * took / latency;
 
 		if (sound_pars->record_multichannel == true)
-			write_wav(sound_pars, temp_buffer.second, pattern_groups * 2);
+			write_wav(sound_pars, temp_buffer.second, sound_pars->record_n_channels);
 	}
 
 	printf("Mixer thread terminating\n");
