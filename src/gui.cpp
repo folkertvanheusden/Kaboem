@@ -818,9 +818,9 @@ bool configure_volume(sound_parameters *const sound_pars, const up_down_widget &
 	int mul = shift ? 3 : 1;
 
 	if (widget_idx == widget.up)
-		s->set_volume(channel_index, std::min(1.1, s->get_volume(channel_index) + 0.01 * mul));
+		s->set_volume(channel_index, std::min(10., s->get_volume(channel_index) + 0.01 * mul));
 	else if (widget_idx == widget.up_10)
-		s->set_volume(channel_index, std::min(1.1, s->get_volume(channel_index) + 0.1 * mul));
+		s->set_volume(channel_index, std::min(10., s->get_volume(channel_index) + 0.1 * mul));
 	else if (widget_idx == widget.down)
 		s->set_volume(channel_index, std::max(0., s->get_volume(channel_index) - 0.01 * mul));
 	else if (widget_idx == widget.down_10)
