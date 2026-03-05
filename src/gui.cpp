@@ -63,34 +63,6 @@ void fs_callback(void *userdata, const char * const *filelist, int filter)
 	fs_data->finished = true;
 }
 
-bool start_wav_recording(sound_parameters *const sound_pars, const std::string & file, const std::array<sample, pattern_groups> & samples)
-{
-	// count number of channels: this is required as a sample can have 1 (mono), 2 (stereo) or
-	// maybe even more channels
-	sound_pars->record_ch_offsets.clear();
-	int channel_count = 0;
-	for(size_t i=0; i<pattern_groups; i++) {
-		sound_pars->record_ch_offsets.push_back(channel_count);
-		channel_count += samples[i].s ? samples[i].s->get_n_channels() : 0;
-	}
-	assert(sound_pars->record_ch_offsets.size() <= pattern_groups);
-	printf("%d channels\n", channel_count);
-
-	// init wav file
-	SF_INFO si { };
-	si.samplerate = sample_rate;
-	si.channels   = sound_pars->record_multichannel ? channel_count : sound_pars->n_channels;
-	si.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_24;
-	auto handle   = sf_open(file.c_str(), SFM_WRITE, &si);
-
-	std::unique_lock<std::mutex> r_lck(sound_pars->record_lock);
-	sound_pars->record_handle        = handle;
-	sound_pars->record_wav_smf_since = get_us();
-	sound_pars->record_n_channels    = channel_count;
-
-	return sound_pars->record_handle != nullptr;
-}
-
 bool start_mid_recording(sound_parameters *const sound_pars, const std::string & file)
 {
 #if HAVE_SMF == 1
@@ -913,7 +885,7 @@ void do_error_message(TTF_Font *const font, SDL_Renderer *const screen, int win_
 	SDL_RenderPresent(screen);
 }
 
-bool are_you_sure(TTF_Font *const font_big, TTF_Font *const font_small, SDL_Renderer *const screen, int win_width, int win_height, const int font_height, const std::string & question)
+bool are_you_sure(TTF_Font *const font_big, TTF_Font *const font_small, SDL_Renderer *const screen, int win_width, int win_height, const int font_height, const std::string & question, const std::string & question_2 = "Are you sure?")
 {
 	int dim_w              = win_width / 6;
 	int dim_h              = win_height / 6;
@@ -941,8 +913,8 @@ bool are_you_sure(TTF_Font *const font_big, TTF_Font *const font_small, SDL_Rend
 	draw_clickables(font_big, font_small, screen, clickables, { }, { });
 
 	SDL_SetRenderDrawColor(screen, 255, 40, 40, 255);
-	draw_text(font_big, screen, 0, scr_half_h - font_height * 2, question,        { { win_width, font_height } }, true);
-	draw_text(font_big, screen, 0, scr_half_h - font_height,     "Are you sure?", { { win_width, font_height } }, true);
+	draw_text(font_big, screen, 0, scr_half_h - font_height * 2, question,   { { win_width, font_height } }, true);
+	draw_text(font_big, screen, 0, scr_half_h - font_height,     question_2, { { win_width, font_height } }, true);
 	SDL_RenderPresent(screen);
 
 	while(!do_exit) {
@@ -963,6 +935,35 @@ bool are_you_sure(TTF_Font *const font_big, TTF_Font *const font_small, SDL_Rend
 	}
 
 	return false;
+}
+
+bool start_wav_recording(sound_parameters *const sound_pars, const std::string & file, const std::array<sample, pattern_groups> & samples, const bool record_multichannel)
+{
+	// count number of channels: this is required as a sample can have 1 (mono), 2 (stereo) or
+	// maybe even more channels
+	sound_pars->record_ch_offsets.clear();
+	int channel_count = 0;
+	for(size_t i=0; i<pattern_groups; i++) {
+		sound_pars->record_ch_offsets.push_back(channel_count);
+		channel_count += samples[i].s ? samples[i].s->get_n_channels() : 0;
+	}
+	assert(sound_pars->record_ch_offsets.size() <= pattern_groups);
+	printf("%d channels\n", channel_count);
+
+	// init wav file
+	SF_INFO si { };
+	si.samplerate = sample_rate;
+	si.channels   = record_multichannel ? channel_count : sound_pars->n_channels;
+	si.format     = SF_FORMAT_WAV | SF_FORMAT_PCM_24;
+	auto handle   = sf_open(file.c_str(), SFM_WRITE, &si);
+
+	std::unique_lock<std::mutex> r_lck(sound_pars->record_lock);
+	sound_pars->record_handle        = handle;
+	sound_pars->record_wav_smf_since = get_us();
+	sound_pars->record_n_channels    = channel_count;
+	sound_pars->record_multichannel  = record_multichannel;
+
+	return sound_pars->record_handle != nullptr;
 }
 
 void clear_everything(std::array<pattern, pattern_groups> & pat_clickables, std::shared_mutex *const pat_clickables_lock, sound_parameters & sound_pars,
@@ -1579,10 +1580,13 @@ int main(int argc, char *argv[])
 					std::string ext = name_len >= 4 ? fs_data.file.substr(name_len - 4) : fs_data.file;
 
 					bool succeeded = false;
-					if (ext == ".wav")
-						succeeded = start_wav_recording(&sound_pars, fs_data.file, samples);
-					else if (ext == ".mid")
+					if (ext == ".wav") {
+						bool multichannel = are_you_sure(font, font_small, screen, win_width, win_height, font_height, "Record to multichannel WAV-file?", "\"No\" produces a stereo file");
+						succeeded = start_wav_recording(&sound_pars, fs_data.file, samples, multichannel);
+					}
+					else if (ext == ".mid") {
 						succeeded = start_mid_recording(&sound_pars, fs_data.file);
+					}
 
 					if (succeeded)
 						settings_menu_buttons[record_idx].selected = true;

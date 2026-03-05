@@ -3,8 +3,6 @@
 
 - humanize: ook harder bij de 1e tel
 
-- record multi channel: per channel aan kunnen geven of eea stereo sample is of mono
-
 - auto adjust tempo by what is entered
 - swirl channel through left/right -> 'autopan'
 - shorten filenames (with '...') when they don't fit on screen
