@@ -816,6 +816,11 @@ bool configure_volume(sound_parameters *const sound_pars, const up_down_widget &
 	return true;
 }
 
+size_t get_cursor_index(const pattern & pattern)
+{
+	return pattern.cursor.value().second * pattern.wdim + pattern.cursor.value().first;
+}
+
 void reset_pattern(std::array<pattern, pattern_groups> *const pat_clickables, const size_t pattern_group, sound_sample *const s, const bool zero)
 {
 	auto & pattern = (*pat_clickables)[pattern_group];
@@ -1657,7 +1662,7 @@ int main(int argc, char *argv[])
 
 				std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 				if (pat_clickables[pattern_group].cursor.has_value()) {
-					size_t cursor_idx = pat_clickables[pattern_group].cursor.value().second * pat_clickables[pattern_group].wdim + pat_clickables[pattern_group].cursor.value().first;
+					size_t cursor_idx = get_cursor_index(pat_clickables[pattern_group]);
 					draw_clickables(font, font_small, screen, pat_clickables[pattern_group].pattern, click_state, pat_index, pat_clickables[pattern_group].dim, cursor_idx);
 				}
 				else {
@@ -2280,13 +2285,14 @@ int main(int argc, char *argv[])
 					if (p.cursor.has_value() == false)
 						p.cursor = { 0, 0 };
 					else if (p.cursor.value().second == 0) {
-						p.cursor.value().second = p.hdim - 1;
-
-						auto h_index = p.cursor.value().second * p.wdim;
-						if (h_index + p.cursor.value().first >= p.dim)
-							p.cursor.value().first = p.dim - h_index - 1;
+						if (p.cursor.value().first > 0)
+							p.cursor.value().first--;
 						else
 							p.cursor.value().first = p.wdim - 1;
+						p.cursor.value().second = p.hdim - 1;
+
+						if (get_cursor_index(p) >= p.dim)
+							p.cursor.value().second = 0;
 					}
 					else {
 						p.cursor.value().second--;
@@ -2296,10 +2302,17 @@ int main(int argc, char *argv[])
 					pattern & p = pat_clickables[pattern_group];
 					if (p.cursor.has_value() == false)
 						p.cursor = { 0, 0 };
-					else if (p.cursor.value().second == int(p.hdim - 1))
+					else if (p.cursor.value().second == int(p.hdim - 1)) {
 						p.cursor.value().second = 0;
-					else
+
+						if (p.cursor.value().first < p.wdim - 1)
+							p.cursor.value().first++;
+						else
+							p.cursor.value().first = 0;
+					}
+					else {
 						p.cursor.value().second++;
+					}
 				}
 				else if (event.key.scancode == SDL_SCANCODE_LSHIFT || event.key.scancode == SDL_SCANCODE_RSHIFT) {
 					shift = true;
