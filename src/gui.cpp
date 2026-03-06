@@ -942,7 +942,7 @@ bool are_you_sure(TTF_Font *const font_big, TTF_Font *const font_small, SDL_Rend
 	return false;
 }
 
-bool start_wav_recording(sound_parameters *const sound_pars, const std::string & file, const std::array<sample, pattern_groups> & samples, const bool record_multichannel)
+int setup_recording_channels(sound_parameters *const sound_pars, const std::array<sample, pattern_groups> & samples)
 {
 	// count number of channels: this is required as a sample can have 1 (mono), 2 (stereo) or
 	// maybe even more channels
@@ -954,6 +954,12 @@ bool start_wav_recording(sound_parameters *const sound_pars, const std::string &
 	}
 	assert(sound_pars->record_ch_offsets.size() <= pattern_groups);
 	printf("%d channels\n", channel_count);
+	return channel_count;
+}
+
+bool start_wav_recording(sound_parameters *const sound_pars, const std::string & file, const std::array<sample, pattern_groups> & samples, const bool record_multichannel)
+{
+	int channel_count = setup_recording_channels(sound_pars, samples);
 
 	// init wav file
 	SF_INFO si { };
@@ -1889,15 +1895,18 @@ int main(int argc, char *argv[])
 						}
 						else if (p_menu_clicked.has_value()) {
 							size_t idx = p_menu_clicked.value();
-							if (idx == p_pause_idx) {
+							if (idx == p_pause_idx)
 								paused = !paused;
-							}
 							else if (idx == restart_idx) {
 								start_t = get_us();
 								paused  = false;
 							}
 							pattern_menu         [p_pause_idx].selected = paused;
-							settings_menu_buttons[pause_idx]  .selected = paused;
+							settings_menu_buttons[pause_idx  ].selected = paused;
+
+							std::unique_lock<std::mutex> r_lck(sound_pars.record_lock);
+							if (paused == false && sound_pars.record_handle == nullptr)
+								setup_recording_channels(&sound_pars, samples);
 						}
 						else {
 							std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
@@ -1998,6 +2007,10 @@ int main(int argc, char *argv[])
 						else if (idx == pause_idx) {
 							paused = !paused;
 							settings_menu_buttons[pause_idx].selected = paused;
+
+							std::unique_lock<std::mutex> r_lck(sound_pars.record_lock);
+							if (paused == false && sound_pars.record_handle == nullptr)
+								setup_recording_channels(&sound_pars, samples);
 						}
 						else if (idx == polyrythmic_idx) {
 							polyrythmic = !polyrythmic;
@@ -2305,7 +2318,7 @@ int main(int argc, char *argv[])
 					else if (p.cursor.value().second == int(p.hdim - 1)) {
 						p.cursor.value().second = 0;
 
-						if (p.cursor.value().first < p.wdim - 1)
+						if (size_t(p.cursor.value().first) < p.wdim - 1)
 							p.cursor.value().first++;
 						else
 							p.cursor.value().first = 0;

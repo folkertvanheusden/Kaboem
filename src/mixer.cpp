@@ -55,10 +55,7 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 						rc = { 0, 1 };
 					}
 
-					assert(item.pat_nr < pattern_groups);
-					assert(sound_pars->record_ch_offsets[item.pat_nr] < sound_pars->record_n_channels);
-
-					float value         = rc.value().first;
+					float value = rc.value().first;
 
 					if (item.bp_filter)
 						value = item.bp_filter->process(value);
@@ -75,7 +72,8 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 						mixed_buffer[mixed_base + ch] += value_volumed;
 					}
 
-					all_channels[sound_pars->record_ch_offsets[item.pat_nr] + t * sound_pars->record_n_channels + ch] = value;
+					if (!all_channels.empty())
+						all_channels[sound_pars->record_ch_offsets[item.pat_nr] + t * sound_pars->record_n_channels + ch] = value;
 				}
 
 				item.history.push_back(std::move(applied_echo));
