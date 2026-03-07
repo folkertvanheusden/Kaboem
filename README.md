@@ -5,7 +5,7 @@ It specifically targets a raspberry pi with a touchscreen altough other Linux sy
 To be able to compile and run this program, you need to install:
 
 ```
-sudo apt install libsdl3-dev libsdl3-ttf-dev libsndfile1-dev nlohmann-json3-dev libfftw3-dev build-essential cmake libfontconfig1-dev fonts-freefont-ttf librtmidi-dev  libsmf-dev
+sudo apt install libsdl3-dev libsdl3-ttf-dev libsndfile1-dev nlohmann-json3-dev libfftw3-dev build-essential cmake libfontconfig1-dev fonts-freefont-ttf libsmf-dev libasound-dev libjack-jackd2-dev libudev-dev libpipewire-0.3-dev
 ```
 
 Because of the SDL3 requirement, this program requires at least Debian Trixie (13), Ubuntu Plucky (25.04) or equivalent (or more recent of course).
