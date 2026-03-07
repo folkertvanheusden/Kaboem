@@ -715,12 +715,21 @@ sample convert_sf2_sample(sf2_sample_t *const in)
 
 	std::vector<std::vector<float> > samples;
 	if (in->samples.size() >= 2) {
-		size_t use_n_samples = std::min(in->samples.at(0).size(), in->samples.at(1).size());
-		printf("\"%s\" is stereo, %zu samples\n", out.name.c_str(), use_n_samples);
-		samples.reserve(use_n_samples);
+		size_t n_ch = samples.size();
+
+		size_t use_n_samples = 0;
+		for(size_t i=0; i<n_ch; i++)
+			use_n_samples = std::max(use_n_samples, in->samples.at(i).size());
+
+		printf("\"%s\" is stereo/multichannel (%zu), %zu samples\n", out.name.c_str(), n_ch, use_n_samples);
+
 		for(size_t i=0; i<use_n_samples; i++) {
-			std::vector<float> pair { in->samples.at(0).at(i), in->samples.at(1).at(i) };
-			samples.push_back(pair);
+			std::vector<float> row(n_ch);
+			for(size_t ch=0; ch<samples.size(); ch++) {
+				if (i < in->samples.at(ch).size())
+					row[ch] = in->samples.at(ch).at(i);
+			}
+			samples.push_back(row);
 		}
 	}
 	else {
