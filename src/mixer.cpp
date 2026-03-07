@@ -14,7 +14,7 @@
 #include "time.h"
 
 
-std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const sound_pars, const int period_size)
+std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const sound_pars, const int period_size, std::atomic_bool *const end_notes)
 {
 	std::vector<float> mixed_buffer(sound_pars->n_channels        * period_size);
 	std::vector<float> all_channels(sound_pars->record_n_channels * period_size);
@@ -88,10 +88,7 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 				sound_pars->sounds.erase(sound_pars->sounds.begin() + s_idx);
 			}
 			else {
-				if (item.end_requested)
-					item.t++;
-				else
-					item.s->get_new_t(&item.t);
+				item.s->get_new_t(&item.t, item.end_requested || *end_notes);
 				s_idx++;
 			}
 		}
@@ -156,7 +153,7 @@ void write_wav(sound_parameters *const sound_pars, const std::vector<float> & da
 		sf_writef_float(sound_pars->record_handle, data.data(), data.size() / n_channels);
 }
 
-void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
+void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars, std::atomic_bool *const paused)
 {
 	const int period_size = 128;
 	double    latency     = period_size * 1000000.0 / sound_pars->sample_rate;
@@ -168,7 +165,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		uint64_t t_start = get_us();
 
 		std::unique_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
-		auto   temp_buffer = mix(sound_pars, period_size);
+		auto   temp_buffer = mix(sound_pars, period_size, paused);
 		size_t n_sounds    = sound_pars->sounds.size();
 
 		sound_pars->n_loud_checked += period_size;

@@ -1191,6 +1191,18 @@ std::string set_sample(TTF_Font *const font, SDL_Renderer *const screen, const i
 	return menu_status;
 }
 
+void toggle_pause(std::atomic_bool *const paused)
+{
+	bool new_paused = !*paused;
+
+	if (new_paused == true && is_clock_ticking())
+		stop_clock();
+	else if (new_paused == false && !is_clock_ticking())
+		start_clock();
+
+	*paused = new_paused;
+}
+
 int main(int argc, char *argv[])
 {
 	bool             full_screen = true;
@@ -1453,9 +1465,9 @@ int main(int argc, char *argv[])
 			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &humanize_amount_parameter);
 			});
 
-	std::thread mixer_thread([&sound_pars] {
+	std::thread mixer_thread([&sound_pars, &paused] {
 			set_thread_name("KAB-mixer");
-			mixer(&do_exit, &sound_pars);
+			mixer(&do_exit, &sound_pars, &paused);
 		});
 
 	std::atomic_bool midi_triggered = false;
@@ -1473,11 +1485,6 @@ int main(int argc, char *argv[])
 		// determine pattern index
 		size_t pat_index = 0;
 		{
-			if (paused && is_clock_ticking())
-				stop_clock();
-			else if (!paused && !is_clock_ticking())
-				start_clock();
-
 			uint64_t now         = my_clock;
 			std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 			size_t   current_dim = pat_clickables[pattern_group].dim;
@@ -1951,9 +1958,10 @@ int main(int argc, char *argv[])
 						else if (p_menu_clicked.has_value()) {
 							size_t idx = p_menu_clicked.value();
 							if (idx == p_pause_idx)
-								paused = !paused;
+								toggle_pause(&paused);
 							else if (idx == restart_idx) {
 								reset_clock();
+								start_clock();
 								paused  = false;
 							}
 							pattern_menu         [p_pause_idx].selected = paused;
@@ -2063,7 +2071,7 @@ int main(int argc, char *argv[])
 							}
 						}
 						else if (idx == pause_idx) {
-							paused = !paused;
+							toggle_pause(&paused);
 							settings_menu_buttons[pause_idx].selected = paused;
 
 							std::unique_lock<std::mutex> r_lck(sound_pars.record_lock);

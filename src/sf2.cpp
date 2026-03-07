@@ -165,48 +165,48 @@ sf2_sample_t load_sf2_sample(const std::map<std::string, gen_block_t *> *const s
 	if (sampleType == 1) {
 		s.samples.resize(1);
 		s.repeat_start[0] = dwLoopStart - dwStart;
-		s.repeat_end[0] = dwLoopEnd - dwStart;
-		s.samples[0] = load_sf2_sample(sf2_map, dwStart, dwEnd);
+		s.repeat_end  [0] = dwLoopEnd   - dwStart;
+		s.samples     [0] = load_sf2_sample(sf2_map, dwStart, dwEnd);
 
 		s.repeat_start[1] = s.repeat_end[1] = -1;
 	}
 	else if (sampleType == 2) {
 		s.samples.resize(2);
 		s.repeat_start[1] = dwLoopStart - dwStart;
-		s.repeat_end[1] = dwLoopEnd - dwStart;
-		s.samples[1] = load_sf2_sample(sf2_map, dwStart, dwEnd);
+		s.repeat_end  [1] = dwLoopEnd   - dwStart;
+		s.samples     [1] = load_sf2_sample(sf2_map, dwStart, dwEnd);
 
 		uint32_t dwStart2 = get_DWORD(&shdr->data[sampleLink * 46 + 20]);
-		uint32_t dwEnd2 = get_DWORD(&shdr->data[sampleLink * 46 + 24]);
+		uint32_t dwEnd2   = get_DWORD(&shdr->data[sampleLink * 46 + 24]);
 
 		uint32_t dwLoopStart2 = get_DWORD(&shdr->data[sampleLink * 46 + 28]);
-		uint32_t dwLoopEnd2 = get_DWORD(&shdr->data[sampleLink * 46 + 32]);
+		uint32_t dwLoopEnd2   = get_DWORD(&shdr->data[sampleLink * 46 + 32]);
 
 		printf("\tstereo loops %d-%d %d-%d\n", dwLoopStart - dwStart, dwLoopEnd - dwStart, dwLoopStart2 - dwStart2, dwLoopEnd2 - dwStart2);
 
 		s.repeat_start[0] = dwLoopStart2 - dwStart2;
-		s.repeat_end[0] = dwLoopEnd2 - dwStart2;
+		s.repeat_end  [0] = dwLoopEnd2   - dwStart2;
 
-		s.samples[0] = load_sf2_sample(sf2_map, dwStart2, dwEnd2);
+		s.samples     [0] = load_sf2_sample(sf2_map, dwStart2, dwEnd2);
 	}
 	else if (sampleType == 4) {
 		s.samples.resize(2);
 		s.repeat_start[0] = dwLoopStart - dwStart;
-		s.repeat_end[0] = dwLoopEnd - dwStart;
-		s.samples[0] = load_sf2_sample(sf2_map, dwStart, dwEnd);
+		s.repeat_end  [0] = dwLoopEnd   - dwStart;
+		s.samples     [0] = load_sf2_sample(sf2_map, dwStart, dwEnd);
 
 		uint32_t dwStart2 = get_DWORD(&shdr->data[sampleLink * 46 + 20]);
-		uint32_t dwEnd2 = get_DWORD(&shdr->data[sampleLink * 46 + 24]);
+		uint32_t dwEnd2   = get_DWORD(&shdr->data[sampleLink * 46 + 24]);
 
 		uint32_t dwLoopStart2 = get_DWORD(&shdr->data[sampleLink * 46 + 28]);
-		uint32_t dwLoopEnd2 = get_DWORD(&shdr->data[sampleLink * 46 + 32]);
+		uint32_t dwLoopEnd2   = get_DWORD(&shdr->data[sampleLink * 46 + 32]);
 
 		printf("\tstereo loops %d-%d %d-%d\n", dwLoopStart - dwStart, dwLoopEnd - dwStart, dwLoopStart2 - dwStart2, dwLoopEnd2 - dwStart2);
 
 		s.repeat_start[1] = dwLoopStart2 - dwStart2;
-		s.repeat_end  [1] = dwLoopEnd2 - dwStart2;
+		s.repeat_end  [1] = dwLoopEnd2   - dwStart2;
 
-		s.samples[1]      = load_sf2_sample(sf2_map, dwStart2, dwEnd2);
+		s.samples     [1] = load_sf2_sample(sf2_map, dwStart2, dwEnd2);
 	}
 	else {
 		printf("* Sample type unrecognized ** %d\n", sampleType);
@@ -593,19 +593,19 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & file_name, const b
 
 					int  midi_note_start = -1;
 					int  midi_note_end   = -1;
-					int  loopStart = -1;
-					int  loopEnd   = -1;
-					bool loopSet   = false;
-					int  key       = -1;
-					int  sample_id = -1;
-					bool doLoop    = false;
+					int  loopStart       = -1;
+					int  loopEnd         = -1;
+					bool loopSet         = false;
+					int  key             = -1;
+					int  sample_id       = -1;
+					bool doLoop          = false;
 
 					while(wInstGenNdx < igen.size()) {
 						int sfGenOper = igen.getsfGenOper(wInstGenNdx);
 						int genAmount = igen.getgenAmount(wInstGenNdx);
 
 						if (sfGenOper == 2) { // startLoopAddrsOffset
-							loopSet = true;
+							loopSet   = true;
 							loopStart = int16_t(genAmount);
 						}
 						else if (sfGenOper == 3) { //endLoopAddrsOffset
@@ -662,8 +662,12 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & file_name, const b
 									printf("\tloop right %zu->%zu\n", s.repeat_start[1], s.repeat_end[1]);
 								}
 							}
+
+							if (loopStart >= loopEnd)
+								doLoop = false;
 						}
-						else {
+
+						if (!doLoop) {
 							s.repeat_start[0] = -1;
 							s.repeat_end  [0] = -1;
 							s.repeat_start[1] = -1;
@@ -675,7 +679,7 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & file_name, const b
 						s.key = key;
 						if (key != -1) {
 							s.base_freq = midi_note_to_frequency(key);
-							printf("\tbase freq overriden to %.1fhz\n", s.base_freq);
+							printf("\tbase freq set to %.1f Hz\n", s.base_freq);
 						}
 
 						// FIXME need to have multiple samples per bank/preset; per key(-range)
