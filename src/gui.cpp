@@ -664,6 +664,12 @@ std::optional<size_t> select_from_list(TTF_Font *const font, TTF_Font *const fon
 			else if (event.key.scancode == SDL_SCANCODE_LSHIFT || event.key.scancode == SDL_SCANCODE_RSHIFT) {
 				shift = event.type == SDL_EVENT_KEY_DOWN;
 			}
+			else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+				if (abs(event.wheel.y) >= 1) {
+					list_offset = std::max(0.f, list_offset + event.wheel.y);
+					redraw = true;
+				}
+			}
 		}
 	}
 
