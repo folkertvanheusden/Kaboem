@@ -1,6 +1,3 @@
-- able to do everything via keyboard
-  - main screen: cursor selectable via cursor keys
-
 - humanize: ook harder bij de 1e tel
 
 - auto adjust tempo by what is entered
@@ -8,7 +5,6 @@
 - shorten filenames (with '...') when they don't fit on screen
 - adjust fontsizes so that text fits
 - %zu / %zd -> size_t / ssize_t for uint64_t / int64_t verify
-- skips a beat after un-pause ==> caused by not unpausing at a precise interval?
 - external sync (via midi?)
 - support for multiple patterns, switchable at "runtime" via midi messages
 - soundboard mode -> when a non-main-midi-note is played but the note got triggered as configured for a channel, play that
