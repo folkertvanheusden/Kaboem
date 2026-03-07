@@ -46,7 +46,7 @@ std::map<std::string, midi_in_pair> get_midi_ports(const bool input)
 midi_handle_wrapper_out allocate_midi_output_port()
 {
 	auto out_conf = libremidi::midi1::out_default_configuration();
-	libremidi::set_client_name(out_conf, PROG_NAME);
+// TODO	libremidi::set_client_name(out_conf, PROG_NAME);
 	auto *midi_out = new libremidi::midi_out { libremidi::output_configuration{}, out_conf };
 	midi_out->open_virtual_port("output");
 	return { midi_out };
@@ -67,15 +67,15 @@ void send_pitch_bend(midi_handle_wrapper_out & p, const uint16_t pb)
 midi_handle_wrapper_in allocate_midi_input_port()
 {
 	auto  in_conf = libremidi::midi1::in_default_configuration();
-	libremidi::set_client_name(in_conf, PROG_NAME);
+// TODO	libremidi::set_client_name(in_conf, PROG_NAME);
 	auto *midi_in = new libremidi::midi_in {
 		{ .on_message = [](const libremidi::message& message) {
-									      std::vector<uint8_t> message_to_q;
-									      for(auto & b: message)
-										      message_to_q.push_back(b);
-									      std::unique_lock<std::mutex> lck(midi_messages_lock);
-									      midi_messages.push(message_to_q);
-								      } }, in_conf
+		      std::vector<uint8_t> message_to_q;
+		      for(auto & b: message)
+			      message_to_q.push_back(b);
+		      std::unique_lock<std::mutex> lck(midi_messages_lock);
+		      midi_messages.push(message_to_q);
+	      } }, in_conf
 	};
 	midi_in->open_virtual_port("input");
 	return { midi_in };
