@@ -1430,7 +1430,6 @@ int main(int argc, char *argv[])
 	while(!do_exit) {
 		// determine pattern index
 		size_t pat_index = 0;
-		bool p = paused;
 		{
 			if (paused && is_clock_ticking())
 				stop_clock();
