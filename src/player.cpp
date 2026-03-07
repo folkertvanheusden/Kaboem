@@ -92,7 +92,7 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 		sound_pars->sounds.push_back(qs);
 
 	// TODO move this to sdl3-audio code? or the mixer?
-	if (s->midi_note.has_value()) {
+	if (s->midi_note.has_value() && s->midi_ch.has_value()) {
 		uint16_t pb = 0x2000 * qs.pitch;
 
 		uint8_t volume = s->s->get_avg_volume() * 127;
@@ -117,7 +117,7 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 #endif
 
 		if (midi_port.out) {
-			int ch = s->midi_ch.has_value() ? s->midi_ch.value() : 0;
+			int ch = s->midi_ch.value();
 			if (pb != 0x2000)
 				send_pitch_bend(midi_port, ch, pb);
 			send_midi_note(midi_port, ch, s->midi_note.value(), volume);
