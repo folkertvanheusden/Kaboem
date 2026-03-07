@@ -1399,16 +1399,15 @@ int main(int argc, char *argv[])
 	bool                 ctrl           = false;
 	int                  prev_scope_t   = -1;
 	size_t               selected_cell  = 0;
-	std::atomic_uint64_t start_t        = 0;
 
 	set_bpm_sleep(&sleep_us, bpm);
 
 	pattern_menu         [p_pause_idx].selected = paused;
 	settings_menu_buttons[pause_idx]  .selected = paused;
 
-	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &force_trigger, &polyrythmic, &humanize_amount_parameter, &start_t] {
+	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &force_trigger, &polyrythmic, &humanize_amount_parameter] {
 			set_thread_name("KAB-player");
-			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &humanize_amount_parameter, &start_t);
+			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &humanize_amount_parameter);
 			});
 
 	std::thread mixer_thread([&sound_pars] {

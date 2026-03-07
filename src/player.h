@@ -13,5 +13,4 @@ void player(std::array<pattern, pattern_groups> *const pat_clickables, std::shar
 		std::atomic_bool *const pause,    std::atomic_bool *const do_exit,
 		std::atomic_bool *const force_trigger,
 		std::atomic_bool *const polyrythmic,
-		std::atomic_int  *const humanize_factor,
-		std::atomic_uint64_t *const t_start);
+		std::atomic_int  *const humanize_factor);
