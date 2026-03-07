@@ -995,6 +995,9 @@ void clear_everything(std::array<pattern, pattern_groups> & pat_clickables, std:
 		std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 		sound_pars.sounds.clear();
 
+		sound_pars.global_volume    = 1.;
+		sound_pars.sound_saturation = 1.;
+
 		for(size_t i=0; i<pattern_groups; i++) {
 			for(auto & element: pat_clickables[i].pattern) {
 				element.selected = false;
@@ -1478,6 +1481,8 @@ int main(int argc, char *argv[])
 						clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, work_path, samples,
 								file_parameters, channel_clickables, &kaboem_file);
 
+						sound_saturation = 0;
+
 						std::unique_lock<std::shared_mutex> pat_lck (pat_clickables_lock        );
 						std::unique_lock<std::shared_mutex> lck     (sound_pars.sounds_lock     );
 						std::unique_lock<std::mutex       > midi_lck(sound_pars.midi_sample_lock);
@@ -1938,6 +1943,7 @@ int main(int argc, char *argv[])
 								draw_please_wait(font, screen, win_width, win_height);
 								clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, work_path,
 										samples, file_parameters, channel_clickables, &kaboem_file);
+								sound_saturation = 0;
 								menu_status = "cleared";
 							}
 
