@@ -38,3 +38,4 @@ constexpr const int    sample_rate     = 48000;
 constexpr const size_t pattern_groups  = 8;
 constexpr const size_t max_pattern_dim = 32;
 constexpr const int    long_press_dt   = 500;
+constexpr const int    default_bpm     = 135;

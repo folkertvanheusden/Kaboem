@@ -1263,7 +1263,7 @@ int main(int argc, char *argv[])
 
 	bool redraw = true;
 	int  steps  = 16;
-	int  bpm    = 135;
+	int  bpm    = default_bpm;
 	int  vol    = 100;
 
 	enum { m_pattern, m_settings, m_sample, m_cell, m_midi } mode = m_pattern;
@@ -1482,6 +1482,8 @@ int main(int argc, char *argv[])
 								file_parameters, channel_clickables, &kaboem_file);
 
 						sound_saturation = 0;
+						vol              = 100;
+						bpm              = default_bpm;
 
 						std::unique_lock<std::shared_mutex> pat_lck (pat_clickables_lock        );
 						std::unique_lock<std::shared_mutex> lck     (sound_pars.sounds_lock     );
@@ -1944,7 +1946,9 @@ int main(int argc, char *argv[])
 								clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, work_path,
 										samples, file_parameters, channel_clickables, &kaboem_file);
 								sound_saturation = 0;
-								menu_status = "cleared";
+								vol              = 100;
+								bpm              = default_bpm;
+								menu_status      = "cleared";
 							}
 
 							redraw = true;
