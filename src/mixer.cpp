@@ -66,10 +66,14 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 
 					applied_echo.push_back(value);
 
-					if (ch < size_t(sound_pars->n_channels)) {
-						float value_volumed = value * rc.value().second * (ch ? item.volume_right : item.volume_left);
-						mixed_buffer[mixed_base + ch] += value_volumed;
-					}
+					value *= rc.value().second;
+					if (ch == 0)
+						value *= item.volume_left;
+					else if (ch == 1)
+						value *= item.volume_right;
+
+					if (ch < size_t(sound_pars->n_channels))
+						mixed_buffer[mixed_base + ch] += value;
 
 					if (!all_channels.empty() && ch<cur_n_chan)
 						all_channels[sound_pars->record_ch_offsets[item.pat_nr] + t * sound_pars->record_n_channels + ch] = value;
