@@ -92,7 +92,8 @@ void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, co
 		surface = TTF_RenderText_Solid(font, text.c_str(), 0, { 255, 192, 192, 255 });
 	else
 		surface = TTF_RenderText_Solid(font, text.c_str(), 0, { 192, 255, 192, 255 });
-	assert(surface);
+	if (!surface)  // empty strngs;
+		return;
 
 	SDL_Texture *texture = SDL_CreateTextureFromSurface(screen, surface);
 	assert(texture);
