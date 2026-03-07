@@ -715,7 +715,7 @@ sample convert_sf2_sample(sf2_sample_t *const in)
 
 	std::vector<std::vector<float> > samples;
 	if (in->samples.size() >= 2) {
-		size_t n_ch = samples.size();
+		size_t n_ch = in->samples.size();
 
 		size_t use_n_samples = 0;
 		for(size_t i=0; i<n_ch; i++)
@@ -725,7 +725,7 @@ sample convert_sf2_sample(sf2_sample_t *const in)
 
 		for(size_t i=0; i<use_n_samples; i++) {
 			std::vector<float> row(n_ch);
-			for(size_t ch=0; ch<samples.size(); ch++) {
+			for(size_t ch=0; ch<n_ch; ch++) {
 				if (i < in->samples.at(ch).size())
 					row[ch] = in->samples.at(ch).at(i);
 			}
