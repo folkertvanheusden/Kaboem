@@ -52,16 +52,16 @@ midi_handle_wrapper_out allocate_midi_output_port()
 	return { midi_out };
 }
 
-void send_midi_note(midi_handle_wrapper_out & p, const int note, const int velocity)
+void send_midi_note(midi_handle_wrapper_out & p, const int channel, const int note, const int velocity)
 {
 	if (p.out)
-		p.out->send_message(0x99, note, velocity);
+		p.out->send_message(0x90 + channel, note, velocity);
 }
 
-void send_pitch_bend(midi_handle_wrapper_out & p, const uint16_t pb)
+void send_pitch_bend(midi_handle_wrapper_out & p, const int channel, const uint16_t pb)
 {
 	if (p.out)
-		p.out->send_message(0xe9, pb & 127, (pb >> 7) & 127);
+		p.out->send_message(0xe0 + channel, pb & 127, (pb >> 7) & 127);
 }
 
 midi_handle_wrapper_in allocate_midi_input_port()

@@ -95,6 +95,8 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 	if (s->midi_note.has_value()) {
 		uint16_t pb = 0x2000 * qs.pitch;
 
+		uint8_t volume = s->s->get_avg_volume() * 127;
+
 #if HAVE_SMF == 1
 		{
 			std::unique_lock<std::mutex> lck(sound_pars->smf_lock);
@@ -107,7 +109,7 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 					smf_track_add_event_seconds(sound_pars->smf_track, event, when);
 				}
 
-				uint8_t msg[3] = { 0x99, uint8_t(s->midi_note.value()), 127 };
+				uint8_t msg[3] = { 0x99, uint8_t(s->midi_note.value()), volume };
 				smf_event_t *event = smf_event_new_from_pointer(msg, sizeof msg);
 				smf_track_add_event_seconds(sound_pars->smf_track, event, when);
 			}
@@ -115,9 +117,10 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 #endif
 
 		if (midi_port.out) {
+			int ch = s->midi_ch.has_value() ? s->midi_ch.value() : 0;
 			if (pb != 0x2000)
-				send_pitch_bend(midi_port, pb);
-			send_midi_note(midi_port, s->midi_note.value(), 127);
+				send_pitch_bend(midi_port, ch, pb);
+			send_midi_note(midi_port, ch, s->midi_note.value(), volume);
 		}
 	}
 }

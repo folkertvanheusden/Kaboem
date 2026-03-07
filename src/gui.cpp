@@ -296,13 +296,13 @@ std::vector<clickable> generate_settings_menu_buttons(const int w, const int h, 
 
 	{
 		*midi_idx         = clickables.size();
-		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "MIDI", false, 'M'));
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "MIDI in", false, 'M'));
 		x += menu_button_width;
 	}
 
 	{
 		*scope_stereo_idx = clickables.size();
-		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "scope m.ch.", false, '_'));
+		clickables.emplace_back(clickable({ x, y, menu_button_width, menu_button_height }, "scope chs", false, '_'));
 		x += menu_button_width;
 	}
 
@@ -344,7 +344,8 @@ std::vector<clickable> generate_channel_buttons(const int w, const int h,
 		up_down_widget *const midi_note_widget_pars, up_down_widget *const n_steps_pars, up_down_widget *const pitch_pars,
 		size_t *const sample_unload_idx, size_t *const mute_idx, up_down_widget *const echo_t_pars,
 		up_down_widget *const lp_filter_pars, up_down_widget *const hp_filter_pars, size_t *const serial_notes_idx,
-		up_down_widget *const swing_factor_pars, up_down_widget *const delay_factor_pars)
+		up_down_widget *const swing_factor_pars, up_down_widget *const delay_factor_pars,
+		up_down_widget *const midi_ch_widget_pars)
 {
 	int menu_button_width  = w * 15 / 100;
 	int menu_button_height = h * 15 / 100;
@@ -382,14 +383,14 @@ std::vector<clickable> generate_channel_buttons(const int w, const int h,
 	std::vector<clickable> vol_right_widget = generate_up_down_widget(w, h, menu_button_width, y, "right", clickables.size(), vol_widget_right_pars);
 	std::copy(vol_right_widget.begin(), vol_right_widget.end(), std::back_inserter(clickables));
 
-	std::vector<clickable> midi_note_widget = generate_up_down_widget(w, h, menu_button_width * 2, y, "MIDI note", clickables.size(), midi_note_widget_pars);
+	std::vector<clickable> midi_ch_widget = generate_up_down_widget(w, h, menu_button_width * 2, y, "MIDI ch", clickables.size(), midi_ch_widget_pars);
+	std::copy(midi_ch_widget.begin(), midi_ch_widget.end(), std::back_inserter(clickables));
+
+	std::vector<clickable> midi_note_widget = generate_up_down_widget(w, h, menu_button_width * 3, y, "MIDI note", clickables.size(), midi_note_widget_pars);
 	std::copy(midi_note_widget.begin(), midi_note_widget.end(), std::back_inserter(clickables));
 
-	std::vector<clickable> n_steps_widget = generate_up_down_widget(w, h, menu_button_width * 3, y, "steps", clickables.size(), n_steps_pars, false);
+	std::vector<clickable> n_steps_widget = generate_up_down_widget(w, h, menu_button_width * 4, y, "steps", clickables.size(), n_steps_pars, false);
 	std::copy(n_steps_widget.begin(), n_steps_widget.end(), std::back_inserter(clickables));
-
-	std::vector<clickable> pitch_widget = generate_up_down_widget(w, h, menu_button_width * 4, y, "pitch", clickables.size(), pitch_pars, true);
-	std::copy(pitch_widget.begin(), pitch_widget.end(), std::back_inserter(clickables));
 
 	std::vector<clickable> echo_t_pars_widget = generate_up_down_widget(w, h, menu_button_width * 5, y, "echo", clickables.size(), echo_t_pars);
 	std::copy(echo_t_pars_widget.begin(), echo_t_pars_widget.end(), std::back_inserter(clickables));
@@ -408,6 +409,9 @@ std::vector<clickable> generate_channel_buttons(const int w, const int h,
 
 	std::vector<clickable> delay_widget = generate_up_down_widget(w, h, menu_button_width * 3, y, "delay", clickables.size(), delay_factor_pars);
 	std::copy(delay_widget.begin(), delay_widget.end(), std::back_inserter(clickables));
+
+	std::vector<clickable> pitch_widget = generate_up_down_widget(w, h, menu_button_width * 4, y, "pitch", clickables.size(), pitch_pars, true);
+	std::copy(pitch_widget.begin(), pitch_widget.end(), std::back_inserter(clickables));
 
 	return clickables;
 }
@@ -1358,6 +1362,7 @@ int main(int argc, char *argv[])
 	size_t         serial_notes_idx       = 0;
 	up_down_widget sample_vol_widget_left   { };
 	up_down_widget sample_vol_widget_right  { };
+	up_down_widget midi_ch_widget_pars      { };
 	up_down_widget midi_note_widget_pars    { };
 	up_down_widget n_steps_pars             { };
 	up_down_widget pitch_pars               { };
@@ -1369,7 +1374,8 @@ int main(int argc, char *argv[])
 	std::vector<clickable> channel_buttons_clickables = generate_channel_buttons(win_width, win_height,
 			&sample_load_idx, &sample_vol_widget_left, &sample_vol_widget_right, &midi_note_widget_pars,
 			&n_steps_pars, &pitch_pars, &sample_unload_idx, &mute_idx, &echo_t_pars,
-			&lp_filter_widget, &hp_filter_widget, &serial_notes_idx, &swing_factor_widget, &delay_factor_widget);
+			&lp_filter_widget, &hp_filter_widget, &serial_notes_idx, &swing_factor_widget, &delay_factor_widget,
+			&midi_ch_widget_pars);
 
 	size_t         load_midi_sample_idx   = 0;
 	up_down_widget midi_ch_widget           { };
@@ -1815,6 +1821,7 @@ int main(int argc, char *argv[])
 				int                 vol_right = 0;
 				auto               &sample    = samples[fs_action_sample_index];
 				sound_sample *const s         = sample.s;
+				auto                midi_ch   = sample.midi_ch;
 				auto                midi_note = sample.midi_note;
 				int                 echo_t    = sample.echo_t;
 				if (s) {
@@ -1834,6 +1841,10 @@ int main(int argc, char *argv[])
 					{ { sample_vol_widget_left.text_w,  sample_vol_widget_left.text_h } });
 				draw_text(font, screen, sample_vol_widget_right.x, sample_vol_widget_right.y, std::to_string(vol_right),
 					{ { sample_vol_widget_right.text_w, sample_vol_widget_right.text_h } });
+				if (midi_ch.has_value()) {
+					draw_text(font, screen, midi_ch_widget_pars.x, midi_ch_widget_pars.y,  std::to_string(midi_ch.value() + 1),
+						{ { midi_ch_widget_pars.text_w,  midi_ch_widget_pars.text_h } });
+				}
 				if (midi_note.has_value()) {
 					draw_text(font, screen, midi_note_widget_pars.x, midi_note_widget_pars.y,  std::to_string(midi_note.value() + 1),
 						{ { midi_note_widget_pars.text_w,  midi_note_widget_pars.text_h } });
@@ -2158,9 +2169,13 @@ int main(int argc, char *argv[])
 							sample       *const sample_   = &samples[fs_action_sample_index];
 							sound_sample *const s         = sample_->s;
 							auto              & midi_note = sample_->midi_note;
+							auto              & midi_ch   = sample_->midi_ch;
 							int                 pitch     = s ? s->get_pitch_bend() * 1000 : 0;
 
 							if (set_up_down_value(idx, midi_note_widget_pars, 0, 127, &midi_note, shift)) {
+								// taken
+							}
+							else if (set_up_down_value(idx, midi_ch_widget_pars, 0, 15, &midi_ch, shift)) {
 								// taken
 							}
 							else if (set_up_down_value(idx, pitch_pars, 0, 10000, &pitch, shift)) {

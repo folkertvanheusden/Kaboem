@@ -28,8 +28,8 @@ void deinit_midi();
 
 midi_handle_wrapper_out allocate_midi_output_port();
 midi_handle_wrapper_in  allocate_midi_input_port ();
-void                       send_midi_note   (midi_handle_wrapper_out & out_port, const int note, const int velocity);
-void                       send_pitch_bend  (midi_handle_wrapper_out & out_port, const uint16_t pb);
+void                       send_midi_note   (midi_handle_wrapper_out & out_port, const int channel, const int note, const int velocity);
+void                       send_pitch_bend  (midi_handle_wrapper_out & out_port, const int channel, const uint16_t pb);
 std::vector<unsigned char> receive_midi_note(midi_handle_wrapper_in  & in_port);
 void close_midi_in_port (midi_handle_wrapper_in  & in_port);
 void close_midi_out_port(midi_handle_wrapper_out & out_port);
