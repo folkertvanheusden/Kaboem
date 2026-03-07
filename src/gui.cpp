@@ -598,7 +598,7 @@ std::optional<size_t> select_from_list(TTF_Font *const font, TTF_Font *const fon
 	size_t button_down = clickables.size();
 	clickables.emplace_back(clickable({ int(w / 2 - menu_button_width / 2), dim_h * 5 - border_h - menu_button_height, menu_button_width, menu_button_height / 3}, "↓", false, 'd'));
 
-	size_t n_rows = (h - dim_h * 2 - menu_button_height / 3 - menu_button_height * 1.05) / font_height;
+	ssize_t n_rows = (h - dim_h * 2 - menu_button_height / 3 - menu_button_height * 1.05) / font_height;
 	printf("rows shown: %zu\n", n_rows);
 
 	const int item_base_x = dim_w + border_w;
@@ -606,10 +606,12 @@ std::optional<size_t> select_from_list(TTF_Font *const font, TTF_Font *const fon
 	const int item_w      = dim_w * 2 - border_w;
 	const int item_h      = font_height;
 
-	ssize_t list_offset = 0;
-	ssize_t cur_n_rows  = n_rows;
+	ssize_t prev_offset   = 0;
+	ssize_t list_offset   = 0;
+	ssize_t inner_offset  = 0;
+	ssize_t cur_n_rows    = n_rows;
 
-	bool   shift        = false;
+	bool    shift         = false;
 
 	while(!do_exit) {
 		if (redraw) {
@@ -623,12 +625,15 @@ std::optional<size_t> select_from_list(TTF_Font *const font, TTF_Font *const fon
 			SDL_RenderFillRect(screen, &rec);
 			SDL_SetRenderDrawColor(screen, 40, 40, 40, 191);
 			SDL_RenderRect(screen, &rec);
-
-			cur_n_rows = std::min(n_rows, list.size() - list_offset);
-			for(ssize_t i=0; i<cur_n_rows; i++)
-				draw_text(font, screen, item_base_x, item_base_y + i * item_h, list.at(i + list_offset).first, { { item_w, item_h } }, i == 0, text_alignment::left, text_alignment::top);
+// show % in list
+			cur_n_rows = std::min(n_rows, ssize_t(list.size() - list_offset));
+			for(ssize_t i=0; i<n_rows; i++)
+				draw_text(font, screen, item_base_x, item_base_y + i * item_h, size_t(i + list_offset) < list.size() ? list.at(i + list_offset).first : "", { { item_w, item_h } }, i == inner_offset, text_alignment::left, text_alignment::top);
 
 			draw_clickables(font, font_small, screen, clickables, { }, { });
+
+			std::string progress = std::to_string(list_offset + inner_offset + 1) + "/" + std::to_string(list.size());
+			draw_text(font, screen, int(w / 2 - menu_button_width / 2), dim_h * 5 - border_h - menu_button_height / 2, progress, { { menu_button_width, menu_button_height / 3 } }, false, text_alignment::center, text_alignment::top);
 
 			SDL_RenderPresent(screen);
 		}
@@ -644,11 +649,21 @@ std::optional<size_t> select_from_list(TTF_Font *const font, TTF_Font *const fon
 					if (idx == button_cancel)
 						return { };
 					if (idx == button_up) {
-						list_offset = std::max(ssize_t(0), ssize_t(shift ? list_offset - n_rows * 2 / 3 : list_offset - 1));
+						prev_offset = list_offset;
+						if (inner_offset)
+							inner_offset--;
+						else
+							list_offset = std::max(ssize_t(0), ssize_t(shift ? list_offset - n_rows * 2 / 3 : list_offset - 1));
 						redraw = true;
 					}
 					if (idx == button_down) {
-						list_offset = std::min(list.size() - 1, shift ? list_offset + n_rows * 2 / 3 : list_offset + 1);
+						prev_offset = list_offset;
+						if (size_t(inner_offset + list_offset) < list.size() - 1) {
+							if (inner_offset < cur_n_rows - 1)
+								inner_offset++;
+							else if (inner_offset == cur_n_rows - 1)
+								list_offset++;
+						}
 						redraw = true;
 					}
 				}
@@ -656,13 +671,32 @@ std::optional<size_t> select_from_list(TTF_Font *const font, TTF_Font *const fon
 					if (event.button.x >= item_base_x && event.button.x < item_base_x + item_w &&
 					    event.button.y >= item_base_y && event.button.y < item_base_y + cur_n_rows * item_h)
 					{
+						prev_offset = list_offset;
 						list_offset += (event.button.y - item_base_y) / item_h;
-						redraw = true;
+						return list_offset;
 					}
 				}
 			}
 			else if (event.key.scancode == SDL_SCANCODE_LSHIFT || event.key.scancode == SDL_SCANCODE_RSHIFT) {
 				shift = event.type == SDL_EVENT_KEY_DOWN;
+			}
+			else if (event.type == SDL_EVENT_KEY_DOWN) {
+				if (event.key.scancode == SDL_SCANCODE_BACKSPACE) {
+					inner_offset = 0;
+					list_offset  = prev_offset;
+					redraw       = true;
+				}
+				else if (event.key.scancode == SDLK_PAGEUP || event.key.scancode == SDL_SCANCODE_KP_9) {
+					if (inner_offset)
+						inner_offset = 0;
+					else
+						list_offset = std::max(ssize_t(0), list_offset - n_rows);
+					redraw = true;
+				}
+				else if (event.key.scancode == SDLK_PAGEDOWN || event.key.scancode == SDL_SCANCODE_KP_3) {
+					list_offset = std::min(ssize_t(list.size() - 1 - inner_offset), list_offset + inner_offset + n_rows);
+					redraw = true;
+				}
 			}
 		}
 	}
@@ -995,6 +1029,9 @@ void clear_everything(std::array<pattern, pattern_groups> & pat_clickables, std:
 		std::lock_guard<std::shared_mutex> lck(sound_pars.sounds_lock);
 		sound_pars.sounds.clear();
 
+		sound_pars.global_volume    = 1.;
+		sound_pars.sound_saturation = 1.;
+
 		for(size_t i=0; i<pattern_groups; i++) {
 			for(auto & element: pat_clickables[i].pattern) {
 				element.selected = false;
@@ -1260,7 +1297,7 @@ int main(int argc, char *argv[])
 
 	bool redraw = true;
 	int  steps  = 16;
-	int  bpm    = 135;
+	int  bpm    = default_bpm;
 	int  vol    = 100;
 
 	enum { m_pattern, m_settings, m_sample, m_cell, m_midi } mode = m_pattern;
@@ -1399,16 +1436,15 @@ int main(int argc, char *argv[])
 	bool                 ctrl           = false;
 	int                  prev_scope_t   = -1;
 	size_t               selected_cell  = 0;
-	std::atomic_uint64_t start_t        = 0;
 
 	set_bpm_sleep(&sleep_us, bpm);
 
 	pattern_menu         [p_pause_idx].selected = paused;
 	settings_menu_buttons[pause_idx]  .selected = paused;
 
-	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &force_trigger, &polyrythmic, &humanize_amount_parameter, &start_t] {
+	std::thread player_thread([&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &force_trigger, &polyrythmic, &humanize_amount_parameter] {
 			set_thread_name("KAB-player");
-			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &humanize_amount_parameter, &start_t);
+			player(&pat_clickables, &pat_clickables_lock, &samples, &sleep_us, &sound_pars, &paused, &do_exit, &force_trigger, &polyrythmic, &humanize_amount_parameter);
 			});
 
 	std::thread mixer_thread([&sound_pars] {
@@ -1478,6 +1514,10 @@ int main(int argc, char *argv[])
 
 						clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, work_path, samples,
 								file_parameters, channel_clickables, &kaboem_file);
+
+						sound_saturation = 0;
+						vol              = 100;
+						bpm              = default_bpm;
 
 						std::unique_lock<std::shared_mutex> pat_lck (pat_clickables_lock        );
 						std::unique_lock<std::shared_mutex> lck     (sound_pars.sounds_lock     );
@@ -1939,7 +1979,10 @@ int main(int argc, char *argv[])
 								draw_please_wait(font, screen, win_width, win_height);
 								clear_everything(pat_clickables, &pat_clickables_lock, sound_pars, &menu_status, work_path,
 										samples, file_parameters, channel_clickables, &kaboem_file);
-								menu_status = "cleared";
+								sound_saturation = 0;
+								vol              = 100;
+								bpm              = default_bpm;
+								menu_status      = "cleared";
 							}
 
 							redraw = true;
