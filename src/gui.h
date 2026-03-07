@@ -4,18 +4,12 @@
 #include <string>
 #include <SDL3/SDL.h>
 
+#include "clickable.h"
 #include "sound.h"
 
 
 #define PROG_NAME "Kaboem"
 #define PROG_EXT  "kaboem"
-
-struct clickable {
-	SDL_Rect    where;
-	bool        selected;
-	std::string text;
-	bool        without_bg;
-};
 
 struct pattern
 {
@@ -24,6 +18,9 @@ struct pattern
 	std::vector<double>    volume_left;
 	std::vector<double>    volume_right;
 	size_t                 dim          { 0     };
+	size_t                 wdim         { 0     };
+	size_t                 hdim         { 0     };
+	std::optional<std::pair<int, int> > cursor;
 	std::optional<double>  lp_cutoff;
 	std::optional<double>  hp_cutoff;
 	bool                   serial_notes { true  };

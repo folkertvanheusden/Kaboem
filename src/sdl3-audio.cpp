@@ -22,7 +22,7 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 
 	std::vector<float> data;
 
-	int  sleep_n = 16;
+	int  sleep_n       = 16;
 	bool warning_shown = false;
 	std::unique_lock<std::shared_mutex> stream_lck(sound_pars->stream_lock);
 	while(!do_exit) {

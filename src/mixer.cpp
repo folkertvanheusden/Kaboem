@@ -1,5 +1,6 @@
 #include "config.h"
 #include <atomic>
+#include <cassert>
 #include <cfloat>
 #include <fcntl.h>
 #include <mutex>
@@ -13,12 +14,13 @@
 #include "time.h"
 
 
-float * mix(sound_parameters *const sound_pars, const int period_size)
+std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const sound_pars, const int period_size)
 {
-	float *buffer = new float[sound_pars->n_channels * period_size]();
+	std::vector<float> mixed_buffer(sound_pars->n_channels        * period_size);
+	std::vector<float> all_channels(sound_pars->record_n_channels * period_size);
 
 	for(int t=0; t<period_size; t++) {
-		float *current_sample_base = &buffer[t * sound_pars->n_channels];
+		size_t mixed_base = t * sound_pars->n_channels;
 
 		// sum all samples
 		for(size_t s_idx=0; s_idx<sound_pars->sounds.size();) {
@@ -31,6 +33,7 @@ float * mix(sound_parameters *const sound_pars, const int period_size)
 				continue;
 			}
 
+			size_t cur_n_chan = item.s->get_n_channels();
 			bool   fin        = false;
 			bool   mute       = item.s->get_mute();
 			double t_use      = item.t * item.pitch;
@@ -39,8 +42,8 @@ float * mix(sound_parameters *const sound_pars, const int period_size)
 			if (!mute) {
 				std::vector<float> applied_echo;
 
-				// assume stereo (maybe in the future 2+1? or even 5+1?)
-				for(size_t ch=0; ch<2; ch++) {
+				// assume stereo samples (maybe in the future 2+1? or even 5+1?)
+				for(size_t ch=0; ch<cur_n_chan; ch++) {
 					auto rc = item.s->get_sample(t_use, ch);
 
 					if (rc.has_value() == false) {
@@ -52,20 +55,25 @@ float * mix(sound_parameters *const sound_pars, const int period_size)
 						rc = { 0, 1 };
 					}
 
-					float value         = rc.value().first * (ch ? item.volume_right : item.volume_left);
-					float value_volumed = value * rc.value().second;
+					float value = rc.value().first;
 
 					if (item.bp_filter)
-						value_volumed = item.bp_filter->process(value_volumed);
+						value = item.bp_filter->process(value);
 
 					if (apply_echo && item.t >= item.echo_t) {
 						constexpr const float feedback = 0.5;  // TODO configurable?
-						value_volumed += feedback * item.history[item.t - item.echo_t][ch];
+						value += feedback * item.history[item.t - item.echo_t][ch];
 					}
 
-					applied_echo.push_back(value_volumed);
+					applied_echo.push_back(value);
 
-					current_sample_base[ch] += value_volumed;
+					if (ch < size_t(sound_pars->n_channels)) {
+						float value_volumed = value * rc.value().second * (ch ? item.volume_right : item.volume_left);
+						mixed_buffer[mixed_base + ch] += value_volumed;
+					}
+
+					if (!all_channels.empty())
+						all_channels[sound_pars->record_ch_offsets[item.pat_nr] + t * sound_pars->record_n_channels + ch] = value;
 				}
 
 				item.history.push_back(std::move(applied_echo));
@@ -86,7 +94,7 @@ float * mix(sound_parameters *const sound_pars, const int period_size)
 		}
 	}
 
-	return buffer;
+	return { mixed_buffer, all_channels };
 }
 
 void apply_agc(sound_parameters *const sound_pars, const float *const buffer, std::vector<float> & dest, const int period_size)
@@ -111,14 +119,16 @@ void apply_agc(sound_parameters *const sound_pars, const float *const buffer, st
 	delete [] c_temp;
 }
 
-void clip_too_loud(sound_parameters *const sound_pars, const float *const buffer, std::vector<float> & dest, const int period_size)
+std::pair<double, int> clip_too_loud(const size_t n_channels, const float *const buffer, std::vector<float> & dest, const int period_size, const float global_volume, const float saturation)
 {
+	double too_loud_total = 0;
+	int    too_loud_count = 0;
 	for(int t=0; t<period_size; t++) {
-		const float *current_sample_base_in = &buffer[t * sound_pars->n_channels];
-		size_t       dest_index             = t * sound_pars->n_channels;
+		const float *current_sample_base_in = &buffer[t * n_channels];
+		size_t       dest_index             = t * n_channels;
 		float        too_loud               = 0;
-		for(int c=0; c<sound_pars->n_channels; c++) {
-			float temp = current_sample_base_in[c] * sound_pars->global_volume;
+		for(size_t c=0; c<n_channels; c++) {
+			float temp = current_sample_base_in[c] * global_volume;
 
 			if (temp < -1.)
 				temp = -1., too_loud = std::max(too_loud, fabsf(temp));
@@ -126,19 +136,21 @@ void clip_too_loud(sound_parameters *const sound_pars, const float *const buffer
 				temp = 1.,  too_loud = std::max(too_loud, temp);
 
 			float sign = temp < 0 ? -1 : 1;
-			dest[dest_index + c] = powf(fabsf(temp), sound_pars->sound_saturation) * sign;
+			dest[dest_index + c] = powf(fabsf(temp), saturation) * sign;
 		}
 
-		sound_pars->too_loud_total += too_loud;
-		sound_pars->too_loud_count++;
+		too_loud_total += too_loud;
+		too_loud_count++;
 	}
+
+	return { too_loud_total, too_loud_count };
 }
 
-void write_wav(sound_parameters *const sound_pars, const std::vector<float> & data)
+void write_wav(sound_parameters *const sound_pars, const std::vector<float> & data, const size_t n_channels)
 {
 	std::unique_lock<std::mutex> r_lck(sound_pars->record_lock);
 	if (sound_pars->record_handle)
-		sf_writef_float(sound_pars->record_handle, data.data(), data.size() / sound_pars->n_channels);
+		sf_writef_float(sound_pars->record_handle, data.data(), data.size() / n_channels);
 }
 
 void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
@@ -153,23 +165,24 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		uint64_t t_start = get_us();
 
 		std::unique_lock<std::shared_mutex> lck(sound_pars->sounds_lock);
-		float *temp_buffer = mix(sound_pars, period_size);
+		auto   temp_buffer = mix(sound_pars, period_size);
 		size_t n_sounds    = sound_pars->sounds.size();
 
 		sound_pars->n_loud_checked += period_size;
 
 		std::vector<float> dest(sound_pars->n_channels * period_size);
-
 		if (sound_pars->agc_enabled)
-			apply_agc(sound_pars, temp_buffer, dest, period_size);
-		else
-			clip_too_loud(sound_pars, temp_buffer, dest, period_size);
-
-		delete [] temp_buffer;
+			apply_agc    (sound_pars, temp_buffer.first.data(), dest, period_size);
+		else {
+			auto clip_stats = clip_too_loud(sound_pars->n_channels, temp_buffer.first.data(), dest, period_size, sound_pars->global_volume, sound_pars->sound_saturation);
+			sound_pars->too_loud_total += clip_stats.first;
+			sound_pars->too_loud_count += clip_stats.second;
+		}
 
 		lck.unlock();
 
-		write_wav(sound_pars, dest);
+		if (sound_pars->record_multichannel == false)
+			write_wav(sound_pars, dest, 2);
 
 		// queue for sdl3-audio
 		std::unique_lock<std::shared_mutex> s_lck(sound_pars->stream_lock);
@@ -193,6 +206,12 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars)
 		std::unique_lock<std::shared_mutex> r_lck(sound_pars->stats_lock);
 		sound_pars->n_busyness++;
 		sound_pars->t_busyness += 100 * took / latency;
+
+		if (sound_pars->record_multichannel == true && temp_buffer.second.empty() == false) {
+			std::vector<float> dest_mc(temp_buffer.second.size());
+			clip_too_loud(sound_pars->record_n_channels, temp_buffer.second.data(), dest_mc, period_size, sound_pars->global_volume, sound_pars->sound_saturation);
+			write_wav(sound_pars, dest_mc, sound_pars->record_n_channels);
+		}
 	}
 
 	printf("Mixer thread terminating\n");

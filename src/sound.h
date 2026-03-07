@@ -172,9 +172,10 @@ struct pattern;
 class sound_parameters
 {
 public:
-	sound_parameters(const int sample_rate, const int n_channels) :
+	sound_parameters(const int sample_rate, const int n_channels, const bool multichannel_wav) :
        		sample_rate(sample_rate),
-		n_channels(n_channels) {
+		n_channels(n_channels),
+       		record_multichannel(multichannel_wav) {
 		for(int i=0; i<n_channels; i++)
 			agc_instances.push_back(new agc(-10.0, 4.0, 10.0, 100.0, sample_rate));
 	}
@@ -209,6 +210,7 @@ public:
 		biquad_filter *bp_filter    { nullptr };
 		pattern       *pat          { nullptr };
 		std::vector<std::vector<float> > history;
+		size_t         pat_nr;  // "channel"
 	};
 	std::vector<queued_sound> sounds;
 	double               global_volume    { 1.      };
@@ -239,6 +241,9 @@ public:
 
 	std::mutex           record_lock;
 	SNDFILE             *record_handle    { nullptr };
+	bool                 record_multichannel { false };
+	int                  record_n_channels { 0      };
+	std::vector<int>     record_ch_offsets;  // per pattern offset
 
 	uint64_t             record_wav_smf_since { 0   };
 };

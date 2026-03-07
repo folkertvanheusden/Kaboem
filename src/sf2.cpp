@@ -598,6 +598,7 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & file_name, const b
 					bool loopSet   = false;
 					int  key       = -1;
 					int  sample_id = -1;
+					bool doLoop    = false;
 
 					while(wInstGenNdx < igen.size()) {
 						int sfGenOper = igen.getsfGenOper(wInstGenNdx);
@@ -627,6 +628,9 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & file_name, const b
 						else if (sfGenOper == 50) { // endloopAddrsCoarseOffset
 							loopEnd += genAmount;
 						}
+						else if (sfGenOper == 54) {
+							doLoop = genAmount == 1 || genAmount == 3;
+						}
 						else if (sfGenOper == 53) {
 							sample_id = genAmount;
 							break;  // the sampleID enumerator is the terminal generator for IGEN zones
@@ -646,16 +650,24 @@ std::map<uint16_t, sample_set_t> load_sf2(const std::string & file_name, const b
 
 						sf2_sample_t s = load_sf2_sample(&sf2_map, shdr.getPointer(), sample_id, name);
 
-						if (loopSet) {
-							s.repeat_start[0] += loopStart;
-							s.repeat_end  [0] += loopEnd;
-							printf("\tloop left/mono %zu->%zu\n", s.repeat_start[0], s.repeat_end[0]);
+						if (doLoop) {
+							if (loopSet) {
+								s.repeat_start[0] += loopStart;
+								s.repeat_end  [0] += loopEnd;
+								printf("\tloop left/mono %zu->%zu\n", s.repeat_start[0], s.repeat_end[0]);
 
-							if (s.samples.size() >= 2) {
-								s.repeat_start[1] += loopStart;
-								s.repeat_end  [1] += loopEnd;
-								printf("\tloop right %zu->%zu\n", s.repeat_start[1], s.repeat_end[1]);
+								if (s.samples.size() >= 2) {
+									s.repeat_start[1] += loopStart;
+									s.repeat_end  [1] += loopEnd;
+									printf("\tloop right %zu->%zu\n", s.repeat_start[1], s.repeat_end[1]);
+								}
 							}
+						}
+						else {
+							s.repeat_start[0] = -1;
+							s.repeat_end  [0] = -1;
+							s.repeat_start[1] = -1;
+							s.repeat_end  [1] = -1;
 						}
 
 						printf("\tSet keynum %d\n", key);

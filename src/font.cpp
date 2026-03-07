@@ -1,8 +1,12 @@
+#include <cassert>
 #include <cstdio>
+#include <optional>
 #include <string>
 #include <vector>
 #include <fontconfig/fontconfig.h>
 #include <SDL3_ttf/SDL_ttf.h>
+
+#include "font.h"
 
 
 void init_fonts()
@@ -79,3 +83,35 @@ TTF_Font * load_font_by_filenames(const std::vector<std::string> & filenames, co
 
 	return nullptr;
 }
+
+void draw_text(TTF_Font *const font, SDL_Renderer *const screen, const int x, const int y, const std::string & text, const std::optional<std::pair<int, int> > & in,
+	       const bool important, const text_alignment h_alignment, const text_alignment v_alignment)
+{
+	SDL_Surface *surface = nullptr;
+	if (important)
+		surface = TTF_RenderText_Solid(font, text.c_str(), 0, { 255, 192, 192, 255 });
+	else
+		surface = TTF_RenderText_Solid(font, text.c_str(), 0, { 192, 255, 192, 255 });
+	assert(surface);
+
+	SDL_Texture *texture = SDL_CreateTextureFromSurface(screen, surface);
+	assert(texture);
+
+	SDL_FRect dest { float(x), float(y), float(surface->w), float(surface->h) };
+	if (in.has_value()) {
+		if (h_alignment == text_alignment::center)
+			dest.x = x + in.value().first / 2 - surface->w / 2;
+		else if (h_alignment == text_alignment::right)
+			dest.x = x + in.value().first - surface->w;
+
+		if (v_alignment == text_alignment::center)
+			dest.y = y + in.value().second / 2 - surface->h / 2;
+		else if (v_alignment == text_alignment::bottom)
+			dest.y = y + in.value().second - surface->h;
+	}
+	SDL_RenderTexture(screen, texture, nullptr, &dest);
+
+	SDL_DestroyTexture(texture);
+	SDL_DestroySurface(surface);
+}
+

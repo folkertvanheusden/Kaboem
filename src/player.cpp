@@ -6,6 +6,7 @@
 #include <mutex>
 #include <unistd.h>
 
+#include "clock.h"
 #include "frequencies.h"
 #include "gui.h"
 #include "midi.h"
@@ -36,7 +37,7 @@ int64_t us_to_next_pattern(const uint64_t now, std::atomic_bool *const polyrythm
 }
 
 void queue_sample(sound_parameters *const sound_pars, const int note_delta, const double volume_left, const double volume_right,
-		const sample *const s, pattern *const pat, const std::optional<size_t> pat_nr, midi_handle_wrapper_out midi_port)
+		const sample *const s, pattern *const pat, const size_t pat_nr, midi_handle_wrapper_out midi_port)
 {
 	if (!s->s) {
 		printf("Queuing sample without samples!\n");
@@ -61,6 +62,7 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 	qs.volume_right        = volume_right;
 	qs.echo_t              = s->echo_t;
 	qs.history.reserve(s->s->get_sample_count() + s->echo_t);
+	qs.pat_nr              = pat_nr;
 
 	if (pat) {
 		float lp_cutoff = pat->lp_cutoff.has_value() ? pat->lp_cutoff.value() : 0;
@@ -71,7 +73,7 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 
 	std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
 	bool hit = false;
-	if (pat->serial_notes && pat_nr.has_value()) {
+	if (pat->serial_notes) {
 		for(auto & sound: sound_pars->sounds) {
 			if (sound.pat != pat)
 				continue;
@@ -131,8 +133,7 @@ void player(std::array<pattern, pattern_groups> *const pat_clickables, std::shar
 		std::atomic_bool *const pause,    std::atomic_bool *const do_exit,
 		std::atomic_bool *const force_trigger,
 		std::atomic_bool *const polyrythmic,
-		std::atomic_int  *const humanize_factor,
-		std::atomic_uint64_t *const t_start)
+		std::atomic_int  *const humanize_factor)
 {
 	auto                                midi_port      = allocate_midi_output_port();
 	std::array<ssize_t, pattern_groups> prev_pat_index1;
@@ -154,10 +155,9 @@ void player(std::array<pattern, pattern_groups> *const pat_clickables, std::shar
 		{
 			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
 
-			auto   abs_now   = get_us();
-			auto   now       = abs_now - *t_start;
+			uint64_t now       = my_clock;
+			size_t   max_steps = 0;
 
-			size_t max_steps = 0;
 			if (!*polyrythmic) {
 				for(size_t i=0; i<pattern_groups; i++) {
 					if ((*samples)[i].s != nullptr)
