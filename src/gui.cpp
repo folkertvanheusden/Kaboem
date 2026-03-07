@@ -539,7 +539,7 @@ void draw_scope(SDL_Renderer *const screen, const SDL_Rect & where, const std::v
 // hl_index: high light index
 void draw_clickables(TTF_Font *const font_big, TTF_Font *const font_small, SDL_Renderer *const screen, const std::vector<clickable> & clickables,
 		const std::optional<std::pair<size_t, uint64_t> > & hl_index, const std::optional<size_t> play_index, const ssize_t draw_limit = -1,
-		const std::optional<size_t> & cursor = { })
+		const std::optional<size_t> & cursor = { }, const bool ignore_selected = false)
 {
 	size_t   draw_n        = draw_limit == -1 ? clickables.size() : draw_limit;
 	uint64_t now           = get_ms();
@@ -550,7 +550,7 @@ void draw_clickables(TTF_Font *const font_big, TTF_Font *const font_small, SDL_R
 		bool pl    = play_index.has_value() == true && play_index.value()       == i;
 		int  extra = is_long_press && hl ? 55 : 0;
 		std::vector<int> color;
-		if (clickables[i].selected) {
+		if (clickables[i].selected && ignore_selected == false) {
 			int sub_color = (hl ? 200 : 40) + extra;
 			if (pl)
 				color = { 200, 40, sub_color };
@@ -1740,7 +1740,7 @@ int main(int argc, char *argv[])
 				if (menu_status.empty())
 					menu_status = PROG_NAME " " KABOEM_VERSION;
 				draw_text(font, screen, 0, 0, menu_status, { { win_width, win_height } }, false, text_alignment::left, text_alignment::bottom);
-				draw_clickables(font, font_small, screen, channel_clickables, { }, { });
+				draw_clickables(font, font_small, screen, channel_clickables,    { }, { }, -1, { }, true);
 				draw_clickables(font, font_small, screen, settings_menu_buttons, { }, { });
 				draw_text(font, screen, bpm_widget.x, bpm_widget.y, std::to_string(bpm), { { bpm_widget.text_w, bpm_widget.text_h } });
 				draw_text(font, screen, vol_widget.x, vol_widget.y, std::to_string(vol), { { vol_widget.text_w, vol_widget.text_h } });
