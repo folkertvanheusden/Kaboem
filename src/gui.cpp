@@ -657,7 +657,7 @@ std::optional<size_t> select_from_list(TTF_Font *const font, TTF_Font *const fon
 					    event.button.y >= item_base_y && event.button.y < item_base_y + cur_n_rows * item_h)
 					{
 						list_offset += (event.button.y - item_base_y) / item_h;
-						redraw = true;
+						return list_offset;
 					}
 				}
 			}
