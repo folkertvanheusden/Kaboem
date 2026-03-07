@@ -6,6 +6,7 @@
 #include <mutex>
 #include <unistd.h>
 
+#include "clock.h"
 #include "frequencies.h"
 #include "gui.h"
 #include "midi.h"
@@ -155,10 +156,9 @@ void player(std::array<pattern, pattern_groups> *const pat_clickables, std::shar
 		{
 			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
 
-			auto   abs_now   = get_us();
-			auto   now       = abs_now - *t_start;
+			uint64_t now       = my_clock;
+			size_t   max_steps = 0;
 
-			size_t max_steps = 0;
 			if (!*polyrythmic) {
 				for(size_t i=0; i<pattern_groups; i++) {
 					if ((*samples)[i].s != nullptr)

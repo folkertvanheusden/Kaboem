@@ -20,6 +20,7 @@ add_executable(
   src/agc.cpp
   src/bp-filter.cpp
   src/clickable.cpp
+  src/clock.cpp
   src/font.cpp
   src/frequencies.cpp
   src/gui.cpp

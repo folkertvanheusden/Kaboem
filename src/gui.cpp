@@ -20,6 +20,7 @@
 #include <SDL3_ttf/SDL_ttf.h>
 
 #include "clickable.h"
+#include "clock.h"
 #include "font.h"
 #include "frequencies.h"
 #include "gui.h"
@@ -1429,12 +1430,16 @@ int main(int argc, char *argv[])
 	while(!do_exit) {
 		// determine pattern index
 		size_t pat_index = 0;
+		bool p = paused;
 		{
-			if (paused)
-				start_t = get_us();
-			auto   now         = get_us() - start_t;
+			if (paused && is_clock_ticking())
+				stop_clock();
+			else if (!paused && !is_clock_ticking())
+				start_clock();
+
+			uint64_t now         = my_clock;
 			std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
-			size_t current_dim = pat_clickables[pattern_group].dim;
+			size_t   current_dim = pat_clickables[pattern_group].dim;
 
                         if (polyrythmic)
 				pat_index = now / sleep_us % current_dim;
@@ -1898,7 +1903,7 @@ int main(int argc, char *argv[])
 							if (idx == p_pause_idx)
 								paused = !paused;
 							else if (idx == restart_idx) {
-								start_t = get_us();
+								reset_clock();
 								paused  = false;
 							}
 							pattern_menu         [p_pause_idx].selected = paused;
