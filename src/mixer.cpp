@@ -42,8 +42,7 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 			if (!mute) {
 				std::vector<float> applied_echo;
 
-				// assume stereo samples (maybe in the future 2+1? or even 5+1?)
-				for(size_t ch=0; ch<cur_n_chan; ch++) {
+				for(size_t ch=0; ch<std::max(size_t(sound_pars->n_channels), cur_n_chan); ch++) {
 					auto rc = item.s->get_sample(t_use, ch);
 
 					if (rc.has_value() == false) {
@@ -72,7 +71,7 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 						mixed_buffer[mixed_base + ch] += value_volumed;
 					}
 
-					if (!all_channels.empty())
+					if (!all_channels.empty() && ch<cur_n_chan)
 						all_channels[sound_pars->record_ch_offsets[item.pat_nr] + t * sound_pars->record_n_channels + ch] = value;
 				}
 
