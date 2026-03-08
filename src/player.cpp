@@ -10,6 +10,7 @@
 #include "frequencies.h"
 #include "gui.h"
 #include "midi.h"
+#include "midi-handler.h"
 #include "sdl3-audio.h"
 #include "time.h"
 
@@ -37,7 +38,7 @@ int64_t us_to_next_pattern(const uint64_t now, std::atomic_bool *const polyrythm
 }
 
 void queue_sample(sound_parameters *const sound_pars, const int note_delta, const double volume_left, const double volume_right,
-		const sample *const s, pattern *const pat, const size_t pat_nr, midi_handle_wrapper_out midi_port)
+		const sample *const s, pattern *const pat, const size_t pat_nr)
 {
 	if (!s->s) {
 		printf("Queuing sample without samples!\n");
@@ -92,43 +93,20 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 	if (!hit)
 		sound_pars->sounds.push_back(qs);
 
-	// TODO move this to sdl3-audio code? or the mixer?
 	if (s->midi_note.has_value() && s->midi_ch.has_value()) {
-		uint16_t pb = 0x2000 * qs.pitch;
+		uint16_t pb     = 0x2000 * qs.pitch;
+		uint8_t  volume = s->s->get_avg_volume() * 127;
+		int      ch     = s->midi_ch.value();
 
-		uint8_t volume = s->s->get_avg_volume() * 127;
-
-#if HAVE_SMF == 1
-		{
-			std::unique_lock<std::mutex> lck(sound_pars->smf_lock);
-			if (sound_pars->smf_track) {
-				double when = (get_us() - sound_pars->smf_start) / 1000000.;
-
-				if (pb != 0x2000) {
-					uint8_t pb_msg[3] = { 0xe9, uint8_t(pb & 127), uint8_t((pb >> 7) & 127) };
-					smf_event_t *event = smf_event_new_from_pointer(pb_msg, sizeof pb_msg);
-					smf_track_add_event_seconds(sound_pars->smf_track, event, when);
-				}
-
-				uint8_t msg[3] = { 0x99, uint8_t(s->midi_note.value()), volume };
-				smf_event_t *event = smf_event_new_from_pointer(msg, sizeof msg);
-				smf_track_add_event_seconds(sound_pars->smf_track, event, when);
-			}
-		}
-#endif
-
-		if (midi_port.out) {
-			int ch = s->midi_ch.value();
-			if (pb != 0x2000)
-				send_pitch_bend(midi_port, ch, pb);
-			send_midi_note(midi_port, ch, s->midi_note.value(), volume);
-		}
+		if (pb != 0x2000)
+			midi_queue_message(qs.queued_at, { uint8_t(0xe0 + ch), uint8_t(pb & 127), uint8_t((pb >> 7) & 127) });
+		midi_queue_message(qs.queued_at, { uint8_t(0x90 + ch), uint8_t(s->midi_note.value()), volume });
 	}
 }
 
-void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, const sample *const s, pattern *const pat, const size_t pat_nr, midi_handle_wrapper_out midi_port)
+void queue_sample(sound_parameters *const sound_pars, const ssize_t pat_index, const sample *const s, pattern *const pat, const size_t pat_nr)
 {
-	queue_sample(sound_pars, pat->note_delta[pat_index], pat->volume_left[pat_index], pat->volume_right[pat_index], s, pat, pat_nr, midi_port);
+	queue_sample(sound_pars, pat->note_delta[pat_index], pat->volume_left[pat_index], pat->volume_right[pat_index], s, pat, pat_nr);
 }
 
 void player(std::array<pattern, pattern_groups> *const pat_clickables, std::shared_mutex *const pat_clickables_lock,
@@ -139,7 +117,6 @@ void player(std::array<pattern, pattern_groups> *const pat_clickables, std::shar
 		std::atomic_bool *const polyrythmic,
 		std::atomic_int  *const humanize_factor)
 {
-	auto                                midi_port      = allocate_midi_output_port();
 	std::array<ssize_t, pattern_groups> prev_pat_index1;
 	std::array<ssize_t, pattern_groups> prev_pat_index2;
 
@@ -191,7 +168,7 @@ void player(std::array<pattern, pattern_groups> *const pat_clickables, std::shar
 					prev_pat_index1[i] = pat_index;
 
 					if ((*pat_clickables)[i].pattern[pat_index].selected)
-						queue_sample(sound_pars, pat_index, &(*samples)[i], &(*pat_clickables)[i], i, midi_port);
+						queue_sample(sound_pars, pat_index, &(*samples)[i], &(*pat_clickables)[i], i);
 				}
 			}
 		}
@@ -202,6 +179,4 @@ void player(std::array<pattern, pattern_groups> *const pat_clickables, std::shar
 		else
 			printf("slow system (player): %zd μs\n", ssize_t(to_sleep));
 	}
-
-	close_midi_out_port(midi_port);
 }

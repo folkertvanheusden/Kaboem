@@ -4,6 +4,7 @@
 
 #include "gui.h"
 #include "midi.h"
+#include "midi-handler.h"
 #include "player.h"
 #include "sound.h"
 #include "time.h"
@@ -11,6 +12,51 @@
 constexpr const int n_polyphonic = 10;
 static pattern_midi patterns[n_polyphonic] { };
 static int          indexes [n_polyphonic] { };
+midi_pump_data      midi_pump;
+
+void midi_queue_message(const uint64_t ts, const std::vector<uint8_t> msg)
+{
+	std::unique_lock<std::mutex> lck(midi_pump.lock);
+	midi_pump.midi_msgs.push_back({ ts, msg });
+}
+
+void midi_sender(sound_parameters *const sound_pars, std::atomic_bool *const do_exit)
+{
+	auto midi_port = allocate_midi_output_port();
+
+	while(!*do_exit) {
+		std::unique_lock<std::mutex> lck(midi_pump.lock);
+		if (midi_pump.cv.wait_for(lck, std::chrono::milliseconds(250)) == std::cv_status::timeout)
+			continue;
+
+		while(midi_pump.midi_msgs.empty() == false && midi_pump.midi_msgs.at(0).first <= midi_pump.play_edge) {
+			// debug: show latency between queueing and playing
+			static uint64_t pt = 0;
+			uint64_t now = get_us();
+			printf("M: %zu | %zu %zu\n", midi_pump.midi_msgs.at(0).first, now - midi_pump.midi_msgs.at(0).first, now - pt);
+			pt = now;
+
+#if HAVE_SMF == 1
+			{
+				std::unique_lock<std::mutex> lck(sound_pars->smf_lock);
+				if (sound_pars->smf_track) {
+					double when = (get_us() - sound_pars->smf_start) / 1000000.;
+
+					smf_event_t *event = smf_event_new_from_pointer(midi_pump.midi_msgs.at(0).second.data(), midi_pump.midi_msgs.at(0).second.size());
+					smf_track_add_event_seconds(sound_pars->smf_track, event, when);
+				}
+			}
+#endif
+
+			if (midi_port.out)
+				midi_port.out->send_message(midi_pump.midi_msgs.at(0).second);
+
+			midi_pump.midi_msgs.erase(midi_pump.midi_msgs.begin() + 0);
+		}
+	}
+
+	close_midi_out_port(midi_port);
+}
 
 void midi_update_global_volume(sound_parameters *const sound_pars, const uint8_t volume_left, const uint8_t volume_right)
 {
@@ -119,7 +165,7 @@ void midi_processor(sound_parameters *const sound_pars, midi_handle_wrapper_in &
 			}
 			else if (new_idx != -1) {
 				patterns[new_idx].current_note = msg.at(1);
-				queue_sample(sound_pars, note_delta, volume, volume, &sound_pars->midi_sample, &patterns[new_idx], ++indexes[new_idx], { nullptr });
+				queue_sample(sound_pars, note_delta, volume, volume, &sound_pars->midi_sample, &patterns[new_idx], ++indexes[new_idx]);
 			}
 		}
 		else if (cmd == 0xf0) {  // SysEx

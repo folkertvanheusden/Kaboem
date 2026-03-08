@@ -64,6 +64,11 @@ void send_pitch_bend(midi_handle_wrapper_out & p, const int channel, const uint1
 		p.out->send_message(0xe0 + channel, pb & 127, (pb >> 7) & 127);
 }
 
+void send_generic_midi_message(midi_handle_wrapper_out & p, const std::vector<uint8_t> & msg)
+{
+	p.out->send_message(msg);
+}
+
 midi_handle_wrapper_in allocate_midi_input_port()
 {
 	auto  in_conf = libremidi::midi1::in_default_configuration();

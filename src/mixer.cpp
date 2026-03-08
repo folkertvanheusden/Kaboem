@@ -10,6 +10,7 @@
 #include <SDL3/SDL.h>
 
 #include "gui.h"
+#include "midi-handler.h"
 #include "sound.h"
 #include "time.h"
 
@@ -33,12 +34,17 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 				continue;
 			}
 
-			// debug: show latency between queueing and playing
 			if (item.play_started == false) {
 				item.play_started = true;
+
+				// can now queue any midi upto and including this sample
+				midi_pump.play_edge = item.queued_at;
+				midi_pump.cv.notify_one();
+
+				// debug: show latency between queueing and playing
 				static uint64_t pt = 0;
 				uint64_t now = get_us();
-				printf("%zu %zu\n", now - item.queued_at, now - pt);
+				printf("S: %zu | %zu %zu\n", item.queued_at, now - item.queued_at, now - pt);
 				pt = now;
 			}
 

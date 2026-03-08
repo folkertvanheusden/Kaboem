@@ -1472,8 +1472,13 @@ int main(int argc, char *argv[])
 
 	std::atomic_bool midi_triggered = false;
 	std::thread midi_thread([&sound_pars, &midi_in, &midi_thread_selected_percussion_midi_channel, &midi_triggered] {
-			set_thread_name("KAB-MIDI");
+			set_thread_name("KAB-MIDI-in");
 			midi_processor(&sound_pars, midi_in, &midi_thread_selected_percussion_midi_channel, &midi_triggered, &do_exit);
+	});
+	
+	std::thread midi_sender_thread([&sound_pars] {
+			set_thread_name("KAB-MIDI-out");
+			midi_sender(&sound_pars, &do_exit);
 	});
 
 	set_max_scheduling_priority(mixer_thread);
@@ -1509,7 +1514,7 @@ int main(int argc, char *argv[])
 		if (midi_triggered.exchange(false)) {
 			double volume_l = midi_volume_left  / 127.;
 			double volume_r = midi_volume_right / 127.;
-			queue_sample(&sound_pars, 0, volume_l, volume_r, &sound_pars.midi_sample, &pat_clickables[pattern_group], pat_index, { nullptr });
+			queue_sample(&sound_pars, 0, volume_l, volume_r, &sound_pars.midi_sample, &pat_clickables[pattern_group], pat_index);
 
 			std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
 			if (!paused)
@@ -2438,9 +2443,10 @@ int main(int argc, char *argv[])
 
 	draw_please_wait(font, screen, win_width, win_height);
 
-	midi_thread  .join();
-	player_thread.join();
-	mixer_thread .join();
+	midi_thread       .join();
+	player_thread     .join();
+	mixer_thread      .join();
+	midi_sender_thread.join();
 	stop_sdl3_audio(&sound_pars);
 
 	{  // stop any recording
