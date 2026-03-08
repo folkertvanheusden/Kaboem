@@ -37,10 +37,6 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 			if (item.play_started == false) {
 				item.play_started = true;
 
-				// can now queue any midi upto and including this sample
-				midi_pump.play_edge = item.queued_at;
-				midi_pump.cv.notify_one();
-
 				// debug: show latency between queueing and playing
 				static uint64_t pt = 0;
 				uint64_t now = get_us();
@@ -201,7 +197,7 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars, 
 
 		// queue for sdl3-audio
 		std::unique_lock<std::shared_mutex> s_lck(sound_pars->stream_lock);
-		sound_pars->stream.push(std::move(dest));
+		sound_pars->stream.push({ t_start, std::move(dest) });
 
 		size_t   n_buffers = sound_pars->stream.size();
 		s_lck.unlock();

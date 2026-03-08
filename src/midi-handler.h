@@ -16,6 +16,7 @@ void midi_update_global_volume(sound_parameters *const sound_pars, const uint8_t
 struct midi_pump_data
 {
 	uint64_t                play_edge { 0 };
+	uint64_t                delay_by  { 0 };
 	std::condition_variable cv;
 	std::mutex              lock;
 	std::vector<std::pair<uint64_t, std::vector<uint8_t> > > midi_msgs;

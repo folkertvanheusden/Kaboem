@@ -196,8 +196,8 @@ public:
 	std::mutex           midi_sample_lock;
 	sample               midi_sample     {         };
 
-	std::shared_mutex               stream_lock;
-	std::queue<std::vector<float> > stream;
+	std::shared_mutex    stream_lock;
+	std::queue<std::pair<uint64_t, std::vector<float> > > stream;
 
 	std::shared_mutex    sounds_lock;  ///
 	struct queued_sound {

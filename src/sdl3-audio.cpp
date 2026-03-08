@@ -5,12 +5,19 @@
 #include <SDL3/SDL.h>
 
 #include "gui.h"
+#include "midi-handler.h"
 #include "sdl3-audio.h"
 #include "sound.h"
 #include "time.h"
 
 
 extern std::atomic_bool do_exit;
+
+void trigger_midi(void *userdata, const SDL_AudioSpec *spec, float *buffer, int buflen)
+{
+	// can now play any midi upto now
+	midi_pump.cv.notify_one();
+}
 
 void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_amount, int total_amount)
 {
@@ -22,14 +29,16 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 
 	std::vector<float> data;
 
-	int  sleep_n       = 16;
-	bool warning_shown = false;
+	uint64_t midi_ts       = 0;
+	int      sleep_n       = 16;
+	bool     warning_shown = false;
 	std::unique_lock<std::shared_mutex> stream_lck(sound_pars->stream_lock);
 	while(!do_exit) {
 		bool empty = sound_pars->stream.empty();
 		if (!empty) {
 			auto & cur = sound_pars->stream.front();
-			data.insert(data.end(), cur.begin(), cur.end());
+			data.insert(data.end(), cur.second.begin(), cur.second.end());
+			midi_ts = std::max(midi_ts, cur.first);
 			sound_pars->stream.pop();
 		}
 
@@ -54,7 +63,10 @@ void on_process_audio(void *userdata, SDL_AudioStream *astream, int additional_a
 		return;
 
 	if (SDL_PutAudioStreamData(astream, data.data(), data.size() * sizeof(float)) == false)
-		SDL_Log("Couldn't play audio stream: %s", SDL_GetError());
+		SDL_Log("Cant't play audio stream: %s", SDL_GetError());
+
+	midi_pump.play_edge = midi_ts;
+	midi_pump.delay_by  = 1000000ll * data.size() / (sound_pars->sample_rate * sound_pars->n_channels);
 
 	// scope
 	std::unique_lock<std::shared_mutex> lck(sound_pars->stats_lock);
@@ -84,7 +96,7 @@ bool configure_sdl3_audio(sound_parameters *const target)
 	target->pw.spec.freq     = target->sample_rate;
 	target->pw.stream        = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &target->pw.spec, on_process_audio, target);
 	if (!target->pw.stream) {
-		SDL_Log("Couldn't create audio stream: %s", SDL_GetError());
+		SDL_Log("Can't create audio stream: %s", SDL_GetError());
 		return false;
 	}
 
@@ -93,9 +105,11 @@ bool configure_sdl3_audio(sound_parameters *const target)
 	if (SDL_GetAudioDeviceFormat(device_id, &ignored, &target->pw.frames))
 		printf("sample_frames: %d\n", target->pw.frames);
 
+	SDL_SetAudioPostmixCallback(device_id, trigger_midi, nullptr);
+
 	// start stream
 	if (SDL_ResumeAudioStreamDevice(target->pw.stream) == false)
-		SDL_Log("Couldn't start audio stream: %s", SDL_GetError());
+		SDL_Log("Can't start audio stream: %s", SDL_GetError());
 
 	return true;
 }

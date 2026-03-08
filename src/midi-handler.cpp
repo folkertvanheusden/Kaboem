@@ -28,7 +28,11 @@ void midi_sender(sound_parameters *const sound_pars, std::atomic_bool *const do_
 		std::unique_lock<std::mutex> lck(midi_pump.lock);
 		if (midi_pump.cv.wait_for(lck, std::chrono::milliseconds(250)) == std::cv_status::timeout)
 			continue;
+		lck.unlock();
 
+		SDL_DelayNS(midi_pump.delay_by * 1000ll);
+
+		lck.lock();
 		while(midi_pump.midi_msgs.empty() == false && midi_pump.midi_msgs.at(0).first <= midi_pump.play_edge) {
 			// debug: show latency between queueing and playing
 			static uint64_t pt = 0;
