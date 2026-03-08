@@ -1203,6 +1203,68 @@ void toggle_pause(std::atomic_bool *const paused)
 	*paused = new_paused;
 }
 
+void draw_recording_duration(sound_parameters *const sound_pars, const clickable & record_time_c, TTF_Font *const font, SDL_Renderer *const screen)
+{
+	char buffer[13];
+	uint64_t ms_running = (get_us() - sound_pars->record_wav_smf_since) / 1000;
+	snprintf(buffer, sizeof buffer, "%02d:%02d:%02d.%03d",
+			int(ms_running / (3600 * 1000)),
+			int(ms_running / (  60 * 1000) % 60),
+			int(ms_running / (       1000) % 60),
+			int(ms_running % 1000));
+	draw_text(font, screen, record_time_c.where.x, record_time_c.where.y, buffer, { { record_time_c.where.w, record_time_c.where.h } });
+}
+
+void draw_scope(sound_parameters *const sound_pars, const bool scope_stereo, const clickable & record_time_c, const clickable & scope_c, TTF_Font *const font, SDL_Renderer *const screen)
+{
+	std::vector<float> scope_in;
+	{
+		std::shared_lock<std::shared_mutex> lck(sound_pars->stats_lock);
+		scope_in = sound_pars->scope;
+	}
+
+	const int n_channels = sound_pars->n_channels;
+	if (scope_stereo == false) {
+		std::vector<float>  scope;  // mono
+		std::vector<double> avg_per_channel;
+		scope.resize(scope_in.size() / n_channels);
+		avg_per_channel.resize(n_channels);
+
+		for(size_t i=0; i<scope_in.size(); i += n_channels) {
+			size_t s_index = i / n_channels;
+			for(int c=0; c<n_channels; c++) {
+				scope[s_index]     += scope_in[i + c];
+				avg_per_channel[c] += fabs(scope_in[i + c]);
+			}
+			scope[s_index] /= n_channels;
+		}
+		for(int c=0; c<n_channels; c++)
+			avg_per_channel[c] /= scope_in.size() / n_channels;
+
+		draw_scope(screen, scope_c.where, scope, true);
+
+		for(int c=0; c<n_channels; c++) {
+			int h_per_c = record_time_c.where.h / n_channels;
+			SDL_SetRenderDrawColor(screen, 40 / (c * 2 + 1), 255, 40 / (c * 2 + 1), 255);
+			for(int h=0; h<h_per_c; h++) {
+				int y = c * h_per_c + h + record_time_c.where.y;
+				SDL_RenderLine(screen, record_time_c.where.x, y, record_time_c.where.x + record_time_c.where.w * avg_per_channel[c], y);
+			}
+		}
+	}
+	else {
+		std::vector<float> scope;  // one channel
+		scope.resize(scope_in.size() / n_channels);
+
+		for(int c=0; c<std::min(n_channels, 2); c++) {
+			for(size_t i=0, s_index=0; i<scope_in.size(); i += n_channels, s_index++)
+				scope[s_index] = scope_in[i + c];
+
+			draw_scope(screen, scope_c.where, scope, c);
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	bool             full_screen = true;
@@ -1767,65 +1829,13 @@ int main(int argc, char *argv[])
 				cb.text = std::to_string(busyness) + "%";
 				draw_text(font, screen, cb.where.x, cb.where.y, cb.text, { { cb.where.w, cb.where.h } });
 
-				std::vector<float> scope_in;
-				{
-					std::shared_lock<std::shared_mutex> lck(sound_pars.stats_lock);
-					scope_in = sound_pars.scope;
-				}
-
 				clickable & record_time_c = settings_menu_buttons[record_time_idx];
 				clickable & scope_c       = settings_menu_buttons[scope_idx];
-				const int   n_channels    = sound_pars.n_channels;
-				if (scope_stereo == false) {
-					std::vector<float>  scope;  // mono
-					std::vector<double> avg_per_channel;
-					scope.resize(scope_in.size() / n_channels);
-					avg_per_channel.resize(n_channels);
 
-					for(size_t i=0; i<scope_in.size(); i += n_channels) {
-						size_t s_index = i / n_channels;
-						for(int c=0; c<n_channels; c++) {
-							scope[s_index]     += scope_in[i + c];
-							avg_per_channel[c] += fabs(scope_in[i + c]);
-						}
-						scope[s_index] /= n_channels;
-					}
-					for(int c=0; c<n_channels; c++)
-						avg_per_channel[c] /= scope_in.size() / n_channels;
+				draw_scope(&sound_pars, scope_stereo, record_time_c, scope_c, font, screen);
 
-					draw_scope(screen, scope_c.where, scope, true);
-
-					for(int c=0; c<n_channels; c++) {
-						int h_per_c = record_time_c.where.h / n_channels;
-						SDL_SetRenderDrawColor(screen, 40 / (c * 2 + 1), 255, 40 / (c * 2 + 1), 255);
-						for(int h=0; h<h_per_c; h++) {
-							int y = c * h_per_c + h + record_time_c.where.y;
-							SDL_RenderLine(screen, record_time_c.where.x, y, record_time_c.where.x + record_time_c.where.w * avg_per_channel[c], y);
-						}
-					}
-				}
-				else {
-					std::vector<float> scope;  // one channel
-					scope.resize(scope_in.size() / n_channels);
-
-					for(int c=0; c<std::min(n_channels, 2); c++) {
-						for(size_t i=0, s_index=0; i<scope_in.size(); i += n_channels, s_index++)
-							scope[s_index] = scope_in[i + c];
-
-						draw_scope(screen, scope_c.where, scope, c);
-					}
-				}
-
-				if (sound_pars.record_wav_smf_since) {
-					char buffer[13];
-					uint64_t ms_running = (get_us() - sound_pars.record_wav_smf_since) / 1000;
-					snprintf(buffer, sizeof buffer, "%02d:%02d:%02d.%03d", 
-							int(ms_running / (3600 * 1000)),
-							int(ms_running / (  60 * 1000) % 60),
-							int(ms_running / (       1000) % 60),
-							int(ms_running % 1000));
-					draw_text(font, screen, record_time_c.where.x, record_time_c.where.y, buffer, { { record_time_c.where.w, record_time_c.where.h } });
-				}
+				if (sound_pars.record_wav_smf_since)
+					draw_recording_duration(&sound_pars, record_time_c, font, screen);
 			}
 			else if (mode == m_sample) {
 				std::unique_lock<std::shared_mutex> sp_lck(sound_pars.sounds_lock);
