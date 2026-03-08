@@ -34,9 +34,10 @@ void midi_sender(sound_parameters *const sound_pars, std::atomic_bool *const do_
 
 		lck.lock();
 		while(midi_pump.midi_msgs.empty() == false && midi_pump.midi_msgs.at(0).first <= midi_pump.play_edge) {
+			uint64_t now = get_us();
+			//
 			// debug: show latency between queueing and playing
 			static uint64_t pt = 0;
-			uint64_t now = get_us();
 			printf("M: %zu | %zu %zu\n", midi_pump.midi_msgs.at(0).first, now - midi_pump.midi_msgs.at(0).first, now - pt);
 			pt = now;
 
@@ -44,7 +45,7 @@ void midi_sender(sound_parameters *const sound_pars, std::atomic_bool *const do_
 			{
 				std::unique_lock<std::mutex> lck(sound_pars->smf_lock);
 				if (sound_pars->smf_track) {
-					double when = (get_us() - sound_pars->smf_start) / 1000000.;
+					double when = (now - sound_pars->smf_start) / 1000000.;
 
 					smf_event_t *event = smf_event_new_from_pointer(midi_pump.midi_msgs.at(0).second.data(), midi_pump.midi_msgs.at(0).second.size());
 					smf_track_add_event_seconds(sound_pars->smf_track, event, when);
