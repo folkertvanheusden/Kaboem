@@ -33,6 +33,15 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 				continue;
 			}
 
+			// debug: show latency between queueing and playing
+			if (item.play_started == false) {
+				item.play_started = true;
+				static uint64_t pt = 0;
+				uint64_t now = get_us();
+				printf("%zu %zu\n", now - item.queued_at, now - pt);
+				pt = now;
+			}
+
 			size_t cur_n_chan = item.s->get_n_channels();
 			bool   fin        = false;
 			bool   mute       = item.s->get_mute();
@@ -189,10 +198,17 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars, 
 		sound_pars->stream.push(std::move(dest));
 
 		size_t   n_buffers = sound_pars->stream.size();
+		s_lck.unlock();
+
+		if (sound_pars->record_multichannel == true && temp_buffer.second.empty() == false) {
+			std::vector<float> dest_mc(temp_buffer.second.size());
+			clip_too_loud(sound_pars->record_n_channels, temp_buffer.second.data(), dest_mc, period_size, sound_pars->global_volume, sound_pars->sound_saturation);
+			write_wav(sound_pars, dest_mc, sound_pars->record_n_channels);
+		}
+
 		uint64_t t_end     = get_us();
 		uint64_t took      = t_end - t_start;
 		int64_t  sleep_n   = sr_sleep - took;
-		s_lck.unlock();
 
 		if (n_buffers >= size_t(sound_pars->pw.frames * 2 / period_size)) {
 			if (sleep_n > 0)
@@ -206,12 +222,6 @@ void mixer(std::atomic_bool *const do_exit, sound_parameters *const sound_pars, 
 		std::unique_lock<std::shared_mutex> r_lck(sound_pars->stats_lock);
 		sound_pars->n_busyness++;
 		sound_pars->t_busyness += 100 * took / latency;
-
-		if (sound_pars->record_multichannel == true && temp_buffer.second.empty() == false) {
-			std::vector<float> dest_mc(temp_buffer.second.size());
-			clip_too_loud(sound_pars->record_n_channels, temp_buffer.second.data(), dest_mc, period_size, sound_pars->global_volume, sound_pars->sound_saturation);
-			write_wav(sound_pars, dest_mc, sound_pars->record_n_channels);
-		}
 	}
 
 	printf("Mixer thread terminating\n");

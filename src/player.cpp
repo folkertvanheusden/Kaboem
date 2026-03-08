@@ -47,8 +47,9 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 	pat->playing = true;
 
 	sound_parameters::queued_sound qs { };
-	qs.s     = s->s;
-	qs.t     = 0;
+	qs.queued_at           = get_us();
+	qs.s                   = s->s;
+	qs.t                   = 0;
 
 	int    base_note       = qs.s->get_base_midi_note();
 	double base_note_f     = midi_note_to_frequency(base_note);

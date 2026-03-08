@@ -212,6 +212,8 @@ public:
 		pattern       *pat          { nullptr };
 		std::vector<std::vector<float> > history;
 		size_t         pat_nr;  // "channel"
+		uint64_t       queued_at    { 0       };
+		bool           play_started { false   };
 	};
 	std::vector<queued_sound> sounds;
 	double               global_volume    { 1.      };
