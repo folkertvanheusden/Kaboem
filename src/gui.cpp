@@ -1632,6 +1632,8 @@ int main(int argc, char *argv[])
 								midi_thread_selected_percussion_midi_channel = selected_percussion_midi_channel.value();
 							else
 								midi_thread_selected_percussion_midi_channel = -1;
+
+							reset_clock();
 						}
 						else {
 							lck    .unlock();
