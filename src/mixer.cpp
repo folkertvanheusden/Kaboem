@@ -40,7 +40,7 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 				// debug: show latency between queueing and playing
 				static uint64_t pt = 0;
 				uint64_t now = get_us();
-				printf("S: %zu | %zu %zu\n", item.queued_at, now - item.queued_at, now - pt);
+				// printf("S: %zu | %zu %zu\n", item.queued_at, now - item.queued_at, now - pt);
 				pt = now;
 			}
 

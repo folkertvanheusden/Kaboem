@@ -37,9 +37,9 @@ void midi_sender(sound_parameters *const sound_pars, std::atomic_bool *const do_
 			uint64_t now = get_us();
 			//
 			// debug: show latency between queueing and playing
-			static uint64_t pt = 0;
-			printf("M: %zu | %zu %zu\n", midi_pump.midi_msgs.at(0).first, now - midi_pump.midi_msgs.at(0).first, now - pt);
-			pt = now;
+			//static uint64_t pt = 0;
+			// printf("M: %zu | %zu %zu\n", midi_pump.midi_msgs.at(0).first, now - midi_pump.midi_msgs.at(0).first, now - pt);
+			//pt = now;
 
 #if HAVE_SMF == 1
 			{
@@ -100,26 +100,26 @@ void midi_processor(sound_parameters *const sound_pars, midi_handle_wrapper_in &
 		my_us_sleep(1000000 / (31250 / (10 * 2)));
 
 		// check for midi events
-		auto msg = receive_midi_note(midi_in);
-		if (msg.size() < 2)
+		auto msg = receive_midi_note(250);
+		if (msg.has_value() == false || msg.value().size() < 2)
 			continue;
 
-		uint8_t cmd = msg.at(0) & 0xf0;
-		uint8_t ch  = msg.at(0) & 0x0f;
+		uint8_t cmd = msg.value().at(0) & 0xf0;
+		uint8_t ch  = msg.value().at(0) & 0x0f;
 
 		printf("MIDI in command %02x for channel %d\n", cmd, ch);
 
-		if (*percussion_midi_channel != -1 && msg.at(0) == 0x90 + *percussion_midi_channel) {
+		if (*percussion_midi_channel != -1 && msg.value().at(0) == 0x90 + *percussion_midi_channel) {
 			*midi_triggered = true;
 			continue;
 		}
 
-		if (((cmd == 0x90 && msg.at(2) == 0) || cmd == 0x80) && msg.size() == 3) {
-			bool immediately = msg.at(2) == 0;
+		if (((cmd == 0x90 && msg.value().at(2) == 0) || cmd == 0x80) && msg.value().size() == 3) {
+			bool immediately = msg.value().at(2) == 0;
 
 			int found_idx = -1;
 			for(int i=0; i<n_polyphonic; i++) {
-				if (patterns[i].current_note == msg.at(1))
+				if (patterns[i].current_note == msg.value().at(1))
 					found_idx = i;
 			}
 
@@ -144,15 +144,15 @@ void midi_processor(sound_parameters *const sound_pars, midi_handle_wrapper_in &
 				}
 			}
 		}
-		else if (cmd == 0x90 && msg.size() == 3) {
-			double volume     = msg.at(2) / 127.;
-			int    note_delta = sound_pars->midi_sample.midi_note.has_value() ? msg.at(1) - sound_pars->midi_sample.midi_note.value() : 0;
+		else if (cmd == 0x90 && msg.value().size() == 3) {
+			double volume     = msg.value().at(2) / 127.;
+			int    note_delta = sound_pars->midi_sample.midi_note.has_value() ? msg.value().at(1) - sound_pars->midi_sample.midi_note.value() : 0;
 			printf("Queue %s with volume %f\n", sound_pars->midi_sample.name.c_str(), volume);
 
 			int current_idx = -1;
 			int new_idx     = -1;
 			for(int i=0; i<n_polyphonic; i++) {
-				if (patterns[i].current_note == msg.at(1) && patterns[i].playing == true)
+				if (patterns[i].current_note == msg.value().at(1) && patterns[i].playing == true)
 					current_idx = i;
 				else if (patterns[i].playing == false)
 					new_idx = i;
@@ -169,17 +169,17 @@ void midi_processor(sound_parameters *const sound_pars, midi_handle_wrapper_in &
 				}
 			}
 			else if (new_idx != -1) {
-				patterns[new_idx].current_note = msg.at(1);
+				patterns[new_idx].current_note = msg.value().at(1);
 				queue_sample(sound_pars, note_delta, volume, volume, &sound_pars->midi_sample, &patterns[new_idx], ++indexes[new_idx]);
 			}
 		}
 		else if (cmd == 0xf0) {  // SysEx
-			if (msg.size() == 8 && msg.at(1) == 0x7f &&  // realtime
-					msg.at(2) == 0x7f &&  // any channel
-					msg.at(3) == 0x04 &&  // device control
-					msg.at(4) == 0x01)  // master volume
+			if (msg.value().size() == 8 && msg.value().at(1) == 0x7f &&  // realtime
+					msg.value().at(2) == 0x7f &&  // any channel
+					msg.value().at(3) == 0x04 &&  // device control
+					msg.value().at(4) == 0x01)  // master volume
 			{
-				midi_update_global_volume(sound_pars, msg.at(6), msg.at(6));
+				midi_update_global_volume(sound_pars, msg.value().at(6), msg.value().at(6));
 			}
 		}
 	}

@@ -1,3 +1,4 @@
+#include <condition_variable>
 #include <mutex>
 #include <queue>
 #include <utility>
@@ -7,7 +8,8 @@
 #include "midi.h"
 
 
-std::mutex midi_messages_lock;
+std::mutex                        midi_messages_lock;
+std::condition_variable           midi_messages_cv;
 std::queue<std::vector<uint8_t> > midi_messages;
 
 bool init_midi()
@@ -80,20 +82,25 @@ midi_handle_wrapper_in allocate_midi_input_port()
 			      message_to_q.push_back(b);
 		      std::unique_lock<std::mutex> lck(midi_messages_lock);
 		      midi_messages.push(message_to_q);
+		      midi_messages_cv.notify_all();
 	      } }, in_conf
 	};
 	midi_in->open_virtual_port("input");
 	return { midi_in };
 }
 
-std::vector<unsigned char> receive_midi_note(midi_handle_wrapper_in & p)
+std::optional<std::vector<unsigned char> > receive_midi_note(int aprox_timeout)
 {
 	std::vector<unsigned char>   message;
 	std::unique_lock<std::mutex> lck(midi_messages_lock);
-	if (midi_messages.empty() == false) {
-		message = midi_messages.front();
-		midi_messages.pop();
+	while (midi_messages.empty()) {
+		if (midi_messages_cv.wait_for(lck, std::chrono::milliseconds(aprox_timeout)) == std::cv_status::timeout)
+			return { };
 	}
+
+	message = midi_messages.front();
+	midi_messages.pop();
+
 	return message;
 }
 
