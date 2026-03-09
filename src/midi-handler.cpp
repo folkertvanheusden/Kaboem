@@ -96,9 +96,6 @@ void midi_processor(sound_parameters *const sound_pars, midi_handle_wrapper_in &
 	}
 
 	while(!*do_exit) {
-		// TODO need a midi-waiter that is limited by time in libremidi
-		my_us_sleep(1000000 / (31250 / (10 * 2)));
-
 		// check for midi events
 		auto msg = receive_midi_note(250);
 		if (msg.has_value() == false || msg.value().size() < 2)
