@@ -125,13 +125,19 @@ void player(std::array<pattern, pattern_groups> *const pat_clickables, std::shar
 		prev_pat_index2[i] = size_t(-1);
 	}
 
+	int64_t prev_clock_drift = 0;
+	int     clock_drift_n    = 0;
+	double  clock_drift_sum  = 0.;
 	while(!*do_exit) {
-		uint64_t start = get_us();
-
 		if (*pause) {
 			my_us_sleep(10000);
+			prev_clock_drift = get_clock_drift();
+			clock_drift_n    = 0;
+			clock_drift_sum  = 0.;
 			continue;
 		}
+
+		uint64_t start = get_us();
 
 		{
 			std::shared_lock<std::shared_mutex> pat_lck(*pat_clickables_lock);
@@ -176,7 +182,19 @@ void player(std::array<pattern, pattern_groups> *const pat_clickables, std::shar
 		int64_t to_sleep = 1000 - (get_us() - start);
 		if (to_sleep > 0)
 			my_us_sleep(to_sleep);
-		else
+		else if (to_sleep < 0)
 			printf("slow system (player): %zd μs\n", ssize_t(to_sleep));
+
+		int64_t current_clock_drift = get_clock_drift();
+		double  current_drift_us    = (current_clock_drift - prev_clock_drift) / 1000.;
+		prev_clock_drift = current_clock_drift;
+		clock_drift_sum += current_drift_us;
+		clock_drift_n++;
+
+		if (clock_drift_n >= 1000) {
+			printf("Average clock drift: %.3f μs\n", clock_drift_sum / clock_drift_n);
+			clock_drift_sum = 0.;
+			clock_drift_n   = 0;
+		}
 	}
 }
