@@ -8,7 +8,7 @@
 #include "time.h"
 
 
-double f_to_delta_t(const double frequency, const int sample_rate)
+float f_to_delta_t(const float frequency, const int sample_rate)
 {
 	return 2 * M_PI * frequency / sample_rate;
 }
@@ -46,11 +46,11 @@ std::optional<std::string> sound_sample::begin()
 
 	base_midi_note     = frequency_to_midi_note(base_frequency);
 	name               = midi_note_to_name(base_midi_note);
-	delta_t            = sample_sample_rate / double(sample_rate);
+	delta_t            = sample_sample_rate / float(sample_rate);
 
 	volumes.resize(samples.at(0).size());
 
-	printf("Sample %s has %zu channel(s), is sampled at %u Hz and sounds like a %s (%.2f Hz), duration: %.2fs\n", file_name.c_str(), volumes.size(), sample_sample_rate, name.c_str(), base_frequency, samples.size() / double(sample_sample_rate));
+	printf("Sample %s has %zu channel(s), is sampled at %u Hz and sounds like a %s (%.2f Hz), duration: %.2fs\n", file_name.c_str(), volumes.size(), sample_sample_rate, name.c_str(), base_frequency, samples.size() / float(sample_sample_rate));
 
 	return { };
 }
@@ -60,9 +60,9 @@ std::string sound_sample::get_name() const
 	return name;
 }
 
-std::optional<std::pair<float, float> > sound_sample::get_sample(const double t, const size_t channel_nr) const
+std::optional<std::pair<float, float> > sound_sample::get_sample(const float t, const size_t channel_nr) const
 {
-	double use_t = t * delta_t * pitchbend;
+	float use_t = t * delta_t * pitchbend;
 	if (use_t >= samples.size()) [[unlikely]]
 		return { };
 

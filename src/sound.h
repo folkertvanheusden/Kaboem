@@ -28,12 +28,12 @@ class sound
 {
 protected:
 	int    sample_rate { 44100 };
-	double frequency   { 100.  };
+	float  frequency   { 100.  };
 
-	double pitchbend   { 1.    };
-	double delta_t     { 0.    };
+	float  pitchbend   { 1.    };
+	float  delta_t     { 0.    };
 
-	double volume_at_end_start { 0. };
+	float  volume_at_end_start { 0. };
 
 	bool   muted       { false };
 
@@ -41,7 +41,7 @@ protected:
 	std::vector<float> volumes;
 
 public:
-	sound(const int sample_rate, const double frequency) :
+	sound(const int sample_rate, const float frequency) :
 		sample_rate(sample_rate),
 		frequency(frequency)
 	{
@@ -59,24 +59,24 @@ public:
 		return volumes[to];
 	}
 
-	void set_pitch_bend(const double pb)
+	void set_pitch_bend(const float pb)
 	{
 		pitchbend = pb;
 	}
 
-	double get_pitch_bend()
+	float get_pitch_bend()
 	{
 		return pitchbend;
 	}
 
-	void set_volume(const size_t to, const double v)
+	void set_volume(const size_t to, const float v)
 	{
 		if (to >= volumes.size())
 			volumes.resize(to + 1);
 		volumes[to] = v;
 	}
 
-	void set_volume(const double v)
+	void set_volume(const float v)
 	{
 		for(auto & to: volumes)
 			to = v;
@@ -100,12 +100,12 @@ public:
 	virtual size_t get_n_channels() const = 0;
 
 	// sample, output-channels
-	virtual std::optional<std::pair<float, float> > get_sample(const double t, const size_t channel_nr) const = 0;
+	virtual std::optional<std::pair<float, float> > get_sample(const float t, const size_t channel_nr) const = 0;
 	virtual void        get_new_t(int *const t, const bool ignore_repeat) const = 0;
 	virtual bool        can_repeat()                                      const = 0;
 
 	virtual std::string get_name()           const = 0;
-	virtual double      get_base_frequency() const = 0;
+	virtual float       get_base_frequency() const = 0;
 	virtual int         get_base_midi_note() const = 0;
 
 	void set_mute(const bool m)
@@ -125,7 +125,7 @@ private:
 	std::string                      file_name;
 	std::vector<std::vector<float> > samples;
 	unsigned                         sample_sample_rate { 0  };
-	double                           base_frequency     { 0. };
+	float                            base_frequency     { 0. };
 	int                              base_midi_note     { 0  };
 	std::string                      name;
 
@@ -148,14 +148,14 @@ public:
 	const std::vector<std::vector<float> > & get_raw() const { return samples; }
 	unsigned get_sample_rate() const { return sample_sample_rate; }
 
-	std::optional<std::pair<float, float> > get_sample(const double t, const size_t channel_nr) const override;
+	std::optional<std::pair<float, float> > get_sample(const float t, const size_t channel_nr) const override;
 	void        get_new_t(int *const t, const bool ignore_repeat) const override;
 	bool        can_repeat() const override { return restart.has_value(); }
 	void        set_repeat(const size_t go_back_from, const size_t go_back_to) { restart = { go_back_to, go_back_from }; }
 	restart_t   get_repeat() const { return *restart; }
 
 	std::string get_name() const override;
-	double      get_base_frequency() const override { return base_frequency; }
+	float       get_base_frequency() const override { return base_frequency; }
 	int         get_base_midi_note() const override { return base_midi_note; }
 };
 
@@ -203,9 +203,9 @@ public:
 	struct queued_sound {
 		const sound   *s            { nullptr };
 		int            t;
-		double         pitch;
-		double         volume_left;
-		double         volume_right;
+		float          pitch;
+		float          volume_left;
+		float          volume_right;
 		int            echo_t;
 		bool           end_requested;
 		biquad_filter *bp_filter    { nullptr };
@@ -216,18 +216,18 @@ public:
 		bool           play_started { false   };
 	};
 	std::vector<queued_sound> sounds;
-	double               global_volume    { 1.      };
-	double               sound_saturation { 1.      };
+	float                global_volume    { 1.      };
+	float                sound_saturation { 1.      };
 	///
 
 	std::shared_mutex    stats_lock;  ///
 	std::vector<float>   scope;
 	int                  scope_t          { 0       };
 
-	double               too_loud_total   { 0.      };
+	float                too_loud_total   { 0.      };
 	int                  too_loud_count   { 0       };
 	int                  n_loud_checked   { 0       };
-	double               clip_factor      { 0       };
+	float                clip_factor      { 0       };
 
 	int                  n_busyness       { 0       };
 	int                  t_busyness       { 0       };
