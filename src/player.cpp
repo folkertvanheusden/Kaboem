@@ -47,60 +47,62 @@ void queue_sample(sound_parameters *const sound_pars, const int note_delta, cons
 
 	pat->playing = true;
 
-	sound_parameters::queued_sound qs { };
-	qs.queued_at           = get_us();
-	qs.s                   = s->s;
-	qs.t                   = 0;
+	uint64_t queued_at       = get_us();
+	int      base_note       = s->s->get_base_midi_note();
+	double   base_note_f     = midi_note_to_frequency(base_note);
+	int      adjusted_note   = base_note + note_delta;
+	double   adjusted_note_f = midi_note_to_frequency(adjusted_note);
+	double   pitch           = base_note_f ? adjusted_note_f / base_note_f : 1.;
 
-	int    base_note       = qs.s->get_base_midi_note();
-	double base_note_f     = midi_note_to_frequency(base_note);
-	int    adjusted_note   = base_note + note_delta;
-	double adjusted_note_f = midi_note_to_frequency(adjusted_note);
+	{
+		sound_parameters::queued_sound *qs = nullptr;
+		std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
+		if (pat->serial_notes) {
+			for(auto & sound: sound_pars->sounds) {
+				if (sound.pat != pat)
+					continue;
 
-	double pitch           = base_note_f ? adjusted_note_f / base_note_f : 1.;
-	qs.pat                 = pat;
-	qs.pitch               = pitch;
-	qs.volume_left         = volume_left;
-	qs.volume_right        = volume_right;
-	qs.echo_t              = s->echo_t;
-	qs.history.reserve(s->s->get_sample_count() + s->echo_t);
-	qs.pat_nr              = pat_nr;
-
-	if (pat) {
-		float lp_cutoff = pat->lp_cutoff.has_value() ? pat->lp_cutoff.value() : 0;
-		float hp_cutoff = pat->hp_cutoff.has_value() ? pat->hp_cutoff.value() : sample_rate / 2;
-		if (pat->lp_cutoff.has_value() || pat->hp_cutoff.has_value())
-			qs.bp_filter = design_bandpass(sample_rate, lp_cutoff, hp_cutoff);
-	}
-
-	std::lock_guard <std::shared_mutex> lck(sound_pars->sounds_lock);
-	bool hit = false;
-	if (pat->serial_notes) {
-		for(auto & sound: sound_pars->sounds) {
-			if (sound.pat != pat)
-				continue;
-
-			if (sound.s->can_repeat())
-				sound.end_requested = true;
-			else {
-				delete sound.bp_filter;
-				sound = qs;
-				hit = true;
-				break;
+				if (sound.s->can_repeat())
+					sound.end_requested = true;
+				else {
+					delete sound.bp_filter;
+					qs = &sound;
+					break;
+				}
 			}
 		}
+		if (!qs) {
+			sound_pars->sounds.push_back({ });
+			qs = &sound_pars->sounds.back();
+			qs->history.reserve(s->s->get_sample_count() + s->echo_t);
+		}
+
+		qs->queued_at           = queued_at;
+		qs->s                   = s->s;
+		qs->t                   = 0;
+		qs->pat                 = pat;
+		qs->pitch               = pitch;
+		qs->volume_left         = volume_left;
+		qs->volume_right        = volume_right;
+		qs->echo_t              = s->echo_t;
+		qs->pat_nr              = pat_nr;
+
+		if (pat) {
+			float lp_cutoff = pat->lp_cutoff.has_value() ? pat->lp_cutoff.value() : 0;
+			float hp_cutoff = pat->hp_cutoff.has_value() ? pat->hp_cutoff.value() : sample_rate / 2;
+			if (pat->lp_cutoff.has_value() || pat->hp_cutoff.has_value())
+				qs->bp_filter = design_bandpass(sample_rate, lp_cutoff, hp_cutoff);
+		}
 	}
-	if (!hit)
-		sound_pars->sounds.push_back(qs);
 
 	if (s->midi_note.has_value() && s->midi_ch.has_value()) {
-		uint16_t pb     = 0x2000 * qs.pitch;
+		uint16_t pb     = 0x2000 * pitch;
 		uint8_t  volume = s->s->get_avg_volume() * 127;
 		int      ch     = s->midi_ch.value();
 
 		if (pb != 0x2000)
-			midi_queue_message(qs.queued_at, { uint8_t(0xe0 + ch), uint8_t(pb & 127), uint8_t((pb >> 7) & 127) });
-		midi_queue_message(qs.queued_at, { uint8_t(0x90 + ch), uint8_t(s->midi_note.value()), volume });
+			midi_queue_message(queued_at, { uint8_t(0xe0 + ch), uint8_t(pb & 127), uint8_t((pb >> 7) & 127) });
+		midi_queue_message(queued_at, { uint8_t(0x90 + ch), uint8_t(s->midi_note.value()), volume });
 	}
 }
 
@@ -126,8 +128,10 @@ void player(std::array<pattern, pattern_groups> *const pat_clickables, std::shar
 	}
 
 	int64_t prev_clock_drift = 0;
+	int32_t err              = 0;
 	int     clock_drift_n    = 0;
 	double  clock_drift_sum  = 0.;
+	int32_t moving_average   = 0;
 	while(!*do_exit) {
 		if (*pause) {
 			my_us_sleep(10000);
@@ -180,10 +184,17 @@ void player(std::array<pattern, pattern_groups> *const pat_clickables, std::shar
 		}
 
 		int64_t to_sleep = 1000 - (get_us() - start);
-		if (to_sleep > 0)
-			my_us_sleep(to_sleep);
-		else if (to_sleep < 0)
-			printf("slow system (player): %zd μs\n", ssize_t(to_sleep));
+		if (to_sleep >= err) {
+			my_us_sleep(to_sleep - err);
+			err = 0;
+		}
+		else if (to_sleep < 0) {
+			err += -to_sleep;
+			if (err >= moving_average)
+				err = moving_average;
+			printf("slow system (player): %zd μs, total error: %zu μs\n", ssize_t(to_sleep), size_t(err));
+		}
+		moving_average = (moving_average * 3 + to_sleep) / 4;
 
 		int64_t current_clock_drift = get_clock_drift();
 		double  current_drift_us    = (current_clock_drift - prev_clock_drift) / 1000.;
