@@ -51,9 +51,10 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 			bool   apply_echo = item.echo_t > 0;
 
 			if (!mute) {
-				std::vector<float> applied_echo;
+				size_t do_n_channels = std::max(size_t(sound_pars->n_channels), cur_n_chan);
+				std::vector<float> applied_echo(do_n_channels);
 
-				for(size_t ch=0; ch<std::max(size_t(sound_pars->n_channels), cur_n_chan); ch++) {
+				for(size_t ch=0; ch<do_n_channels; ch++) {
 					auto rc = item.s->get_sample(t_use, ch);
 
 					if (rc.has_value() == false) {
