@@ -20,7 +20,7 @@ float find_loudest_frequency(const std::vector<std::vector<float> > & samples, c
 		mono[i] /= n_ch;
 	}
 
-	float loudest_frequency = find_loudest_freq(mono, n_samples, sample_sample_rate);
+	double loudest_frequency = find_loudest_freq(mono, n_samples, sample_sample_rate);
 	delete [] mono;
 	return loudest_frequency;
 }
