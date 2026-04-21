@@ -130,7 +130,7 @@ void midi_processor(sound_parameters *const sound_pars, midi_handle_wrapper_in &
 							printf("Stop immediately\n");
 							delete sound.bp_filter;
 							sound_pars->sounds.erase(sound_pars->sounds.begin() + i);
-							patterns[i].playing = false;
+							patterns[found_idx].playing = false;
 						}
 						else {
 							printf("End requested\n");
