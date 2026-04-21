@@ -76,7 +76,7 @@ std::pair<std::vector<float>, std::vector<float> > mix(sound_parameters *const s
 						value += feedback * item.history[item.t - item.echo_t][ch];
 					}
 
-					applied_echo.push_back(value);
+					applied_echo[ch] = value;
 
 					value *= rc.value().second;
 					if (ch == 0)
