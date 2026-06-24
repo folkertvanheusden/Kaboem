@@ -20,7 +20,7 @@ struct pattern
 	size_t                 dim          { 0     };
 	size_t                 wdim         { 0     };
 	size_t                 hdim         { 0     };
-	std::optional<std::pair<int, int> > cursor;
+	std::optional<int>     cursor;
 	std::optional<double>  lp_cutoff;
 	std::optional<double>  hp_cutoff;
 	bool                   serial_notes { true  };

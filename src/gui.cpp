@@ -575,6 +575,21 @@ void draw_clickables(TTF_Font *const font_big, TTF_Font *const font_small, SDL_R
 	}
 }
 
+// hl_index: high light index
+void draw_clickables(TTF_Font *const font_big, TTF_Font *const font_small, SDL_Renderer *const screen, const std::vector<clickable> & clickables,
+		const std::optional<size_t> & hl_index)
+{
+	for(size_t i=0; i<clickables.size(); i++) {
+		bool hl = hl_index.has_value() == true && hl_index.value() == i;
+		std::vector<int> color;
+		if (hl)
+			color = { 200, 40, 40 };
+		else
+			color = { 40, 200, 40 };
+		clickables[i].draw(font_big, font_small, screen, color);
+	}
+}
+
 std::optional<size_t> select_from_list(TTF_Font *const font, TTF_Font *const font_small, SDL_Renderer *const screen, const int w, const int h, const unsigned font_height, const std::vector<std::pair<std::string, void *> > & list)
 {
 	if (list.empty())
@@ -857,7 +872,7 @@ bool configure_volume(sound_parameters *const sound_pars, const up_down_widget &
 
 size_t get_cursor_index(const pattern & pattern)
 {
-	return pattern.cursor.value().second * pattern.wdim + pattern.cursor.value().first;
+	return pattern.cursor.value();
 }
 
 void reset_pattern(std::array<pattern, pattern_groups> *const pat_clickables, const size_t pattern_group, sound_sample *const s, const bool zero)
@@ -1794,7 +1809,7 @@ int main(int argc, char *argv[])
 
 				std::shared_lock<std::shared_mutex> pat_lck(pat_clickables_lock);
 				if (pat_clickables[pattern_group].cursor.has_value()) {
-					size_t cursor_idx = get_cursor_index(pat_clickables[pattern_group]);
+					size_t cursor_idx = pat_clickables[pattern_group].cursor.value();
 					draw_clickables(font, font_small, screen, pat_clickables[pattern_group].pattern, click_state, pat_index, pat_clickables[pattern_group].dim, cursor_idx);
 				}
 				else {
@@ -1816,7 +1831,7 @@ int main(int argc, char *argv[])
 				if (menu_status.empty())
 					menu_status = PROG_NAME " " KABOEM_VERSION;
 				draw_text(font, screen, 0, 0, menu_status, { { win_width, win_height } }, false, text_alignment::left, text_alignment::bottom);
-				draw_clickables(font, font_small, screen, channel_clickables,    { }, { }, -1, { }, true);
+				draw_clickables(font, font_small, screen, channel_clickables, pattern_group);
 				draw_clickables(font, font_small, screen, settings_menu_buttons, { }, { });
 				draw_text(font, screen, bpm_widget.x, bpm_widget.y, std::to_string(bpm), { { bpm_widget.text_w, bpm_widget.text_h } });
 				draw_text(font, screen, vol_widget.x, vol_widget.y, std::to_string(vol), { { vol_widget.text_w, vol_widget.text_h } });
@@ -1859,7 +1874,7 @@ int main(int argc, char *argv[])
 
 				if (name.empty() == false)
 					draw_text(font, screen, 0, win_height - font_height * 5, get_filename(name), { { win_width, font_height } });
-				draw_clickables(font, font_small, screen, channel_clickables, { }, { });
+				draw_clickables(font, font_small, screen, channel_clickables, pattern_group);
 				draw_clickables(font, font_small, screen, channel_buttons_clickables, { }, { });
 				draw_text(font, screen, sample_vol_widget_left.x,  sample_vol_widget_left.y,  std::to_string(vol_left),
 					{ { sample_vol_widget_left.text_w,  sample_vol_widget_left.text_h } });
@@ -2329,7 +2344,7 @@ int main(int argc, char *argv[])
 					std::lock_guard<std::shared_mutex> pat_lck(pat_clickables_lock);
 					pattern & p = pat_clickables[pattern_group];
 					if (p.cursor.has_value()) {
-						size_t cursor_idx = p.cursor.value().second * p.wdim + p.cursor.value().first;
+						size_t cursor_idx = p.cursor.value();
 						p.pattern[cursor_idx].selected = !p.pattern[cursor_idx].selected;
 					}
 					else {
@@ -2342,76 +2357,39 @@ int main(int argc, char *argv[])
 				else if (event.key.scancode == SDL_SCANCODE_LEFT) {
 					pattern & p = pat_clickables[pattern_group];
 					if (p.cursor.has_value() == false)
-						p.cursor = { 0, 0 };
-					else if (p.cursor.value().first == 0) {
-						if (p.cursor.value().second) {
-							p.cursor.value().second--;
-							p.cursor.value().first = p.wdim - 1;
-						}
-						else {
-							p.cursor.value().second = p.hdim - 1;
-
-							auto h_index = p.cursor.value().second * p.wdim;
-							if (h_index + p.cursor.value().first >= p.dim)
-								p.cursor.value().first = p.dim - h_index - 1;
-							else
-								p.cursor.value().first = p.wdim - 1;
-						}
-					}
-					else {
-						p.cursor.value().first--;
-					}
+						p.cursor = { 0 };
+					else if (p.cursor.value() == 0)
+						p.cursor.value() = p.dim - 1;
+					else
+						p.cursor.value()--;
 				}
 				else if (event.key.scancode == SDL_SCANCODE_RIGHT) {
 					pattern & p = pat_clickables[pattern_group];
 					if (p.cursor.has_value() == false)
-						p.cursor = { 0, 0 };
-					else if (p.cursor.value().first == int(p.wdim - 1)) {
-						if (p.cursor.value().second < int(p.hdim - 1)) {
-							p.cursor.value().second++;
-							p.cursor.value().first = 0;
-						}
-						else {
-							p.cursor.value().second = 0;
-							p.cursor.value().first = 0;
-						}
-					}
-					else {
-						p.cursor.value().first++;
-					}
+						p.cursor = { 0 };
+					else if (size_t(p.cursor.value()) == p.dim - 1)
+						p.cursor.value() = 0;
+					else
+						p.cursor.value()++;
 				}
 				else if (event.key.scancode == SDL_SCANCODE_UP) {
 					pattern & p = pat_clickables[pattern_group];
 					if (p.cursor.has_value() == false)
-						p.cursor = { 0, 0 };
-					else if (p.cursor.value().second == 0) {
-						if (p.cursor.value().first > 0)
-							p.cursor.value().first--;
-						else
-							p.cursor.value().first = p.wdim - 1;
-						p.cursor.value().second = p.hdim - 1;
-
-						if (get_cursor_index(p) >= p.dim)
-							p.cursor.value().second = 0;
-					}
+						p.cursor = { 0 };
 					else {
-						p.cursor.value().second--;
+						p.cursor.value() -= p.wdim;
+						if (p.cursor.value() < 0)
+							p.cursor.value() += p.dim;
 					}
 				}
 				else if (event.key.scancode == SDL_SCANCODE_DOWN) {
 					pattern & p = pat_clickables[pattern_group];
 					if (p.cursor.has_value() == false)
-						p.cursor = { 0, 0 };
-					else if (p.cursor.value().second == int(p.hdim - 1)) {
-						p.cursor.value().second = 0;
-
-						if (size_t(p.cursor.value().first) < p.wdim - 1)
-							p.cursor.value().first++;
-						else
-							p.cursor.value().first = 0;
-					}
+						p.cursor = { 0 };
 					else {
-						p.cursor.value().second++;
+						p.cursor.value() += p.wdim;
+						if (size_t(p.cursor.value()) >= p.dim)
+							p.cursor.value() -= p.dim;
 					}
 				}
 				else if (event.key.scancode == SDL_SCANCODE_LSHIFT || event.key.scancode == SDL_SCANCODE_RSHIFT) {
