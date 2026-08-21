@@ -1831,7 +1831,7 @@ int main(int argc, char *argv[])
 				if (menu_status.empty())
 					menu_status = PROG_NAME " " KABOEM_VERSION;
 				draw_text(font, screen, 0, 0, menu_status, { { win_width, win_height } }, false, text_alignment::left, text_alignment::bottom);
-				draw_clickables(font, font_small, screen, channel_clickables, pattern_group);
+				draw_clickables(font, font_small, screen, channel_clickables, { }, pattern_group);
 				draw_clickables(font, font_small, screen, settings_menu_buttons, { }, { });
 				draw_text(font, screen, bpm_widget.x, bpm_widget.y, std::to_string(bpm), { { bpm_widget.text_w, bpm_widget.text_h } });
 				draw_text(font, screen, vol_widget.x, vol_widget.y, std::to_string(vol), { { vol_widget.text_w, vol_widget.text_h } });
@@ -1874,7 +1874,7 @@ int main(int argc, char *argv[])
 
 				if (name.empty() == false)
 					draw_text(font, screen, 0, win_height - font_height * 5, get_filename(name), { { win_width, font_height } });
-				draw_clickables(font, font_small, screen, channel_clickables, pattern_group);
+				draw_clickables(font, font_small, screen, channel_clickables, { }, pattern_group);
 				draw_clickables(font, font_small, screen, channel_buttons_clickables, { }, { });
 				draw_text(font, screen, sample_vol_widget_left.x,  sample_vol_widget_left.y,  std::to_string(vol_left),
 					{ { sample_vol_widget_left.text_w,  sample_vol_widget_left.text_h } });
